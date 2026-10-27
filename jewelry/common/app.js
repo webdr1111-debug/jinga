@@ -1207,6 +1207,13 @@
     const f = M.brandFiles && M.brandFiles[b];
     if (!f) { brandState[b] = "fail"; return; }
     brandState[b] = "loading";
+    const done = () => { if (location.hash.startsWith("#/p/")) render(); };
+    // 웹앱 묶음(web/pack.py): 데이터가 순수 JSON — 코드로 실행하지 않고 읽기만 (앱 심사 2.5.2, 웹앱계획.md 10장)
+    if (/\.json$/.test(f)) {
+      fetch("data/" + f, { credentials: "omit" }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(d => LUX.addBrand(b, d)).catch(() => { brandState[b] = "fail"; }).then(done);
+      return;
+    }
     const el = document.createElement("script");
     el.src = "data/" + f;
     el.onload = () => { if (brandState[b] !== "ok") brandState[b] = "fail"; if (location.hash.startsWith("#/p/")) render(); };
