@@ -40,7 +40,8 @@
       const k = C[c];
       if (c === "KR") { const krw = v * (1 - set.krDisc / 100); return { krw, refund: 0, fee: 0, duty: 0, net: krw, rate: 0, disc: v - krw }; }
       const tax = c === "US" ? usTax(brand, set) : k.tax, mult = k.incl ? 1 : 1 + tax / 100;
-      const dept = c === "JP" && set.jpDept && !jpExcluded(brand) ? set.jpRate / 100 : 0;  // 일본 백화점 외국인 할인
+      const dept = c === "JP" && set.jpDept && !jpExcluded(brand) ? set.jpRate / 100  // 일본 백화점 외국인 할인
+        : c === "FR" && set.frDept ? set.frRate / 100 : 0;  // 파리 프랭탕 관광청 쿠폰 (명품 포함, 브랜드 제외 목록 없음 — 2026-10-28)
       const price = v * (1 - dept), paid = price * mult, krw = paid * FX[c];
       let rate = 0;
       if (set.refund && paid >= (k.min || 0)) {
