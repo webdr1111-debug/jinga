@@ -111,6 +111,9 @@
   // 기간 쿠폰 (sheets/쿠폰_설정.json, 2026-10-28): 기간이 지나면 켜 둔 것도 계산에서 빠지고 저장된 설정에서도 지운다
   const cpLive = cp => CALC.cpActive(cp, CALC.today());
   const cpOn = () => CALC.coupons.filter(cp => SET.cp[cp.id] && cpLive(cp));
+  // 쿠폰·매장 안내의 공식 링크 (쿠폰_설정.json links): https 만, 새 창
+  const offLinks = ls => (ls || []).filter(l => safeUrl(l.url)).map(l => `<a class="link" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.label)} ↗</a>`).join(" · ");
+  const NOTICES = RU.notices || [];
 
   // ── 계산 (웹앱계획.md 7장) — common/calc.js 를 지금 설정(SET)으로 부른다 ──
   // ── 환율 (2026-10-27): 페이지를 열 때마다 최신 환율을 한 번 받는다. 숫자(JSON)만 받아 검사한 뒤 쓴다(코드는 받지 않음) ──
@@ -368,7 +371,8 @@
         <li>할인 ${cp.rate}% · 쿠폰 기간 <b>${ymd(cp.until)}까지</b> — 지나면 자동으로 꺼져요.</li>
         <li>입점 브랜드만 할인해요.${out.length ? ` <b>${esc(out.join("·"))}</b>는 입점하지 않아 빠져요.` : ""}</li>
         ${exc.length ? `<li>입점했지만 쿠폰 할인이 안 되는 브랜드: ${exc.map(([b, why]) => `<b>${esc(bk(b))}</b>(${esc(why)})`).join(", ")}</li>` : ""}
-        <li>그 밖에도 매장마다 쿠폰이 안 될 수 있어요(공식 제외 목록 없음).</li></ul>
+        <li>그 밖에도 매장마다 쿠폰이 안 될 수 있어요(공식 제외 목록 없음).</li>
+        ${offLinks(cp.links) ? `<li>${offLinks(cp.links)}</li>` : ""}</ul>
       <p class="wmain">사러 가기 전에 그 매장에 <b>쿠폰 할인이 되는지 꼭 확인하세요.</b></p>
       <form method="dialog" class="row"><button type="submit" class="btn ghost" value="no">취소</button><button type="submit" class="btn" value="ok">확인했어요, 켜기</button></form>`;
     d.returnValue = "";
@@ -1278,8 +1282,8 @@
     const cpTip = r => !r.v || r.cp ? "" : CALC.coupons.filter(cp => cp.country === r.cc && cpLive(cp)).map(cp => !cp.brands.includes(p.b)
         ? (SET.cp[cp.id] ? ` · ${esc(cp.short)}에 이 브랜드가 없어 쿠폰 할인 제외` : "")
         : (cp.exclude || {})[p.b] ? (SET.cp[cp.id] ? ` · ${esc(cp.short)}에서 이 브랜드는 쿠폰 할인 제외(${esc(cp.exclude[p.b])})` : "")
-        : `<br><button type="button" class="link" data-cp="${esc(cp.id)}">${esc(cp.name)}에서 사면(쿠폰 ${cp.rate}%, ${ymd(cp.until)}까지) ${JINGA} −${won(r.net - CALC.calc(r.cc, r.v, grpOf(p), p.b, { ...SET, cp: { ...SET.cp, [cp.id]: true } }).net)} · 켜기</button>`).join("");
-    const esTip = r => r.cc !== "ES" || !r.v ? "" : `<br><span class="note">스페인 엘코르테잉글레스 관광객 10%는 다음 구매에 쓰는 적립이고 명품은 대부분 안 돼요 — 계산에 넣지 않았어요</span>`;
+        : `<br><button type="button" class="link" data-cp="${esc(cp.id)}">${esc(cp.name)}에서 사면(쿠폰 ${cp.rate}%, ${ymd(cp.until)}까지) ${JINGA} −${won(r.net - CALC.calc(r.cc, r.v, grpOf(p), p.b, { ...SET, cp: { ...SET.cp, [cp.id]: true } }).net)} · 켜기</button>${offLinks(cp.links) ? " · " + offLinks(cp.links) : ""}`).join("");
+    const esTip = r => !r.v ? "" : NOTICES.filter(n => n.country === r.cc && n.tip).map(n => `<br><span class="note">${esc(n.tip)}</span>${offLinks(n.links) ? " " + offLinks(n.links) : ""}`).join("");
     // 할인은 원화로 바꾸기 전에 (판매가 − 할인 = 결제액 → 원화) — 할인을 끝에 따로 적으면 '판매가 → 원화' 숫자가 안 맞아 보였다(2026-10-27)
     const discPart = r => !r.disc ? "" : r.cc === "JP"
       ? ` − 백화점 할인 ${SET.jpRate}% ${local("JP", Math.round(r.v * SET.jpRate / 100))} = ${local("JP", Math.round(r.v * (1 - SET.jpRate / 100)))}`
@@ -1382,10 +1386,9 @@
       ...CALC.coupons.map(cp => ({ cs: [cp.country], html: cpLive(cp)
         ? q(`${esc(cp.name)}에서 사요?`, `<div class="seg" role="radiogroup">${[[false, "아니요"], [true, "네"]].map(([v, l]) => { const on = !!SET.cp[cp.id] === v;
             return `<button type="button" class="${on ? "on" : ""}" role="radio" aria-checked="${on}" data-cp="${esc(cp.id)}" data-val="${v}">${l}</button>`; }).join("")}</div>`,
-          `켜면 쿠폰 할인 ${cp.rate}%를 빼요 — <b>입점 브랜드만</b>(${cp.brands.length - Object.keys(cp.exclude || {}).length}개${Object.keys(cp.exclude || {}).length ? `, 쿠폰 제외 ${Object.keys(cp.exclude).map(bk).join("·")}` : ""}). <b class="stk">쿠폰·조건을 꼭 확인하세요.</b> 쿠폰 기간 ${ymd(cp.until)}까지, 지나면 자동으로 꺼져요. 다른 매장에서 사면 끄세요.`)
+          `${offLinks(cp.links) ? `<span class="olinks">${offLinks(cp.links)}</span><br>` : ""}켜면 쿠폰 할인 ${cp.rate}%를 빼요 — <b>입점 브랜드만</b>(${cp.brands.length - Object.keys(cp.exclude || {}).length}개${Object.keys(cp.exclude || {}).length ? `, 쿠폰 제외 ${Object.keys(cp.exclude).map(bk).join("·")}` : ""}). <b class="stk">쿠폰·조건을 꼭 확인하세요.</b> 쿠폰 기간 ${ymd(cp.until)}까지, 지나면 자동으로 꺼져요. 다른 매장에서 사면 끄세요.`)
         : q(`${esc(cp.name)} 쿠폰`, `<p class="note">${cp.from && CALC.today() < cp.from ? `${ymd(cp.from)}부터` : `기간 끝남(${ymd(cp.until)})`}</p>`, "지금은 쿠폰을 쓸 수 없어 계산에 넣지 않아요.") })),
-      { cs: ["ES"], html: q("스페인 엘코르테잉글레스 관광객 10%는요?", `<p class="note">계산에 넣지 않아요.</p>`,
-        "외국인 관광객 카드는 사는 금액의 10%를 <b>다음 구매</b>에 쓰는 적립이에요(5일 안). 참여 브랜드만 되고 <b>루이비통 등 명품은 대부분 안 돼요</b>. 사기 전에 매장 안내 데스크에서 브랜드를 확인하세요.") },
+      ...NOTICES.map(n => ({ cs: [n.country], html: q(esc(n.title), `<p class="note">${offLinks(n.links) || "계산에 넣지 않아요."}</p>`, esc(n.text)) })),
       { cs: ["FR", "IT", "ES"], html: q("유럽 한 매장에서 €5,000 넘게 사요?", segBtns("euHigh", [[false, "아니요"], [true, "네"]]),
         "켜면 프랑스 +1%p · 이탈리아 +1.5%p · 스페인 +1%p 높은 환급률로 계산해요(추정치 — 환급사 계산기로 확인).") },
       { cs: ["TH"], html: q("태국은 많이 살수록 환급률이 높아요", `<p class="note">${D.thTiers.map(([a, r]) => `${a.toLocaleString("ko-KR")}바트 ${(r * 100).toFixed(1)}%`).join(" · ")}</p>`, "자동으로 계산해요. 바꿀 것은 없어요.") },
