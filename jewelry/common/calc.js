@@ -10,6 +10,12 @@
     const down10 = n => Math.floor(n / 10 + 1e-9) * 10;  // 엑셀 ROUNDDOWN처럼 부동소수 오차(…9.9999)는 올려 봄
     const jpExcluded = b => (rules.jpExcl[b] || [true])[0];  // 표에 없는 브랜드는 할인 제외로 본다(엑셀과 같음)
     const feeRate = set => set.pay === "travel" ? 0 : set.pay === "custom" ? set.fee / 100 : 0.012;
+    // 기간 쿠폰 (sheets/쿠폰_설정.json → rules.coupons, 2026-10-28): 기간 안(기기 날짜)이고 켰고 입점 브랜드일 때만
+    const pad = n => String(n).padStart(2, "0");
+    const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+    const cpActive = (cp, day) => (!cp.from || cp.from <= day) && day <= cp.until;
+    const coupons = rules.coupons || [];
+    const coupon = (c, brand, set) => coupons.find(cp => cp.country === c && (set.cp || {})[cp.id] && cpActive(cp, set.today || today()) && cp.brands.includes(brand) && !(cp.exclude || {})[brand]) || null;  // 입점했지만 쿠폰 제외(exclude)도 뺌
 
     // 관세 (관세청 여행자 휴대품 방식). afterRefund = 환급 후 결제액(원). force: 설정과 상관없이 계산, simple: 합계에 간이세율 강제
     function customs(afterRefund, grp, set, force, simple) {
@@ -40,8 +46,8 @@
       const k = C[c];
       if (c === "KR") { const krw = v * (1 - set.krDisc / 100); return { krw, refund: 0, fee: 0, duty: 0, net: krw, rate: 0, disc: v - krw }; }
       const tax = c === "US" ? usTax(brand, set) : k.tax, mult = k.incl ? 1 : 1 + tax / 100;
-      const dept = c === "JP" && set.jpDept && !jpExcluded(brand) ? set.jpRate / 100  // 일본 백화점 외국인 할인
-        : c === "FR" && set.frDept ? set.frRate / 100 : 0;  // 파리 프랭탕 관광청 쿠폰 (명품 포함, 브랜드 제외 목록 없음 — 2026-10-28)
+      const cp = c === "JP" ? null : coupon(c, brand, set);  // 기간 쿠폰 (예: 파리 프랭탕 관광청 쿠폰)
+      const dept = c === "JP" && set.jpDept && !jpExcluded(brand) ? set.jpRate / 100 : cp ? cp.rate / 100 : 0;  // 일본 백화점 외국인 할인 · 쿠폰
       const price = v * (1 - dept), paid = price * mult, krw = paid * FX[c];
       let rate = 0;
       if (set.refund && paid >= (k.min || 0)) {
@@ -54,9 +60,9 @@
         }
       }
       const refund = krw * rate, fee = krw * feeRate(set), duty = customs(krw - refund, grp, set);
-      return { krw, refund, fee, duty, net: krw - refund + fee + duty, rate, disc: v * dept * mult * FX[c], tax };
+      return { krw, refund, fee, duty, net: krw - refund + fee + duty, rate, disc: v * dept * mult * FX[c], tax, cp: cp && cp.id };
     }
-    return { calc, customs, usTax, feeRate, jpExcluded };
+    return { calc, customs, usTax, feeRate, jpExcluded, coupons, cpActive, today };
   }
   root.LuxCalc = LuxCalc;
   if (typeof module !== "undefined" && module.exports) module.exports = LuxCalc;

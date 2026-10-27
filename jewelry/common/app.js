@@ -78,32 +78,39 @@
   const link = p => "#/p/" + encodeURIComponent(p.b) + "/" + encodeURIComponent(p.s);
 
   // ── 설정 (웹앱계획.md 5.15절). 앱마다 따로 저장 ──
-  const DEF = { pay: "card", fee: 1.2, refund: true, customs: true, self: true, krDisc: 0, jpDept: false, jpRate: 5, jpFeeOn: true, jpFee: 1.55, frDept: false, frRate: 5,
+  const DEF = { pay: "card", fee: 1.2, refund: true, customs: true, self: true, krDisc: 0, jpDept: false, jpRate: 5, jpFeeOn: true, jpFee: 1.55, cp: {},
     us: "ny", usTax: 6, euHigh: false, euThr: 5000, euUp: { FR: 1, IT: 1.5, ES: 1 }, off: [], hide: [], tripOnly: false, num: "man", theme: "auto", stale: 30, onboarded: false,
     fxMode: "live", fxCustom: {} };  // 환율: live = 페이지를 열 때마다 받은 최신 환율(못 받으면 마지막 값 → 빌드 값), build = 빌드 환율, custom = 직접 입력
   // 숫자 칸의 범위 (5.15절 '입력 지키기')
-  const RANGE = { fee: [0, 10], krDisc: [0, 30], jpRate: [0, 15], jpFee: [0, 3], frRate: [0, 15], usTax: [0, 15], euThr: [1000, 50000], "euUp.FR": [0, 3], "euUp.IT": [0, 3], "euUp.ES": [0, 3], stale: [7, 90] };
+  const RANGE = { fee: [0, 10], krDisc: [0, 30], jpRate: [0, 15], jpFee: [0, 3], usTax: [0, 15], euThr: [1000, 50000], "euUp.FR": [0, 3], "euUp.IT": [0, 3], "euUp.ES": [0, 3], stale: [7, 90] };
   const setKey = () => KEY("settings");
   let SET = { ...DEF };
   function loadSet() {
     const s = store.get(setKey(), {});
     SET = { ...DEF, ...s, euUp: { ...DEF.euUp, ...(s.euUp || {}) }, fxCustom: { ...(s.fxCustom || {}) } };
+    // 끝난·없어진 쿠폰은 켠 기록도 지움(강제로 끔)
+    const cp = Object.fromEntries(Object.entries(s.cp || {}).filter(([id, on]) => on && CALC.coupons.some(c => c.id === id && cpLive(c))));
+    SET.cp = cp;
+    if (JSON.stringify(cp) !== JSON.stringify(s.cp || {})) store.set(setKey(), SET);
     applyTheme();
     applyFx();  // 저장된 환율 설정(빌드·직접 입력)으로 다시
   }
   function saveSet(patch) { SET = { ...SET, ...patch }; store.set(setKey(), SET); cache.clear(); applyTheme(); applyFx(); }
   function applyTheme() { const r = document.documentElement; SET.theme === "auto" ? r.removeAttribute("data-theme") : r.setAttribute("data-theme", SET.theme); }
   // 기본값과 다른 계산 설정 (띠에 개수로 보여 줌)
-  const CALC_KEYS = ["pay", "fee", "refund", "customs", "self", "krDisc", "jpDept", "jpRate", "jpFeeOn", "jpFee", "frDept", "frRate", "us", "usTax", "euHigh", "euThr", "euUp", "off", "tripOnly", "fxMode", "fxCustom"];
+  const CALC_KEYS = ["pay", "fee", "refund", "customs", "self", "krDisc", "jpDept", "jpRate", "jpFeeOn", "jpFee", "cp", "us", "usTax", "euHigh", "euThr", "euUp", "off", "tripOnly", "fxMode", "fxCustom"];
   function diffs() {
     return CALC_KEYS.filter(k => JSON.stringify(SET[k]) !== JSON.stringify(DEF[k]))
-      .filter(k => !(k === "fee" && SET.pay !== "custom") && !(k === "usTax" && SET.us !== "custom") && !(k === "jpRate" && !SET.jpDept) && !(k === "frRate" && !SET.frDept)
+      .filter(k => !(k === "fee" && SET.pay !== "custom") && !(k === "usTax" && SET.us !== "custom") && !(k === "jpRate" && !SET.jpDept)
         && !(["euThr", "euUp"].includes(k) && !SET.euHigh) && !(k === "self" && !SET.customs) && !(k === "fxCustom" && SET.fxMode !== "custom"));
   }
   const payLabel = () => SET.pay === "travel" ? "트래블카드 0%" : SET.pay === "custom" ? `수수료 ${SET.fee}%` : "신용카드 1.2%";
   const setSummary = () => [payLabel(), SET.refund ? "세금 환급 받음" : "환급 없음", SET.customs ? (SET.self ? "자진신고 관세 포함" : "관세 포함") : "관세 제외"]
-    .concat(SET.krDisc ? [`한국 할인 ${SET.krDisc}%`] : [], SET.jpDept ? [`일본 백화점 ${SET.jpRate}%`] : [], SET.frDept ? [`프랭탕 ${SET.frRate}%`] : [], [fxLabel()]).join(" · ");
+    .concat(SET.krDisc ? [`한국 할인 ${SET.krDisc}%`] : [], SET.jpDept ? [`일본 백화점 ${SET.jpRate}%`] : [], cpOn().map(cp => `${cp.short} 쿠폰 ${cp.rate}%`), [fxLabel()]).join(" · ");
   const jpExcluded = b => CALC.jpExcluded(b);
+  // 기간 쿠폰 (sheets/쿠폰_설정.json, 2026-10-28): 기간이 지나면 켜 둔 것도 계산에서 빠지고 저장된 설정에서도 지운다
+  const cpLive = cp => CALC.cpActive(cp, CALC.today());
+  const cpOn = () => CALC.coupons.filter(cp => SET.cp[cp.id] && cpLive(cp));
 
   // ── 계산 (웹앱계획.md 7장) — common/calc.js 를 지금 설정(SET)으로 부른다 ──
   // ── 환율 (2026-10-27): 페이지를 열 때마다 최신 환율을 한 번 받는다. 숫자(JSON)만 받아 검사한 뒤 쓴다(코드는 받지 않음) ──
@@ -350,19 +357,23 @@
     if (d.showModal) d.showModal(); else if (confirm("일본 백화점 할인 대상 브랜드는 백화점·지점마다 달라요. 사러 가기 전에 꼭 확인하세요. 켤까요?")) onOk();
   }
 
-  // 파리 프랭탕 할인을 켤 때 경고 창 (2026-10-28): 프랑스 관광청 쿠폰 조건(2027-03-31까지)을 알리고 '켜기'를 눌러야 켜짐
-  function frDeptWarn(onOk) {
-    let d = document.getElementById("frwarn");
-    if (!d) { d = document.createElement("dialog"); d.id = "frwarn"; d.className = "warndlg"; d.setAttribute("aria-labelledby", "frwarnT"); document.body.appendChild(d); }
-    d.innerHTML = `<h3 id="frwarnT">⚠ 파리 프랭탕 할인은 쿠폰이 있어야 해요</h3>
-      <ul><li><b>프랑스 관광청 쿠폰</b>(france.fr 한국어 페이지)을 캡처·인쇄해 <b>프랭탕 오스만 0층 안내센터</b>에 <b>실물 여권</b>과 같이 보여 줘요. 매장에서도 실물 여권이 필요해요(사본 안 됨).</li>
-        <li>안내센터에 간 날부터 <b>2일 안에, 1인 1회</b> ${SET.frRate}% 할인이에요. 명품 브랜드도 되지만 <b>일부 매장은 빠져요</b>. 멤버십 할인·세일과 겹치지 않아요.</li>
-        <li>쿠폰 기간은 <b>2027년 3월 31일까지</b>예요. 갤러리 라파예트 등 다른 백화점과 브랜드 부티크에는 적용하지 마세요.</li></ul>
+  // 기간 쿠폰을 켤 때 경고 창 (2026-10-28): 문구·기간·입점 브랜드는 쿠폰_설정.json 에서. '켜기'를 눌러야 켜짐
+  const ymd = s => s ? s.replace(/^(\d{4})-(\d\d)-(\d\d)$/, (_, y, m, d) => `${y}년 ${+m}월 ${+d}일`) : "";
+  function cpWarn(cp, onOk) {
+    let d = document.getElementById("cpwarn");
+    if (!d) { d = document.createElement("dialog"); d.id = "cpwarn"; d.className = "warndlg"; d.setAttribute("aria-labelledby", "cpwarnT"); document.body.appendChild(d); }
+    const out = [...new Set(list().map(p => p.b))].filter(b => !cp.brands.includes(b)).map(bk), exc = Object.entries(cp.exclude || {});
+    d.innerHTML = `<h3 id="cpwarnT">⚠ ${esc(cp.name)} 할인은 쿠폰이 있어야 해요</h3>
+      <ul><li>${esc(cp.how || "")}</li>${(cp.terms || []).map(x => `<li>${esc(x)}</li>`).join("")}
+        <li>할인 ${cp.rate}% · 쿠폰 기간 <b>${ymd(cp.until)}까지</b> — 지나면 자동으로 꺼져요.</li>
+        <li>입점 브랜드만 할인해요.${out.length ? ` <b>${esc(out.join("·"))}</b>는 입점하지 않아 빠져요.` : ""}</li>
+        ${exc.length ? `<li>입점했지만 쿠폰 할인이 안 되는 브랜드: ${exc.map(([b, why]) => `<b>${esc(bk(b))}</b>(${esc(why)})`).join(", ")}</li>` : ""}
+        <li>그 밖에도 매장마다 쿠폰이 안 될 수 있어요(공식 제외 목록 없음).</li></ul>
       <p class="wmain">사러 가기 전에 그 매장에 <b>쿠폰 할인이 되는지 꼭 확인하세요.</b></p>
       <form method="dialog" class="row"><button type="submit" class="btn ghost" value="no">취소</button><button type="submit" class="btn" value="ok">확인했어요, 켜기</button></form>`;
     d.returnValue = "";
     d.onclose = () => { if (d.returnValue === "ok") onOk(); };
-    if (d.showModal) d.showModal(); else if (confirm("파리 프랭탕 할인은 프랑스 관광청 쿠폰과 실물 여권이 있어야 하고 일부 매장은 빠져요. 켤까요?")) onOk();
+    if (d.showModal) d.showModal(); else if (confirm(`${cp.name} 할인은 쿠폰이 있어야 하고 입점 브랜드만 돼요. 켤까요?`)) onOk();
   }
 
   // ── 내 여행지 고르기 (5.3절): PC 펼침 / 모바일 바텀 시트 ──
@@ -1264,17 +1275,19 @@
     // 켜기 안내 금액은 할인액이 아니라 실제 진가 차이(할인으로 환급·수수료·관세도 함께 바뀜)
     const jpTip = r => r.cc !== "JP" || !r.v ? "" : SET.jpDept ? (r.disc ? "" : " · 이 브랜드는 일본 백화점 할인 제외")
       : jpExcluded(p.b) ? "" : `<br><button type="button" class="link" data-set="jpDept" data-val="true">일본 백화점 할인을 켜면 ${JINGA} −${won(r.net - CALC.calc("JP", r.v, grpOf(p), p.b, { ...SET, jpDept: true }).net)} · 켜기</button>`;
-    const frTip = r => r.cc !== "FR" || !r.v || SET.frDept ? ""
-      : `<br><button type="button" class="link" data-set="frDept" data-val="true">파리 프랭탕에서 사면(관광청 쿠폰 ${SET.frRate}%) ${JINGA} −${won(r.net - CALC.calc("FR", r.v, grpOf(p), p.b, { ...SET, frDept: true }).net)} · 켜기</button>`;
+    const cpTip = r => !r.v || r.cp ? "" : CALC.coupons.filter(cp => cp.country === r.cc && cpLive(cp)).map(cp => !cp.brands.includes(p.b)
+        ? (SET.cp[cp.id] ? ` · ${esc(cp.short)}에 이 브랜드가 없어 쿠폰 할인 제외` : "")
+        : (cp.exclude || {})[p.b] ? (SET.cp[cp.id] ? ` · ${esc(cp.short)}에서 이 브랜드는 쿠폰 할인 제외(${esc(cp.exclude[p.b])})` : "")
+        : `<br><button type="button" class="link" data-cp="${esc(cp.id)}">${esc(cp.name)}에서 사면(쿠폰 ${cp.rate}%, ${ymd(cp.until)}까지) ${JINGA} −${won(r.net - CALC.calc(r.cc, r.v, grpOf(p), p.b, { ...SET, cp: { ...SET.cp, [cp.id]: true } }).net)} · 켜기</button>`).join("");
     const esTip = r => r.cc !== "ES" || !r.v ? "" : `<br><span class="note">스페인 엘코르테잉글레스 관광객 10%는 다음 구매에 쓰는 적립이고 명품은 대부분 안 돼요 — 계산에 넣지 않았어요</span>`;
     // 할인은 원화로 바꾸기 전에 (판매가 − 할인 = 결제액 → 원화) — 할인을 끝에 따로 적으면 '판매가 → 원화' 숫자가 안 맞아 보였다(2026-10-27)
     const discPart = r => !r.disc ? "" : r.cc === "JP"
       ? ` − 백화점 할인 ${SET.jpRate}% ${local("JP", Math.round(r.v * SET.jpRate / 100))} = ${local("JP", Math.round(r.v * (1 - SET.jpRate / 100)))}`
-      : r.cc === "FR" ? ` − 프랭탕 할인 ${SET.frRate}% ${local("FR", Math.round(r.v * SET.frRate / 100))} = ${local("FR", Math.round(r.v * (1 - SET.frRate / 100)))}`
+      : r.cp ? (cp => ` − ${esc(cp.short)} 쿠폰 ${cp.rate}% ${local(r.cc, Math.round(r.v * cp.rate / 100))} = ${local(r.cc, Math.round(r.v * (1 - cp.rate / 100)))}`)(CALC.coupons.find(c => c.id === r.cp))
       : r.cc === "KR" ? ` − 한국 할인 ${SET.krDisc}% ${won(r.disc)}` : "";
     const brk = r => `<div class="brk">${r.v ? `${localP(p, r.cc, r.v)}${discPart(r)}${C[r.cc].incl ? "" : ` + 판매세 ${r.tax ?? C[r.cc].tax}%`} → 원화 ${won(r.krw)}
       · 환급 ${r.rate ? `−${won(r.refund)} (${(r.rate * 100).toFixed(2)}%, 최소 ${local(r.cc, C[r.cc].min)} ${r.v >= C[r.cc].min ? "충족" : "미달"})` : "없음"}
-      · 카드 수수료 +${won(r.fee)} (${payLabel()}) · 관세 ${r.duty ? "+" + won(r.duty) : r.cc === "KR" ? "없음" : !SET.customs ? "설정에서 뺌" : "0 (면세 한도 $800 이내)"}${r.duty ? ` (면세 $800 공제${SET.self ? ", 자진신고 감면" : ""})` : ""}${jpTip(r)}${frTip(r)}${esTip(r)}${r.cc !== "KR" ? `<br><span class="stk">⚠ ${esc(C[r.cc].n)} 매장 재고는 공홈 재고 확인·매장 문의로 꼭 확인하세요${r.t === 2 ? " — 지금 공홈 온라인 품절·미판매" : ""}</span>` : ""}` : "가격 정보 없음"}</div>`;
+      · 카드 수수료 +${won(r.fee)} (${payLabel()}) · 관세 ${r.duty ? "+" + won(r.duty) : r.cc === "KR" ? "없음" : !SET.customs ? "설정에서 뺌" : "0 (면세 한도 $800 이내)"}${r.duty ? ` (면세 $800 공제${SET.self ? ", 자진신고 감면" : ""})` : ""}${jpTip(r)}${cpTip(r)}${esTip(r)}${r.cc !== "KR" ? `<br><span class="stk">⚠ ${esc(C[r.cc].n)} 매장 재고는 공홈 재고 확인·매장 문의로 꼭 확인하세요${r.t === 2 ? " — 지금 공홈 온라인 품절·미판매" : ""}</span>` : ""}` : "가격 정보 없음"}</div>`;
     const conclusion = R.best ? (R.save !== null && R.save <= 0 ? `<b>한국에서 사는 게 가장 싸요</b> · ${R.mode === "trip" ? "내 여행지" : "해외"} 최저는 ${nationF(R.best.cc)}` : R.mode === "trip" ? `내 여행지 중 <b>${nationF(R.best.cc)}</b>이(가) 가장 싸요` : R.mode === "notrip" ? `내 여행지에서는 안 팔아요 · 전체 최저는 <b>${nationF(R.best.cc)}</b>` : `가장 싼 곳은 <b>${nationF(R.best.cc)}</b>`) : "가격을 비교할 수 있는 나라가 없어요";
     let table;
     if (isM()) {
@@ -1366,9 +1379,11 @@
         SET.jpDept ? `<div class="sub">할인율 ${numIn("jpRate", "%", "0.5")}</div>` : "") },
       { cs: ["US"], html: q("미국 어디서 사요?", segBtns("us", [["ny", "뉴욕 8.875%"], ["hawaii", "하와이 4.712%"], ["guam", "괌 0%"], ["custom", "직접 입력"]]),
         "하와이·괌 세율은 그 지역에 매장이 있는 브랜드에만 써요(없으면 뉴욕 세율).", SET.us === "custom" ? `<div class="sub">판매세 ${numIn("usTax", "%", "0.1")}</div>` : "") },
-      { cs: ["FR"], html: q("파리 프랭탕 백화점에서 사요?", segBtns("frDept", [[false, "아니요"], [true, "네"]]),
-        `켜면 프랑스 관광청 쿠폰 할인 ${SET.frRate}%를 빼요(명품 포함, 모든 브랜드). <b class="stk">쿠폰·실물 여권 필요, 2일 안에 1인 1회, 일부 매장 제외 — 꼭 확인하세요.</b> 쿠폰은 2027-03-31까지. 다른 백화점·부티크에서 사면 끄세요.`,
-        SET.frDept ? `<div class="sub">할인율 ${numIn("frRate", "%", "0.5")}</div>` : "") },
+      ...CALC.coupons.map(cp => ({ cs: [cp.country], html: cpLive(cp)
+        ? q(`${esc(cp.name)}에서 사요?`, `<div class="seg" role="radiogroup">${[[false, "아니요"], [true, "네"]].map(([v, l]) => { const on = !!SET.cp[cp.id] === v;
+            return `<button type="button" class="${on ? "on" : ""}" role="radio" aria-checked="${on}" data-cp="${esc(cp.id)}" data-val="${v}">${l}</button>`; }).join("")}</div>`,
+          `켜면 쿠폰 할인 ${cp.rate}%를 빼요 — <b>입점 브랜드만</b>(${cp.brands.length - Object.keys(cp.exclude || {}).length}개${Object.keys(cp.exclude || {}).length ? `, 쿠폰 제외 ${Object.keys(cp.exclude).map(bk).join("·")}` : ""}). <b class="stk">쿠폰·조건을 꼭 확인하세요.</b> 쿠폰 기간 ${ymd(cp.until)}까지, 지나면 자동으로 꺼져요. 다른 매장에서 사면 끄세요.`)
+        : q(`${esc(cp.name)} 쿠폰`, `<p class="note">${cp.from && CALC.today() < cp.from ? `${ymd(cp.from)}부터` : `기간 끝남(${ymd(cp.until)})`}</p>`, "지금은 쿠폰을 쓸 수 없어 계산에 넣지 않아요.") })),
       { cs: ["ES"], html: q("스페인 엘코르테잉글레스 관광객 10%는요?", `<p class="note">계산에 넣지 않아요.</p>`,
         "외국인 관광객 카드는 사는 금액의 10%를 <b>다음 구매</b>에 쓰는 적립이에요(5일 안). 참여 브랜드만 되고 <b>루이비통 등 명품은 대부분 안 돼요</b>. 사기 전에 매장 안내 데스크에서 브랜드를 확인하세요.") },
       { cs: ["FR", "IT", "ES"], html: q("유럽 한 매장에서 €5,000 넘게 사요?", segBtns("euHigh", [[false, "아니요"], [true, "네"]]),
@@ -1396,7 +1411,7 @@
             ${q("어디로 가세요?", `<button type="button" class="tchip" data-trip-open>✈ ${S.trip.length ? S.trip.map(c => esc(C[c].n)).join(" · ") : "여행지 고르기"}</button>`,
               "고르면 그 나라 옵션이 아래 '나라별 옵션' 맨 위로 올라와요.")}
           </section>
-          <details class="setsec" ${isM() ? "" : "open"}><summary class="sth"><h3>나라별 옵션</h3></summary><div class="right"><button type="button" class="link" data-reset="jpDept,jpRate,frDept,frRate,us,usTax,euHigh">이 묶음 기본값으로</button></div>
+          <details class="setsec" ${isM() ? "" : "open"}><summary class="sth"><h3>나라별 옵션</h3></summary><div class="right"><button type="button" class="link" data-reset="jpDept,jpRate,cp,us,usTax,euHigh">이 묶음 기본값으로</button></div>
             ${mine.length ? `<p class="plabel">내 여행지</p>${mine.map(x => x.html).join("")}` : ""}
             ${rest.length ? `<details class="more2" ${mine.length ? "" : "open"}><summary>${mine.length ? "다른 나라 옵션 보기" : "나라별 옵션"}</summary>${rest.map(x => x.html).join("")}</details>` : ""}
           </details>
@@ -1436,6 +1451,9 @@
             ${refTable(["구매액", "환급률"], D.thTiers.map(([a, r]) => [a.toLocaleString("ko-KR") + "바트 이상", (r * 100).toFixed(1) + "%"]))}
             <h4 class="refh">일본 백화점 할인 제외 브랜드</h4>
             ${refTable(["브랜드", "할인", "근거"], Object.entries(D.jpExcl).map(([b, [ex, why]]) => [esc(bk(b)), ex ? "제외" : "가능", esc(why)]))}
+            <h4 class="refh">기간 쿠폰</h4>
+            ${refTable(["쿠폰", "할인", "기간", "할인 브랜드", "입점했지만 제외", "근거"], CALC.coupons.map(cp => [esc(cp.name) + (cpLive(cp) ? "" : " (지금 못 씀)"), cp.rate + "%", `${cp.from ? esc(cp.from) + " ~ " : "~ "}${esc(cp.until)}`,
+              esc(cp.brands.filter(b => !(cp.exclude || {})[b]).map(bk).join("·")), esc(Object.entries(cp.exclude || {}).map(([b, w]) => `${bk(b)}(${w})`).join(", ") || "알려진 것 없음"), `<a class="link" href="${esc(cp.source)}" target="_blank" rel="noopener noreferrer">쿠폰 ↗</a> ${esc(cp.checked || "")} 확인 · 브랜드 ${esc(cp.brandsChecked || "")} 확인`]))}
             <h4 class="refh">하와이·괌 매장</h4>
             ${refTable(["브랜드", "하와이", "괌"], Object.entries(D.stores).map(([b, [h, g]]) => [esc(bk(b)), esc(h), esc(g)]))}
           </details>
@@ -1616,7 +1634,13 @@
     if (t.hasAttribute("data-recent-clear")) { store.set(KEY("recent"), []); render(); return; }
     // 설정 (5.15절)
     if (t.dataset.set === "jpDept" && t.dataset.val === "true" && !SET.jpDept) { jpDeptWarn(() => { saveSet({ jpDept: true }); render(); }); return; }  // 켜기 전에 경고
-    if (t.dataset.set === "frDept" && t.dataset.val === "true" && !SET.frDept) { frDeptWarn(() => { saveSet({ frDept: true }); render(); }); return; }
+    if (t.dataset.cp) {  // 기간 쿠폰 켜기(경고 창 뒤)·끄기
+      const cp = CALC.coupons.find(c => c.id === t.dataset.cp);
+      if (!cp) return;
+      if (t.dataset.val === "false") { const n = { ...SET.cp }; delete n[cp.id]; saveSet({ cp: n }); render(); return; }
+      if (!SET.cp[cp.id] && cpLive(cp)) cpWarn(cp, () => { saveSet({ cp: { ...SET.cp, [cp.id]: true } }); render(); });
+      return;
+    }
     if (t.dataset.set) { saveSet({ [t.dataset.set]: JSON.parse(t.dataset.val) }); render(); return; }
     if (t.dataset.toggleOff) { const c = t.dataset.toggleOff; saveSet({ off: SET.off.includes(c) ? SET.off.filter(x => x !== c) : [...SET.off, c] }); render(); return; }
     if (t.dataset.toggleHide) { const b = t.dataset.toggleHide; saveSet({ hide: SET.hide.includes(b) ? SET.hide.filter(x => x !== b) : [...SET.hide, b] }); render(); return; }
