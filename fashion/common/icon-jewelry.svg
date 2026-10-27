@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 진가 주얼리 앱 아이콘 (로고 A안 '眞 인장', 2026-10-27): 검정 바탕 + 금빛 인장 + 眞. 패션 앱은 색을 뒤집음 (웹앱계획.md 0.1절·6장) -->
+  <rect width="512" height="512" fill="#151413"/>
+  <rect x="112" y="112" width="288" height="288" rx="24" fill="#C6A66B"/>
+  <rect x="132" y="132" width="248" height="248" rx="10" fill="none" stroke="#151413" stroke-width="5"/>
+  <text x="256" y="330" text-anchor="middle" font-family="'Noto Serif KR','Batang','Songti SC',serif" font-size="176" font-weight="600" fill="#151413">眞</text>
+</svg>
