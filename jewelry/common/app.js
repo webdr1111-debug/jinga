@@ -238,9 +238,21 @@
   const modelName = p => kind === "bag" ? p.n : p.n;
 
   // ── 사진 ──
+  // 여백 많은 사진 확대(2026-10-28): 빌드가 잰 제품 영역 fb=[x0,y0,x1,y1,가로/세로](0~1000, sheets/img_bbox.py)로
+  // 사진을 잘리지 않게(contain) 넣은 뒤 제품이 칸의 약 90%를 채우도록 확대하고 제품 가운데를 칸 가운데로. 최대 2.5배.
+  function fitStyle(fb) {
+    if (!Array.isArray(fb) || fb.length !== 5) return "";
+    const [x0, y0, x1, y1, ar] = fb, a = Math.max(ar, 1) / 1000;
+    const dw = Math.min(1, a), dh = Math.min(1, 1 / a), ox = (1 - dw) / 2, oy = (1 - dh) / 2;
+    const cw = dw * (x1 - x0) / 1000, ch = dh * (y1 - y0) / 1000;
+    if (cw <= 0 || ch <= 0) return "";
+    const s = Math.min(0.9 / Math.max(cw, ch), 2.5);
+    const cx = ox + dw * (x0 + x1) / 2000, cy = oy + dh * (y0 + y1) / 2000;
+    return ` class="fit" style="--s:${s.toFixed(3)};--tx:${((0.5 - cx) * 100).toFixed(2)}%;--ty:${((0.5 - cy) * 100).toFixed(2)}%"`;
+  }
   function photo(p, cls) {
     const src = safeUrl(p.img), ph = `<div class="noimg">${esc(bk(p.b))}</div>`;
-    return `<div class="ph ${cls || ""}">${src ? `<img loading="lazy" referrerpolicy="no-referrer" src="${esc(src)}" alt="" data-fallback="1">` : ph}</div>`;
+    return `<div class="ph ${cls || ""}">${src ? `<img loading="lazy" referrerpolicy="no-referrer" src="${esc(src)}" alt="" data-fallback="1"${fitStyle(p.fb)}>` : ph}</div>`;
   }
   // 사진을 못 불러오면 브랜드 칸으로 (인라인 onerror 대신 위임)
   // 브랜드 로고 (브랜드를 고르는 곳에만, 웹앱계획.md 6장). 위키미디어 공용의 로고 파일을 인터넷에서 읽고, 못 읽으면 지금처럼 글자로

@@ -119,6 +119,9 @@ main { max-width: 1360px; margin: 0 auto; padding: 0 40px 80px; min-height: 60vh
 .ph { aspect-ratio: 1; background: var(--ph); display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .ph img { width: 100%; height: 100%; max-width: 100%; max-height: 100%; object-fit: cover; mix-blend-mode: multiply; transition: transform .6s cubic-bezier(.2, .6, .2, 1); }
 .card:hover .ph img { transform: scale(1.05); }
+/* 여백 많은 사진: 빌드가 잰 제품 영역으로 확대·가운데 맞춤(app.js fitStyle, 2026-10-28) */
+.ph img.fit { object-fit: contain; transform: scale(var(--s)) translate(var(--tx), var(--ty)); }
+.card:hover .ph img.fit { transform: scale(calc(var(--s) * 1.05)) translate(var(--tx), var(--ty)); }
 .ph.big { background: var(--ph2); }
 .ph.big img { width: 88%; height: 88%; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ph img { mix-blend-mode: normal; } }

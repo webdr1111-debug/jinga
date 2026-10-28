@@ -24,12 +24,22 @@
   }
   sw.addEventListener("controllerchange", () => { if (applying) location.reload(); });
 
+  // 열거나 새로고침한 직후(아직 아무것도 누르지 않았을 때) 새 판이 준비되면 띠 없이 바로 바꾼다 — 새로고침해도 옛 화면이 보이던 것 (2026-10-28).
+  // 보는 중에 준비되면 지금처럼 띠로 묻는다(보던 화면이 갑자기 바뀌지 않게)
+  const t0 = Date.now(), EARLY = 20000;
+  let touched = false;
+  ["pointerdown", "keydown", "scroll"].forEach(e => addEventListener(e, () => { touched = true; }, { once: true, passive: true }));
+  function ready(w) {
+    if (!touched && Date.now() - t0 < EARLY) { applying = true; w.postMessage("skip"); }  // 바뀌면 controllerchange → 한 번 다시 읽음
+    else bar(w);
+  }
+  const watch = w => w && w.addEventListener("statechange", () => { if (w.state === "installed" && sw.controller) ready(w); });
+
   sw.register("sw.js", { updateViaCache: "none" }).then(reg => {
-    if (reg.waiting && sw.controller) bar(reg.waiting);
-    reg.addEventListener("updatefound", () => {
-      const w = reg.installing;
-      w && w.addEventListener("statechange", () => { if (w.state === "installed" && sw.controller) bar(w); });
-    });
+    if (reg.waiting && sw.controller) ready(reg.waiting);
+    watch(reg.installing);  // 이 스크립트보다 먼저 시작된 새 판 받기도 놓치지 않게
+    reg.addEventListener("updatefound", () => watch(reg.installing));
+    reg.update().catch(() => {});  // 열 때마다 새 판 확인 (6시간 확인은 켜 둔 채 볼 때)
     const check = () => {
       let last = 0;
       try { last = +localStorage.getItem(KEY) || 0; } catch (e) { /* 저장 불가 */ }
