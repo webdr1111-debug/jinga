@@ -1,4 +1,4 @@
-/* 진가 시안 — 고급 주얼리 홈페이지 느낌 (웹앱계획.md 6장)
+/* 럭스캐너(옛 이름 진가) — 고급 주얼리 홈페이지 느낌 (웹앱계획.md 6장)
  * 원칙: 넓은 여백, 가는 선, 아이보리·검정·금빛 포인트, 명조 제목 + 자간 넓은 대문자, 모서리 거의 없음, 장식 대신 사진
  * 특정 브랜드의 로고·색·글꼴을 따라 하지 않는다 (웹앱계획.md 6장: 브랜드 로고·공식 이미지 쓰지 않음)
  */
@@ -799,8 +799,6 @@ body.hasfix .totop { bottom: calc(144px + env(safe-area-inset-bottom)); }
   --hero-accent: #C99566; --herofeat: #251E18; --hero-save: #9FD3B5; --seal: #C99566; --seal-ink: #1A1410; --mine: #2A2119;
 } }
 
-/* '진짜가격'의 '짜'·'격' — 진가 두 글자가 먼저 보이게 조금 작게 (2026-10-27) */
-.jg { font-size: .72em; letter-spacing: 0; }
 
 /* ② 아이콘 제품 가격표 — 한 줄 시세표 (2026-10-27) */
 .itable { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr; }
@@ -832,11 +830,17 @@ body.hasfix .totop { bottom: calc(144px + env(safe-area-inset-bottom)); }
 .icol .imore span:last-child { color: var(--sub); border-bottom: 1px solid var(--line); }
 .icol { flex-direction: column; align-items: center; }
 
-/* 로고 1안 (2026-10-27): 眞 인장은 그대로, 글자는 'JINGA' 로마 비문 대문자(Cinzel 500, 불가리 로고와 같은 계열) — 웹앱계획 0.1절·6장 */
-.logo .mark, .foot .mark { font-family: "Cinzel", "Cormorant Garamond", "Times New Roman", serif; font-weight: 500; letter-spacing: .32em; margin-right: -.32em; }
-.logo .mark { font-size: 24px; }
-.foot .mark { font-size: 20px; }
-@media (max-width: 1023px) { .logo .mark { font-size: 19px; margin-right: 0; } .foot .mark { font-size: 17px; } }
+/* 로고 '스캔 X' + LUXCANNER (2026-10-28, 웹앱계획.md '이름·로고 방향'): X 가운데를 비우고 금빛 스캔 선이 지나감.
+   밝은 화면 = 남색 X·금 선, 어두운 화면 = 상아색 X·밝은 금 선. 글자는 Montserrat 600 넓은 자간 */
+:root { --lx-x: #17202E; --lx-beam: #B8935A; }
+:root[data-theme="dark"] { --lx-x: #F4EEE3; --lx-beam: #D2B07A; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --lx-x: #F4EEE3; --lx-beam: #D2B07A; } }
+.lxm .lxx { fill: var(--lx-x); }
+.lxm .lxb { fill: var(--lx-beam); }
+.logo .mark, .foot .mark { font-family: "Montserrat", "Noto Sans KR", sans-serif; font-weight: 600; letter-spacing: .3em; margin-right: -.3em; color: var(--lx-x); }
+.logo .mark { font-size: 20px; }
+.foot .mark { font-size: 17px; }
+@media (max-width: 1023px) { .logo .mark { font-size: 16px; margin-right: 0; } .foot .mark { font-size: 15px; } }
 
 /* 브랜드 화면 '기준 나라' 칩 (2026-10-27) */
 .atrow { display: flex; align-items: flex-start; gap: 10px; margin: 4px 0 14px; }

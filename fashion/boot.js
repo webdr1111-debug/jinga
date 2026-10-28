@@ -1,4 +1,4 @@
-/* 진가 웹앱 시작 (web/pack.py 가 웹앱 묶음에만 넣는다, 2026-10-27)
+/* 럭스캐너 웹앱 시작 (web/pack.py 가 웹앱 묶음에만 넣는다, 2026-10-27)
  * 데이터는 순수 JSON(data/*.json) — 받아서 읽기만 하고 코드로 실행하지 않는다(앱 심사 2.5.2, 웹앱계획.md 10장 '배포 방식 결정').
  * manifest·rules·search·history 를 받아 LUX 에 넣은 뒤 계산(calc.js)·화면(app.js)을 차례로 읽는다.
  * 파일로 여는 web/{jewelry,bag}/index.html 은 지금처럼 data/*.js 를 쓴다(이 파일 없음).

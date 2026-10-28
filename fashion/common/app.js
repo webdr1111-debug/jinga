@@ -1,4 +1,4 @@
-/* 진가 — 화면 코드 (웹앱계획.md 5장 화면별 명세, 10장 1단계). 주얼리·가방 페이지가 함께 쓴다(2.2절).
+/* 럭스캐너(LUXCANNER, 옛 이름 진가) — 화면 코드 (웹앱계획.md 5장 화면별 명세, 10장 1단계). 주얼리·가방 페이지가 함께 쓴다(2.2절).
  * 데이터: 페이지 폴더의 data/manifest.js · rules.js · search.js · history.js (sheets/export_web.py 가 만듦),
  *         제품 화면을 열 때 data/brands/{브랜드}.js (나라별 공홈 주소·사진·제품 정보)
  * 계산: common/calc.js (7장, 엑셀과 같은 결과 — sheets/verify_web.py 로 확인)
@@ -64,8 +64,8 @@
   // 제품의 현지 가격: 원래 다른 통화로 적힌 칸이면 그 통화로 (계산은 나라 통화로 바꾼 값)
   const localP = (p, cc, v) => p.pc && p.pc[cc] ? `${esc(p.pc[cc][1])} ${Number(p.pc[cc][0]).toLocaleString("ko-KR")} <small>(≈ ${local(cc, Math.round(v))})</small>` : local(cc, v);
   const cc = c => `<span class="cc">${c}</span>`;
-  // '진짜가격' 표기: '진'·'가'는 그대로, '짜'·'격'은 조금 작게 — 진가(眞價) = 진짜 가격 (2026-10-27). 로고·앱 이름은 '진가' 그대로
-  const JINGA = `진<span class="jg">짜</span>가<span class="jg">격</span>`;
+  // '진짜가격' 표기 (관세까지 넣은 실제 부담 가격). 2026-10-28 앱 이름이 럭스캐너로 바뀌어 '진·가' 강조는 뺌
+  const JINGA = "진짜가격";
   const fxFmt = v => v >= 100 ? v.toLocaleString("ko-KR", { maximumFractionDigits: 2 }) : v >= 1 ? v.toLocaleString("ko-KR", { maximumFractionDigits: 4 }) : v.toLocaleString("ko-KR", { maximumFractionDigits: 5 });
   const nation = c => cc(c) + " " + esc(C[c].n);
   // 둥근 국기 (웹앱계획.md 6장): 나라를 고르거나 나라끼리 훑어보는 곳에만. 국기 + 나라 이름을 늘 함께 (제품 카드 가격 줄은 글자만)
@@ -309,8 +309,8 @@
   const lrows = rowsHtml => `<div class="lrows">${rowsHtml.join("")}</div>`;
   const listOrGrid = its => grid(its);  // 첫 화면은 모바일도 사진 카드 2열 (2026-10-26)
 
-  // 로고 인장 (0.1절 로고 A안 '眞 인장') — 머리글은 index.html, 바닥글은 여기서
-  const SEAL = `<svg class="seal" viewBox="0 0 64 64" aria-hidden="true"><rect class="sf" width="64" height="64" rx="5"/><rect class="sl" x="4.5" y="4.5" width="55" height="55" rx="2.5" fill="none" stroke-width="1.2"/><text class="st" x="32" y="45" text-anchor="middle">眞</text></svg>`;
+  // 로고 '스캔 X' (2026-10-28, 웹앱계획.md '이름·로고 방향') — 머리글은 index.html, 바닥글은 여기서. 색은 style.css --lx-x·--lx-beam
+  const SEAL = `<svg class="seal lxm" viewBox="0 0 100 100" aria-hidden="true"><path class="lxx" d="M19 12H36L55.24 44.5H38.24Z M44.76 55.5H61.76L81 88H64Z M75 12H82L61.05 44.5H54.05Z M46.95 55.5H53.95L33 88H26Z"/><rect class="lxb" x="2" y="48.3" width="96" height="3.4"/></svg>`;
   // 매장 재고 경고 (5.4절, 2026-10-27): 공홈에 가격이 있어도 그 나라 매장에 재고가 있다는 뜻은 아님
   const stockNote = (short) => short
     ? `<p class="stocknote sm" role="note"><b>⚠ 매장 재고는 꼭 확인하세요</b> 가격이 있어도 재고가 없거나 사이즈·소재가 다를 수 있어요.</p>`
@@ -319,14 +319,14 @@
         가기 전에 매장에 전화·메일로 묻거나 공식 홈페이지의 매장 재고 확인·예약을 이용하세요. 가격·세율·환율·환급 조건도 바뀔 수 있어요.</p></div>`;
   // ── 공통 틀 ──
   function frame() {
-    // 앱 이름·아이콘은 앱마다 따로 (웹앱계획.md 0.1절): 진가 주얼리 / 진가 패션 (패션 앱의 내부 종류 이름은 bag)
+    // 앱 이름·아이콘은 앱마다 따로 (웹앱계획.md 0.1절): 럭스캐너 주얼리 / 럭스캐너 패션 (패션 앱의 내부 종류 이름은 bag)
     const appName = kind === "bag" ? "패션" : "주얼리";
     document.getElementById("kindName").textContent = appName;
     const other = document.getElementById("otherApp");
     other.textContent = (kind === "bag" ? "주얼리" : "패션") + " ↗";
     other.hidden = !M.other;  // 다른 앱 페이지가 생기면 manifest 의 other 주소 (가방 페이지는 5-1단계)
     document.getElementById("appIcon").href = "../common/" + (kind === "bag" ? "icon-fashion.svg" : "icon-jewelry.svg");
-    document.title = "진가 " + appName;
+    document.title = "럭스캐너 " + appName;
     const chip = document.getElementById("tripChip");
     chip.innerHTML = S.trip.length ? S.trip.map(c => esc(C[c].n)).join(" · ") : "여행지 고르기";
     chip.classList.toggle("set", S.trip.length > 0);
@@ -341,8 +341,8 @@
       `<br>각 브랜드와 관계없는 개인 비교입니다 · 브랜드 이름·로고·제품 사진은 각 브랜드의 것 · <b>가격이 있어도 매장 재고·가격은 다를 수 있으니 사러 가기 전에 매장에 꼭 확인하세요</b>`;
     // 모바일 바닥글은 짧게 (5M.12절)
     document.getElementById("foot").innerHTML = isM()
-      ? `<span class="fseal">${SEAL}<span class="mark" lang="en">JINGA</span></span><p class="f1">각 브랜드와 관계없는 개인 비교 · 데이터 ${esc(D.generated)}</p><p class="f1"><b>⚠ 가격이 있어도 매장 재고는 꼭 확인하세요</b></p><details class="fmore"><summary>자세히</summary><p>${footMore}</p></details>`
-      : `<span class="fseal">${SEAL}<span class="mark" lang="en">JINGA</span></span><span class="tag">the real price of luxury</span>${footMore}`;
+      ? `<span class="fseal">${SEAL}<span class="mark" lang="en">LUXCANNER</span></span><p class="f1">각 브랜드와 관계없는 개인 비교 · 데이터 ${esc(D.generated)}</p><p class="f1"><b>⚠ 가격이 있어도 매장 재고는 꼭 확인하세요</b></p><details class="fmore"><summary>자세히</summary><p>${footMore}</p></details>`
+      : `<span class="fseal">${SEAL}<span class="mark" lang="en">LUXCANNER</span></span><span class="tag">the real price of luxury</span>${footMore}`;
   }
 
   // 일본 백화점 할인을 켤 때 경고 창 (5.15절, 2026-10-27): 외국인 할인 대상 브랜드는 백화점·지점마다 달라 꼭 확인하라고 알림. '켜기'를 눌러야 켜짐
@@ -351,7 +351,7 @@
     if (!d) { d = document.createElement("dialog"); d.id = "jpwarn"; d.className = "warndlg"; d.setAttribute("aria-labelledby", "jpwarnT"); document.body.appendChild(d); }
     d.innerHTML = `<h3 id="jpwarnT">⚠ 일본 백화점 할인은 백화점·지점마다 달라요</h3>
       <ul><li>외국인 ${SET.jpRate}% 할인 대상 브랜드는 <b>백화점(이세탄·미쓰코시, 다이마루·마쓰자카야, 다카시마야 등)과 지점마다 다르고</b> 수시로 바뀌어요.</li>
-        <li>진가는 <b>이세탄·미쓰코시 공식 제외 목록</b>을 기준으로 계산해요. 예: ${kind === "bag" ? "셀린느는 이세탄·미쓰코시에서는 할인되지만 마쓰자카야 나고야·다이마루 삿포로에서는" : "타사키는 이세탄·미쓰코시에서는 할인되지만 다이마루 우메다에서는"} 빠져요.</li>
+        <li>럭스캐너는 <b>이세탄·미쓰코시 공식 제외 목록</b>을 기준으로 계산해요. 예: ${kind === "bag" ? "셀린느는 이세탄·미쓰코시에서는 할인되지만 마쓰자카야 나고야·다이마루 삿포로에서는" : "타사키는 이세탄·미쓰코시에서는 할인되지만 다이마루 우메다에서는"} 빠져요.</li>
         <li>쿠폰 제시(앱·여권), 세일 상품 제외, 최소 금액 같은 조건도 있어요.</li></ul>
       <p class="wmain">사러 가기 전에 그 백화점·지점의 면세 카운터나 안내 데스크에 <b>이 브랜드가 할인되는지 꼭 확인하세요.</b></p>
       <form method="dialog" class="row"><button type="submit" class="btn ghost" value="no">취소</button><button type="submit" class="btn" value="ok">확인했어요, 켜기</button></form>`;
@@ -1035,7 +1035,7 @@
   // 다른 앱 안내: 주얼리 앱에서 패션 종류 말, 패션 앱에서 주얼리 종류 말을 찾을 때
   function otherHint(F) {
     const other = isBag() ? ["반지", "목걸이", "팔찌", "귀걸이", "시계", "주얼리"] : ["가방", "지갑", "신발", "백", "스카프", "벨트", "패션"];
-    return F.words.some(w => other.some(o => w.includes(o))) ? `<p class="note">${isBag() ? "주얼리는 진가 주얼리에서" : "패션은 진가 패션에서"} 찾아요 ↗</p>` : "";
+    return F.words.some(w => other.some(o => w.includes(o))) ? `<p class="note">${isBag() ? "주얼리는 럭스캐너 주얼리에서" : "패션은 럭스캐너 패션에서"} 찾아요 ↗</p>` : "";
   }
 
   // ── S-06 찾기 ──
@@ -1199,7 +1199,7 @@
     const withQ = set => { const u = new URLSearchParams(q); for (const [k, v] of Object.entries(set)) v ? u.set(k, v) : u.delete(k); const s = u.toString(); return base + (s ? "?" + s : ""); };
     return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/brand">브랜드</a> › ${esc(bk(b))}</nav>
       <div class="pagehead"><h1>${esc(b.toUpperCase())}</h1><p class="lead">${esc(bk(b))} · ${kind === "bag" ? `모델 ${its.length}개 (제품 ${its.reduce((n, it) => n + it.ps.length, 0)}개)` : `제품 ${its.length}개`}${AT ? ` · <b>${flag(AT)}${esc(C[AT].n)} 기준</b> <a class="link" href="#/country/${AT}?brand=${encodeURIComponent(b)}">${esc(C[AT].n)} 여행지 화면 ›</a>` : ""}</p>
-        <p class="note">진가는 ${esc(bk(b))}와(과) 관계없는 개인 가격 비교 서비스예요. 가격은 각 나라 공식 홈페이지 기준이에요.</p></div>
+        <p class="note">럭스캐너는 ${esc(bk(b))}와(과) 관계없는 개인 가격 비교 서비스예요. 가격은 각 나라 공식 홈페이지 기준이에요.</p></div>
       ${atChips(b, its, c => withQ({ at: c }), AT)}
       ${AT ? atStats(its, AT) : ""}
       ${colChips(cols, col, c => withQ({ c }))}
@@ -1499,7 +1499,7 @@
     if (file.size > 200_000) return msg("파일이 너무 커요.");
     file.text().then(txt => {
       let d; try { d = JSON.parse(txt); } catch (e) { return msg("백업 파일 형식이 아니에요."); }
-      if (!d || !["jinga", "chamgap"].includes(d.app) || d.kind !== kind) return msg(kind === "bag" ? "진가 패션 백업 파일이 아니에요." : "진가 주얼리 백업 파일이 아니에요.");
+      if (!d || !["jinga", "chamgap"].includes(d.app) || d.kind !== kind) return msg(kind === "bag" ? "럭스캐너 패션 백업 파일이 아니에요." : "럭스캐너 주얼리 백업 파일이 아니에요.");
       const picks = Array.isArray(d.picks) ? d.picks.filter(x => typeof x === "string" && /^[^|]{1,60}\|[\w.\-]{1,40}$/.test(x)).slice(0, 500) : [];
       const trip = Array.isArray(d.trip) ? d.trip.filter(c => TRIP_CODES.includes(c)).slice(0, 3) : [];
       const s = {}, src = d.settings || {};
@@ -1539,8 +1539,8 @@
   }
   // ── S-07 가격 변동 (5.13절): 한국 변동 먼저, 오른·내린 ──
   function changesPage(q) {
-    const tab = q.get("tab") || "kr";
     const all = D.changes.map(c => ({ c, p: findP(c.b, c.s) })).filter(o => o.p);
+    const tab = q.get("tab") || (all.some(o => o.c.cc === "KR") || !all.length ? "kr" : "abroad");  // 한국 변동이 없으면 해외 칸부터 (2026-10-28)
     const pick = { kr: o => o.c.cc === "KR", abroad: o => o.c.cc !== "KR", up: o => o.c.r > 0, down: o => o.c.r < 0 }[tab] || (() => true);
     const rowsC = all.filter(pick).sort((a, b) => (b.c.d || "").localeCompare(a.c.d || "") || Math.abs(b.c.r) - Math.abs(a.c.r));
     const n = f => all.filter(f).length;

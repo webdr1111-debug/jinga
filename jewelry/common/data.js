@@ -1,4 +1,4 @@
-/* 진가 데이터 풀기 (웹앱계획.md 3장) — 화면(app.js)과 검증(sheets/verify_web.py → Node)이 함께 쓴다.
+/* 럭스캐너 데이터 풀기 (웹앱계획.md 3장) — 화면(app.js)과 검증(sheets/verify_web.py → Node)이 함께 쓴다.
  * search.js 는 크기를 줄이려고 열 순서·번호 사전·브랜드 공통 사진 주소로 줄여 두었다(sheets/export_web.py).
  * 여기서 화면이 쓰는 제품 모양으로 되돌린다:
  *   { b, s, n, ne, c, t, m, g, mt, sb, img, v, x?, rk?, p: { 나라: [현지가, 판매 상태 0·1·2, 공홈 주소, 옵션 가격 범위] } }

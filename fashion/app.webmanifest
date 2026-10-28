@@ -1,13 +1,13 @@
 {
  "id": "./",
- "name": "진가 패션",
- "short_name": "진가 패션",
+ "name": "럭스캐너 패션",
+ "short_name": "럭스캐너 패션",
  "lang": "ko",
  "start_url": "./",
  "scope": "./",
  "display": "standalone",
- "background_color": "#EDE4D6",
- "theme_color": "#EDE4D6",
+ "background_color": "#F4EEE3",
+ "theme_color": "#F4EEE3",
  "icons": [
   {
    "src": "icon-192.png",

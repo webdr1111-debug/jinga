@@ -1,13 +1,13 @@
 {
  "id": "./",
- "name": "진가 주얼리",
- "short_name": "진가 주얼리",
+ "name": "럭스캐너 주얼리",
+ "short_name": "럭스캐너 주얼리",
  "lang": "ko",
  "start_url": "./",
  "scope": "./",
  "display": "standalone",
- "background_color": "#121110",
- "theme_color": "#121110",
+ "background_color": "#17202E",
+ "theme_color": "#17202E",
  "icons": [
   {
    "src": "icon-192.png",
