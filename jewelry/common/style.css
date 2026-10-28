@@ -864,3 +864,60 @@ body.hasfix .totop { bottom: calc(144px + env(safe-area-inset-bottom)); }
 .atrow .atl { flex: none; font-size: 12px; letter-spacing: .08em; color: var(--sub); padding-top: 9px; }
 .atrow .chiprow { flex: 1; min-width: 0; margin: 0; }
 .atrow .tchip .flag, .qchip .flag { margin-right: 4px; }
+
+/* ── 사용성·디자인 개선 (2026-10-28, 웹앱계획.md 10-28 '사용성 개선') ──
+   10번 색: 로고(남색·금색)에 맞춤 — 단추·고른 칩·고른 탭·아래 메뉴는 남색(어두운 화면은 상아색), 강조 글자는 읽히는 금색(#7E6230, 대비 4.5 이상).
+   11번 글씨: 작은 회색 글씨를 13px 안팎으로 키우고 회색을 진하게 (대비 4.5 이상) */
+:root { --brand: #17202E; --brand-ink: #F4EEE3; --sub: #5E5951; --faint: #67615A; --gold: #7E6230; --hero-accent: #D2B07A; }
+:root[data-kind="bag"] { --gold: #7E6230; --hero-accent: #7E6230; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --brand: #F4EEE3; --brand-ink: #17202E; --sub: #A39C90; --faint: #9C9589; --gold: #D2B07A; }
+  :root[data-kind="bag"]:not([data-theme="light"]) { --gold: #D2B07A; --hero-accent: #D2B07A; }
+}
+:root[data-theme="dark"] { --brand: #F4EEE3; --brand-ink: #17202E; --sub: #A39C90; --faint: #9C9589; --gold: #D2B07A; }
+:root[data-kind="bag"][data-theme="dark"] { --gold: #D2B07A; --hero-accent: #D2B07A; }
+.btn { border-color: var(--brand); background: var(--brand); color: var(--brand-ink); }
+.btn:hover { background: transparent; color: var(--brand); }
+.btn.ghost { background: transparent; color: var(--brand); border-color: var(--brand); }
+.btn.ghost:hover { background: var(--brand); color: var(--brand-ink); }
+.tchip.on, .qchip.on, .fopt.on, .seg button.on, .vtog a.on { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
+.tab.on { color: var(--brand); border-bottom-color: var(--gold); }
+
+/* 11번 글씨 크기 */
+.link, .more, .crumb, .sku, .chg, .here, .stats span, .olink, .lpr .muted, .lrow .here, .itx .imore, .trust, .fsub, .shopnote, .shopfoot, .pair,
+.vl, .pr-scale, .tchip small, .fopt small, .ac small, .nsub, .hchips > span, .err, .icol, .backlink small, .hidnote, .setbar .link { font-size: 13px; }
+.br, .itx .br, .ichg, .ival, .icong .saved, .icong .ibars li, .ibars li, .ntable th, .fpct small, .fxt small, .plist li small { font-size: 12.5px; }
+.cc { font-size: 11px; }
+
+/* 1번 제품 화면 아래 띠 하나 + 3번 첫 화면 '더 보기' + 6번 찾기 칸 고정 (휴대폰) */
+.hmorebtn .btn { flex-direction: column; gap: 4px; min-height: 64px; margin: 8px 0 24px; }
+.hmorebtn .btn small { font-size: 12px; letter-spacing: .02em; text-transform: none; opacity: .75; }
+@media (max-width: 1023px) {
+  .topnote { font-size: 12px; }
+  .logo .kind { font-size: 10px; }
+  .tripchip { font-size: 12px; }
+  /* 머리글이 390px 휴대폰에서 넘치지 않게 (LUXCANNER 가 JINGA 보다 김) */
+  .logo .mark { font-size: 14px; letter-spacing: .22em; }
+  .logo .seal { width: 24px; height: 24px; }
+  .logo { gap: 7px; }
+  .other { font-size: 12px; }
+  .top .wrap { column-gap: 8px; }
+  .tools { gap: 10px; min-width: 0; }
+  .bottombar a { font-size: 11.5px; }
+  .bottombar a.on { color: var(--brand); }
+  .bottombar a.on::before { content: ""; position: absolute; top: 0; left: 30%; right: 30%; height: 2px; background: var(--gold); }
+  .trust { font-size: 12.5px; }
+  body.hasfix .bottombar { display: none; }
+  body.hasfix .foot { padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
+  body.hasfix .totop { bottom: calc(92px + env(safe-area-inset-bottom)); }
+  .fixbar:not([hidden]) { bottom: 0; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); box-shadow: 0 -6px 18px rgb(0 0 0 / .06); }
+  .fxinfo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .fxwhere { font-size: 12.5px; color: var(--sub); }
+  .fxinfo .save { font-size: 12.5px; color: var(--save); }
+  .fixbar .btn { padding: 0 22px; flex: none; }
+  .fbar.stick { position: sticky; top: 60px; z-index: 22; background: var(--bg); margin: 0 -16px 16px; padding: 2px 16px 10px; transition: top .2s; box-shadow: 0 8px 12px -12px rgb(0 0 0 / .25); }
+  body.hidehead .fbar.stick { top: 0; }
+  .fbar.stick .qchips { margin-top: 10px; gap: 6px; }
+  .fbar.stick .qchip { min-height: 36px; padding-top: 0; padding-bottom: 0; }
+  .qchips { flex-wrap: wrap; overflow: visible; margin-right: 0; padding-right: 0; }
+}

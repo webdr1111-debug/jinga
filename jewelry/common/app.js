@@ -335,7 +335,7 @@
     const appName = kind === "bag" ? "패션" : "주얼리";
     document.getElementById("kindName").textContent = appName;
     const other = document.getElementById("otherApp");
-    other.textContent = (kind === "bag" ? "주얼리" : "패션") + " ↗";
+    other.textContent = kind === "bag" ? "주얼리" : "패션";  // ↗ 는 style.css .other::after 가 붙임 (두 번 나오던 것, 2026-10-28)
     other.hidden = !M.other;  // 다른 앱 페이지가 생기면 manifest 의 other 주소 (가방 페이지는 5-1단계)
     document.getElementById("appIcon").href = "../common/" + (kind === "bag" ? "icon-fashion.svg" : "icon-jewelry.svg");
     document.title = "럭스캐너 " + appName;
@@ -417,7 +417,7 @@
   }
 
   // ── S-01 첫 화면 (5.7절, 2026-10-25 개편) ──
-  let budgetIdx = 0, tripTab = 0, heroIdx = 0, heroList = [];
+  let budgetIdx = 0, tripTab = 0, heroIdx = 0, heroList = [], homeMore = false;  // homeMore: 휴대폰 첫 화면 아래쪽 펼침 (2026-10-28)
   const SAVE_MIN = 500_000;  // ④ 비행기값 기준 (왕복 항공권 대략값)
   const HINT = { jewelry: "까르띠에 러브, 300만원 반지", bag: "네버풀, 100만원 지갑" };  // 첫 화면 찾기 칸 예시
   const GIFT = {
@@ -739,10 +739,11 @@
       .map(([id, l]) => `<button type="button" class="tchip sm" data-jump="${id}">${l}</button>`).join("")}</nav>`;
     html += brandQuick();
     html += onboardCard();
-    // ①b 내 쇼핑 계산
-    html += shopCalc();
+    // ①b 내 쇼핑 계산 (휴대폰은 아래 '더 보기' 안으로)
+    const calcHtml = shopCalc();
+    if (!isM()) html += calcHtml;
     // ② 아이콘 제품 가격표
-    const ic = icons().filter(o => !used.has(o.it.key)).slice(0, 8); ic.forEach(o => used.add(o.it.key));
+    const ic = icons().filter(o => !used.has(o.it.key)).slice(0, isM() ? 4 : 8); ic.forEach(o => used.add(o.it.key));
     if (ic.length) html += `<section class="sec" id="h-icons">${section("The Icons", "아이콘 제품 가격표", `브랜드 컬렉션을 ${man(ICON_CAP)} 원 이하 입문 제품으로 — 나라별 ${JINGA}, 열 때마다 바뀌어요`,
         `<button type="button" class="link" data-iconshuffle>↻ 다른 컬렉션</button>`)}
       <div class="grid icong2">${ic.map(o => card(o.it, iconExtra(o))).join("")}</div></section>`;
@@ -770,6 +771,7 @@
     // ④ 비행기값 뽑는 제품 (2026-10-27): 열 때마다 무작위 — 내 여행지가 없으면 나라 하나를 무작위로 골라 그 나라에서,
     //    내 여행지가 있으면 고른 나라들 안에서. 관세까지 넣고 50만 원 넘게 아끼는 제품 중 브랜드가 겹치지 않게
     html += flightSection(used);
+    const cut = html.length;  // 휴대폰: 여기부터 아래는 '더 보기'로 접음 (첫 화면이 6,000px 넘던 것, 2026-10-28)
     // ⑤ 한국 가격이 바뀌었어요 (한국 먼저, 해외는 ±3% 이상)
     const ch = [...D.changes.filter(c => c.cc === "KR"), ...D.changes.filter(c => c.cc !== "KR" && Math.abs(c.r) >= 0.03).sort((a, b) => a.r - b.r)];
     const chCards = [];
@@ -818,6 +820,12 @@
       : `<div class="facts">${facts.map(f => `<div class="fact"><p class="eyebrow">${f.eb}</p><div class="num">${f.num}</div><h4>${f.t}</h4><p>${f.body}</p>${f.more || ""}</div>`).join("")}</div>`}</section>`;
     // ⑧ 브랜드 (PC: 브랜드 칸. 휴대폰은 위쪽 '브랜드로 찾기'로 대신)
     if (!isM()) html += `<section class="sec" id="h-brand">${section("Maisons", "브랜드", "", "")}<div class="brands">${brandTiles()}</div></section>`;
+    if (isM()) {
+      const tail = html.slice(cut);
+      html = html.slice(0, cut) + (homeMore
+        ? `<div class="hmore">${calcHtml}${tail}</div><div class="center"><button type="button" class="more" data-homemore="0">접기 ↑</button></div>`
+        : `<div class="center hmorebtn"><button type="button" class="btn ghost wide" data-homemore="1">더 보기<small>내 쇼핑 계산 · 가격 변동 · 선물 · 알아 두면</small></button></div>`);
+    }
     return html;
   }
   // 대표 제품 자동 넘김 (5초, 움직임 줄이기·마우스 올림·사용자가 만진 뒤 20초는 멈춤) — 가로 칸만 밀어서 입력 중인 검색어가 지워지지 않게
@@ -1023,7 +1031,11 @@
     }
     // 자동 완성 (검색창 아래, 입력 중일 때만)
     let ac = "";
-    if (acOpen && F.q.length >= 1) {
+    if (acOpen && !F.q) {  // 빈 검색창을 눌렀을 때: 최근 검색어 + 많이 찾는 말 (2026-10-28)
+      const rec = store.get(KEY("recent"), []).slice(0, 5), pop = POPULAR[kind].filter(x => !rec.includes(x)).slice(0, 5);
+      const li = (k, v) => `<li><a href="#/search?q=${encodeURIComponent(v)}"><small>${k}</small> ${esc(v)}</a></li>`;
+      if (rec.length || pop.length) ac = `<ul class="ac" role="listbox">${rec.map(v => li("최근", v)).join("")}${pop.map(v => li("많이 찾는", v)).join("")}</ul>`;
+    } else if (acOpen && F.q.length >= 1) {
       const w = F.q.toLowerCase(), sw = squash(F.q), hits = [];
       brands.filter(b => (b + " " + (D.brandKo[b] || "")).toLowerCase().includes(w)).slice(0, 2).forEach(b => hits.push(["브랜드", bk(b), "#/brand/" + encodeURIComponent(b)]));
       [...new Set(all.map(o => o.p.b + "|" + (o.p.c || "")))].filter(x => squash(x.split("|")[1]).includes(sw)).slice(0, 3)
@@ -1036,7 +1048,7 @@
       : quickOpen === "type" ? `<div class="qsub">${types.map(t => opt(TYPE_ALL[t], url({ type: F.type === t ? "" : t }, ["sub"]), F.type === t, cT.get(t) || 0)).join("")}</div>`
       : quickOpen === "price" ? `<div class="qsub">${priceRange(F)}</div>` : "";
     const lim = showN || PAGE(), shown = res.slice(0, lim);
-    return `<div class="fbar">
+    return `<div class="fbar${quickOpen || panelOpen ? "" : " stick"}">
       <form class="fsearch" data-search role="search"><svg><use href="#i-search"/></svg><input id="fq" name="q" value="${esc(F.q)}" placeholder="${isM() ? "이름·제품번호로 찾기" : isBag() ? "제품 이름, 제품번호, 라인 — 예: 보테가 토트백 블랙" : "제품 이름, 제품번호, 컬렉션 — 예: 까르띠에 반지 러브"}" aria-label="찾기" autocomplete="off" data-live><button type="submit" class="link">찾기</button>${ac}</form>
       ${conv}
       <div class="qchips">
@@ -1084,7 +1096,7 @@
   function search(q) {
     const F = filterState(q), noCond = !F.q && [...q.keys()].filter(k => k !== "sort").length === 0;
     const recent = store.get(KEY("recent"), []);
-    const popular = kind === "bag" ? ["안디아모", "카세트", "조디", "인트레치아토"] : ["러브", "알함브라", "저스트 앵 끌루", "세르펜티", "티 스마일"];
+    const popular = POPULAR[kind];
     return `<div class="pagehead center"><p class="eyebrow">Search</p><h1>찾기</h1></div>
       ${filterView("#/search", q, noCond ? { noResults: true } : {})}
       ${noCond ? `<div class="sec">
@@ -1092,6 +1104,7 @@
         <div class="sh" style="margin-top:48px"><p class="eyebrow">Popular</p><h3>많이 찾는 말</h3></div><div class="chiprow center">${popular.map(r => `<a class="tchip" href="#/search?q=${encodeURIComponent(r)}">${esc(r)}</a>`).join("")}</div>
         <div class="sh" style="margin-top:48px"><p class="eyebrow">Maisons</p><h3>브랜드로 보기</h3></div><div class="brands">${brandTiles()}</div></div>` : ""}`;
   }
+  const POPULAR = { bag: ["안디아모", "카세트", "조디", "인트레치아토", "레이디 디올", "트리옹프"], jewelry: ["러브", "알함브라", "저스트 앵 끌루", "세르펜티", "티 스마일"] };
   // 검색 템플릿 (첫 화면 검색창 아래): 조건이 다 들어간 찾기 (2026-10-27)
   const TEMPLATES = {
     jewelry: [
@@ -1359,7 +1372,8 @@
     const same = isBag ? [] : D.jewelry.filter(q => q.b === p.b && q.c === p.c && q.v !== p.v).map(q => ({ q, R: rep(q) })).sort((a, b2) => (b2.R.save ?? -9) - (a.R.save ?? -9)).slice(0, 6).map(o => itemOf(o.q));
     const kurl = safeUrl((p.p.KR || [])[2]) || safeUrl(Object.values(p.p).map(x => x[2]).find(Boolean));
     if (isM() && R.best) {
-      fixbar.innerHTML = `<div>${cc(R.best.cc)} ${esc(C[R.best.cc].n)} <b>${won(R.best.net)}</b>${R.save > 0 ? ` <span class="save">${pct(R.save)}</span>` : ""}</div><button type="button" class="btn" data-pick="${esc(p.b + "|" + p.s)}">${on ? "♥ 담음" : "♡ 담기"}</button>`;
+      // 제품 화면 아래 띠 하나 (2026-10-28): 아래 메뉴 대신 '가장 싼 곳 · 진짜가격 · 아끼는 금액 + 담기'
+      fixbar.innerHTML = `<div class="fxinfo"><span class="fxwhere">가장 싼 곳 ${cc(R.best.cc)} ${esc(C[R.best.cc].n)}</span><span><b>${won(R.best.net)}</b>${R.save > 0 && R.kr ? ` <span class="save">${esc(krLab(R))}보다 ${won(R.kr.net - R.best.net)} 아껴요</span>` : ""}</span></div><button type="button" class="btn" data-pick="${esc(p.b + "|" + p.s)}">${on ? "♥ 담음" : "♡ 담기"}</button>`;
       fixbar.hidden = false;
     }
     return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/brand/${encodeURIComponent(p.b)}">${esc(bk(p.b))}</a>${p.c ? ` › <a href="#/brand/${encodeURIComponent(p.b)}?c=${encodeURIComponent(p.c)}">${esc(colName(p.c))}</a>` : ""}</nav>
@@ -1696,7 +1710,12 @@
     }
     if (t.hasAttribute("data-onboard")) { onbSheet = false; saveSet({ onboarded: true }); render(); return; }
     if (t.hasAttribute("data-onb-open")) { onbSheet = true; openOnbSheet(); return; }
-    if (t.dataset.jump) { const el = document.getElementById(t.dataset.jump); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + scrollY - 70, behavior: reduced() ? "auto" : "smooth" }); return; }
+    if (t.dataset.jump) {
+      const go = () => { const el = document.getElementById(t.dataset.jump); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + scrollY - 70, behavior: reduced() ? "auto" : "smooth" }); };
+      if (!document.getElementById(t.dataset.jump) && !homeMore) { homeMore = true; render(); setTimeout(go, 50); } else go();  // 접힌 구역이면 펼친 뒤 이동
+      return;
+    }
+    if (t.dataset.homemore) { homeMore = t.dataset.homemore === "1"; const y = scrollY; render(); window.scrollTo(0, y); return; }
     if (t.hasAttribute("data-export")) { exportBackup(); return; }
     if (t.hasAttribute("data-trip-close")) { panel.hidden = true; return; }
     if (t.dataset.pick) {
@@ -1788,6 +1807,15 @@
     keepConv = true;
     const target = (inBar ? "#" + path : "#/search") + (params.toString() ? "?" + params : "");
     if (target === location.hash) { keepConv = false; render(); } else location.hash = target;
+  });
+  // 빈 찾기 칸을 누르면 최근·많이 찾는 말 (2026-10-28)
+  document.addEventListener("focusin", e => {
+    if (e.target.id !== "fq" || e.target.value.trim() || acOpen) return;
+    acOpen = true; render();
+    const inp = document.getElementById("fq"); if (inp) inp.focus();
+  });
+  document.addEventListener("pointerdown", e => {
+    if (acOpen && !e.target.closest(".fsearch")) { acOpen = false; setTimeout(render, 0); }
   });
   // 입력하는 대로 결과·자동 완성 (주소만 바꾸고 다시 그린 뒤 입력 칸에 커서를 되돌림)
   let liveT = 0;
