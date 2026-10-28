@@ -461,10 +461,6 @@
     const order = [top[0], rnd[0], rnd[1], top[1], rnd[2], rnd[3], top[2], rnd[4], rnd[5], rnd[6]];
     return order.filter(Boolean);
   }
-  function heroPreload(i) {  // 다음 장 사진을 넘기기 전에 미리 불러옴
-    const o = heroList[i % Math.max(1, heroList.length)], u = o && safeUrl(o.p.img);
-    if (u) { const im = new Image(); im.referrerPolicy = "no-referrer"; im.src = u; }
-  }
   function featHTML(i) {
     const o = heroList[i % Math.max(1, heroList.length)];
     if (!o) return "";
@@ -474,8 +470,42 @@
       <div class="ftx"><p class="eyebrow">${esc(o.lab || (R.mode === "trip" ? "내 여행지에서 가장 싸게 사는 제품" : "이번 주 가장 싸게 사는 제품"))}</p>
         <div class="br">${esc(p.b)}</div><div class="fname">${esc(p.n)}</div>
         <div class="fsave">${esc(C[R.best.cc].n)}에서 사면 <b>${won(savedAmt(R))}</b> 아껴요</div>
-        <div class="fsub">${krLab(R)} ${won(R.kr.net)} → ${esc(C[R.best.cc].n)} ${JINGA} ${won(R.best.net)} · 관세 포함</div></div></a>
-      <div class="dots">${heroList.map((_, j) => `<button type="button" class="dot ${j === i % heroList.length ? "on" : ""}" data-hero="${j}" aria-label="${j + 1}번째 제품"></button>`).join("")}</div>`;
+        <div class="fsub">${krLab(R)} ${won(R.kr.net)} → ${esc(C[R.best.cc].n)} ${JINGA} ${won(R.best.net)} · 관세 포함</div></div></a>`;
+  }
+  // 대표 제품 넘김 (2026-10-28, 모바일에서 2px 점을 누르기 힘들던 것): 손가락으로 밀어 넘기는 가로 칸(scroll-snap) + 큰 이전·다음 단추 + '3 / 10'.
+  // 사용자가 만지거나 단추를 누르면 자동 넘김을 20초 멈춤
+  let heroHold = 0;
+  function heroHTML() {
+    const n = heroList.length;
+    return `<div class="htrack" id="hTrack" aria-roledescription="carousel" aria-label="이번 주 싸게 사는 제품">${heroList.map((_, j) =>
+      `<div class="hslide" role="group" aria-roledescription="slide" aria-label="${j + 1} / ${n}">${featHTML(j)}</div>`).join("")}</div>
+      ${n > 1 ? `<div class="hctl"><button type="button" class="hbtn" data-hnav="-1" aria-label="이전 제품"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+        <span class="hcount" aria-live="polite"><b id="hNow">${heroIdx % n + 1}</b> / ${n}</span>
+        <span class="hbar"><i id="hBar" style="width:${(heroIdx % n + 1) / n * 100}%"></i></span>
+        <button type="button" class="hbtn" data-hnav="1" aria-label="다음 제품"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div>` : ""}`;
+  }
+  function heroMark() {
+    const n = Math.max(1, heroList.length), a = document.getElementById("hNow"), b = document.getElementById("hBar");
+    if (a) a.textContent = heroIdx % n + 1;
+    if (b) b.style.width = (heroIdx % n + 1) / n * 100 + "%";
+  }
+  function heroGo(i, smooth) {
+    const tr = document.getElementById("hTrack"), n = heroList.length;
+    if (!tr || !n) return;
+    heroIdx = (i + n) % n;
+    tr.scrollTo({ left: heroIdx * tr.clientWidth, behavior: smooth && !reduced() ? "smooth" : "auto" });
+    heroMark();
+  }
+  function heroInit() {
+    const tr = document.getElementById("hTrack");
+    if (!tr || tr.dataset.ready) return;
+    tr.dataset.ready = "1";
+    heroGo(heroIdx, false);  // 다시 그려도 보던 장에 머묾
+    let t;
+    tr.addEventListener("scroll", () => { clearTimeout(t); t = setTimeout(() => {
+      const i = Math.round(tr.scrollLeft / Math.max(1, tr.clientWidth)); if (i !== heroIdx) { heroIdx = i; heroMark(); } }, 80); }, { passive: true });
+    const hold = () => { heroHold = Date.now() + 20000; };
+    ["pointerdown", "touchstart", "wheel", "focusin"].forEach(e => tr.addEventListener(e, hold, { passive: true }));
   }
   // 나라 순위 (③): 관세 포함 진가로 '한국보다 싼 제품 수 × 중간 절약률'
   function board() {
@@ -688,8 +718,8 @@
         ${templates()}
         <div class="hchips"><span>어디로 가세요?</span>${brd.slice(0, 5).map(o => `<button type="button" class="tchip ${S.trip.includes(o.c) ? "on" : ""}" data-trip="${o.c}">${nationF(o.c)}</button>`).join("")}</div>
       </div>
-      <div class="herofeat" id="heroFeat">${featHTML(heroIdx)}</div></section>`;
-    setTimeout(() => heroPreload(heroIdx + 1), 1500);
+      <div class="herofeat" id="heroFeat">${heroHTML()}</div></section>`;
+    setTimeout(heroInit, 0);
     // ①a 믿음 띠: 어디서 · 몇 개 · 언제 · 무엇을 넣었는지 (5.7절)
     html += `<div class="trust"><span>${TRIP_CODES.length + 1}개국 공식 홈페이지</span><span>${kind === "bag" ? "패션" : "주얼리"} ${list().length.toLocaleString("ko-KR")}개</span><span>${esc(D.generated.slice(5).replace("-", "."))} 수집</span><span>환급 · 카드 수수료 · 관세 포함</span><a class="link" href="#/settings">계산 방법</a></div>`;
     // 모바일: 구역 바로 가기 칩 (5M.12절)
@@ -778,12 +808,12 @@
     if (!isM()) html += `<section class="sec" id="h-brand">${section("Maisons", "브랜드", "", "")}<div class="brands">${brandTiles()}</div></section>`;
     return html;
   }
-  // 대표 제품 자동 넘김 (5초 — 10장이라 6초에서 줄임, 움직임 줄이기면 멈춤) — 히어로 칸만 바꿔서 입력 중인 검색어가 지워지지 않게
+  // 대표 제품 자동 넘김 (5초, 움직임 줄이기·마우스 올림·사용자가 만진 뒤 20초는 멈춤) — 가로 칸만 밀어서 입력 중인 검색어가 지워지지 않게
   setInterval(() => {
     const el = document.getElementById("heroFeat");
-    if (!el || heroList.length < 2 || document.hidden || reduced() || el.matches(":hover")) return;
-    heroIdx = (heroIdx + 1) % heroList.length; el.innerHTML = featHTML(heroIdx);
-    heroPreload(heroIdx + 1);
+    if (!el || heroList.length < 2 || document.hidden || reduced() || el.matches(":hover") || Date.now() < heroHold) return;
+    heroInit();
+    heroGo(heroIdx + 1, true);
   }, 5000);
   function countryRank(ps) {
     const by = {};
@@ -1663,7 +1693,7 @@
       store.set(pickKey(), S.picks); render(); return;
     }
     if (t.dataset.sel) { S.sel[t.dataset.sel] = t.dataset.sku; render(); return; }
-    if (t.dataset.hero) { heroIdx = +t.dataset.hero; const el = document.getElementById("heroFeat"); if (el) el.innerHTML = featHTML(heroIdx); return; }
+    if (t.dataset.hnav) { heroHold = Date.now() + 20000; heroGo(heroIdx + +t.dataset.hnav, true); return; }
     if (t.dataset.budget) { budgetIdx = +t.dataset.budget; render(); return; }
     if (t.hasAttribute("data-iconsall")) { iconsAll = !iconsAll; render(); return; }
     if (t.hasAttribute("data-atall")) { atAll = !atAll; render(); return; }

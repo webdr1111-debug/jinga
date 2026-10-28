@@ -186,10 +186,20 @@ main { max-width: 1360px; margin: 0 auto; padding: 0 40px 80px; min-height: 60vh
 .fsave { font: 400 22px/1.4 var(--serif); }
 .fsave b { color: var(--hero-save, #9FD3B5); font-weight: 500; }
 .fsub { color: var(--dark-sub); font-size: 12.5px; margin-top: 4px; }
-.dots { position: absolute; right: 32px; bottom: 32px; display: flex; gap: 10px; }
-.dot { width: 22px; height: 2px; padding: 0; border: 0; background: var(--dark-line); cursor: pointer; }
-.dot.on { background: var(--dark-ink); }
-.dot::before { content: ""; display: block; height: 20px; margin-top: -9px; }
+/* 대표 제품 넘김 (2026-10-28): 가로로 밀어 넘기는 칸 + 큰 단추(44px) + '3 / 10' 과 진행 막대 */
+.herofeat { min-width: 0; overflow: hidden; }
+.htrack { display: flex; flex: 1; width: 100%; min-width: 0; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; }
+.htrack::-webkit-scrollbar { display: none; }
+.hslide { flex: 0 0 100%; min-width: 0; scroll-snap-align: start; scroll-snap-stop: always; display: flex; }
+.hslide .feat { flex: 1; min-width: 0; }
+.hctl { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 0 28px 24px; color: var(--dark-ink); }
+.hbtn { width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 1px solid var(--dark-line); border-radius: 50%; background: transparent; color: inherit; cursor: pointer; }
+.hbtn:hover, .hbtn:focus-visible { border-color: var(--dark-ink); }
+.hbtn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.hcount { font: 500 13px/1 var(--sans); letter-spacing: .08em; min-width: 46px; text-align: center; font-variant-numeric: tabular-nums; }
+.hcount b { font-weight: 600; }
+.hbar { width: 56px; height: 2px; background: var(--dark-line); position: relative; overflow: hidden; }
+.hbar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--dark-ink); transition: width .3s; }
 
 /* ② 아이콘 제품 */
 .icard { position: relative; display: flex; flex-direction: column; }
@@ -385,7 +395,11 @@ select { font-size: 13px; padding: 8px 10px; border: 0; border-bottom: 1px solid
   .ftx { padding: 16px 18px 34px; }
   .fname { font-size: 14px; margin: 2px 0 6px; }
   .fsave { font-size: 17px; }
-  .dots { right: 18px; bottom: 14px; }
+  .ftx { padding-bottom: 12px; }
+  .hctl { justify-content: space-between; padding: 6px 14px 16px; gap: 10px; }
+  .hbar { flex: 1; }
+  .hcount { order: -1; text-align: left; min-width: 0; }
+  .hctl .hbtn { order: 1; }
   .board { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 70%; overflow-x: auto; margin-right: -16px; }
   .ncell .big { font-size: 38px; }
   .facts { grid-template-columns: 1fr; }
