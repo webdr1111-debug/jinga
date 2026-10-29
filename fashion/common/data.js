@@ -32,7 +32,10 @@ if (typeof window !== "undefined") window.LUX = window.LUX || {};
     for (const [s, u, imgs, x] of data.items) {
       const p = bySku.get(s);
       if (!p) continue;
-      for (const [cc, m] of Object.entries(u)) {
+      // 2026-10-29: 앞 나라와 같은 주소는 번호(그 칸 문자열 중 몇 번째)로 줄여 둠(sheets/export_web.py)
+      const strs = Object.values(u).filter(v => typeof v === "string");
+      for (const [cc, m0] of Object.entries(u)) {
+        const m = typeof m0 === "number" ? strs[m0] : m0;
         const t = data.url[cc] || ["", ""], url = unmid(m, t[0], t[1]);
         if (!/^https:\/\//.test(url)) continue;
         if (!p.p[cc]) p.p[cc] = [0, 0, "", null];  // 가격은 없고 공홈 페이지만 있는 나라 (제품 화면에 '공홈 ↗'만)

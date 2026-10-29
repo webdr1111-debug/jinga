@@ -492,7 +492,13 @@
   // 이벤트 묶음 페이지 배너 (sheets/config/events.json pages[].banner): 제품 10장 뒤 11·12번째… 노출 기간 안에만 (2026-10-29)
   let heroBanners = [];
   const heroCount = () => heroList.length + heroBanners.length;
-  const bannerHTML = pg => `<a class="feat fban" href="#/events/${esc(pg.id)}"><div class="fbin">
+  // 배너 그림: 웹은 data/ 주소 그대로, 앱은 서명 목록의 sha256 을 확인한 뒤(LUXDATA.img) 넣음
+  const evImg = (b, cls) => b && b.image ? `<img class="${cls}" data-evimg="${esc(b.image)}" alt="${esc(b.alt || "")}" decoding="async">` : "";
+  const evImgFill = () => document.querySelectorAll("img[data-evimg]:not([src])").forEach(im => {
+    const n = im.dataset.evimg;
+    (window.LUXDATA && LUXDATA.img ? LUXDATA.img(n) : Promise.resolve("data/" + n)).then(u => { im.src = u; }).catch(() => im.remove());
+  });
+  const bannerHTML = pg => `<a class="feat fban${pg.banner.image ? " hasimg" : ""}" href="#/events/${esc(pg.id)}">${evImg(pg.banner, "fbimg")}<div class="fbin">
       ${pg.banner.eyebrow ? `<p class="eyebrow">${esc(pg.banner.eyebrow)}</p>` : ""}<h2>${esc(pg.banner.title)}</h2>
       ${pg.banner.text ? `<p class="fbt">${esc(pg.banner.text)}</p>` : ""}<span class="fbcta">${esc(pg.banner.cta || "자세히 보기")} ›</span>
       <p class="fbwhen">${evDate(pg.until)}까지</p></div></a>`;
@@ -523,6 +529,7 @@
     const tr = document.getElementById("hTrack");
     if (!tr || tr.dataset.ready) return;
     tr.dataset.ready = "1";
+    evImgFill();  // 배너 그림
     heroGo(heroIdx, false);  // 다시 그려도 보던 장에 머묾
     let t;
     tr.addEventListener("scroll", () => { clearTimeout(t); t = setTimeout(() => {
@@ -1678,7 +1685,9 @@
     const pg = (EV.pages || []).find(x => x.id === id);
     if (!pg || !livePages().includes(pg)) return `<div class="pagehead center"><h1>이벤트가 끝났어요</h1><p class="lead"><a class="link" href="#/events">진행 중인 이벤트 보기</a></p></div>`;
     const evs = pg.events.map(i => EV.events.find(e => e.id === i)).filter(Boolean);
+    setTimeout(evImgFill, 0);
     return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/events">이벤트</a> › ${esc(pg.title)}</nav>
+      ${pg.banner && pg.banner.image ? `<div class="evhero">${evImg(pg.banner, "evheroimg")}</div>` : ""}
       <div class="pagehead center evphead">${pg.banner && pg.banner.eyebrow ? `<p class="eyebrow">${esc(pg.banner.eyebrow)}</p>` : ""}<h1>${esc(pg.title)}</h1>${pg.sub ? `<p class="lead">${esc(pg.sub)}</p>` : ""}
         <p class="evwhen">이 페이지는 ${evDate(pg.until)}까지 보여요</p></div>
       <div class="evlist">${evs.map(evCard).join("")}</div>
