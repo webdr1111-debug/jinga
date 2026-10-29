@@ -1710,7 +1710,33 @@
       ${shown.length ? `<div class="evlist">${shown.map(evCard).join("")}</div>` : `<p class="empty">${all.length ? "이 조건에 맞는 이벤트가 없어요." : "지금 진행 중인 이벤트가 없어요."}</p>`}
       <p class="note center evnote">이벤트 조건은 매장·브랜드마다 달라요. 사러 가기 전에 공식 안내를 꼭 확인하세요.${all.some(e => e.sponsor) ? " '광고' 표시는 광고주가 낸 안내예요." : ""}</p>`;
   }
+  // 뒤로 가기 (앱, 2026-10-29): 화면 위 ‹ 버튼 + 안드로이드 뒤로 키. 열린 판을 먼저 닫고, 앱 안에서 옮겨 온 화면이면 이전 화면, 아니면 첫 화면.
+  // 깊이는 history.state.d 에 적어 둠(새 화면 = 이전 깊이 + 1, 뒤로 온 화면 = 적어 둔 값)
+  let navDepth = 0;
+  const isHome = () => (location.hash.slice(1) || "/").split("?")[0] === "/";
+  const backBtn = document.getElementById("backBtn");
+  function trackNav() {
+    const st = history.state;
+    if (st && typeof st.d === "number") navDepth = st.d;
+    else { navDepth = isHome() ? 0 : navDepth + 1; history.replaceState({ ...(st || {}), d: navDepth }, ""); }
+    const show = !!window.LUX_APP && !isHome();
+    if (backBtn) backBtn.hidden = !show;
+    document.body.classList.toggle("canback", show);
+  }
+  function goBack() {  // 한 일이 있으면 true (첫 화면에서 닫을 판도 없으면 false → 안드로이드는 앱 닫기)
+    if (!panel.hidden) { panel.hidden = true; onbSheet = false; return true; }
+    if (panelOpen) { panelOpen = false; document.body.classList.remove("noscroll"); render(); return true; }
+    if (acOpen) { acOpen = false; render(); return true; }
+    if (isHome()) return false;
+    if (navDepth > 0) {
+      const was = location.hash;
+      history.back();
+      setTimeout(() => { if (location.hash === was) location.hash = "#/"; }, 400);  // 되돌아갈 기록이 없었으면 첫 화면으로
+    } else location.hash = "#/";
+    return true;
+  }
   function render() {
+    trackNav();
     const raw = location.hash.slice(1) || "/", [path, qstr] = raw.split("?"), q = new URLSearchParams(qstr || "");
     const seg = path.split("/").filter(Boolean).map(decodeURIComponent);
     const inSet = path === "/settings", wasSet = lastRoute.split("?")[0] === "/settings";
@@ -1913,7 +1939,7 @@
       const typing = document.activeElement && document.activeElement.id === "fq";
       val.trim() ? q.set("q", val) : q.delete("q");
       lastConverted = []; acOpen = !!val.trim() && typing; showN = 0;
-      history.replaceState(null, "", "#" + path + (q.toString() ? "?" + q : ""));
+      history.replaceState(history.state, "", "#" + path + (q.toString() ? "?" + q : ""));  // state = 뒤로 가기 깊이(navDepth) 유지
       render();
       const inp = document.getElementById("fq");
       if (inp && typing) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }  // 입력 중일 때만 커서를 되돌림
@@ -1931,6 +1957,11 @@
     lastY = y;
   }, { passive: true });
   if (toTop) toTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: reduced() ? "auto" : "smooth" }));
+  if (backBtn) backBtn.addEventListener("click", () => { goBack(); });
+  // 안드로이드 뒤로 키 (@capacitor/app): 앱 안에서만. 첫 화면에서 닫을 것도 없으면 앱 닫기
+  const Cap = window.Capacitor;
+  const CapApp = Cap && Cap.isNativePlatform && Cap.isNativePlatform() && ((Cap.Plugins && Cap.Plugins.App) || (Cap.registerPlugin && Cap.registerPlugin("App")));
+  if (CapApp) CapApp.addListener("backButton", () => { if (!goBack()) CapApp.exitApp(); });
   window.addEventListener("hashchange", () => { if (!keepConv) lastConverted = []; keepConv = false; acOpen = false; showN = 0; document.body.classList.remove("noscroll"); render(); });
   let wasM = isM();
   window.addEventListener("resize", () => { if (isM() !== wasM) { wasM = isM(); render(); } });
