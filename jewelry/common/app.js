@@ -62,7 +62,7 @@
   const safeUrl = u => /^https:\/\//.test(u || "") ? u : "";
   const won = n => "₩" + Math.round(n).toLocaleString("ko-KR");
   const man = n => SET.num === "M" ? (n / 1e6).toFixed(n >= 1e7 ? 1 : 2).replace(/\.?0+$/, "") + "M"  // 설정 '숫자 표기'
-    : n >= 1e8 ? (n / 1e8).toFixed(2).replace(/0$/, "") + "억" : Math.round(n / 1e4).toLocaleString("ko-KR") + "만";
+    : n >= 1e8 ? (n / 1e8).toFixed(2).replace(/0$/, "") + "억원" : Math.round(n / 1e4).toLocaleString("ko-KR") + "만원";  // 한국 돈은 '85만원' (10-30 사용자)
   const local = (cc, v) => { const cur = C[cc].cur; return (cur === "KRW" ? "₩" : cur + " ") + Number(v).toLocaleString("ko-KR", { maximumFractionDigits: 2 }); };
   // 제품의 현지 가격: 원래 다른 통화로 적힌 칸이면 그 통화로 (계산은 나라 통화로 바꾼 값)
   const localP = (p, cc, v) => p.pc && p.pc[cc] ? `${esc(p.pc[cc][1])} ${Number(p.pc[cc][0]).toLocaleString("ko-KR")} <small>(≈ ${local(cc, Math.round(v))})</small>` : local(cc, v);
@@ -435,8 +435,8 @@
   const SAVE_MIN = 500_000;  // ④ 비행기값 기준 (왕복 항공권 대략값)
   const HINT = { jewelry: "까르띠에 러브, 300만원 반지", bag: "네버풀, 100만원 지갑" };  // 첫 화면 찾기 칸 예시
   const GIFT = {
-    jewelry: [["50만 원 이하", 0, 5e5], ["100만 원 이하", 5e5, 1e6], ["300만 원 이하", 1e6, 3e6], ["그 이상", 3e6, Infinity]],
-    bag: [["100만 원 이하", 0, 1e6], ["200만 원 이하", 1e6, 2e6], ["400만 원 이하", 2e6, 4e6], ["그 이상", 4e6, Infinity]],
+    jewelry: [["50만원 이하", 0, 5e5], ["100만원 이하", 5e5, 1e6], ["300만원 이하", 1e6, 3e6], ["그 이상", 3e6, Infinity]],
+    bag: [["100만원 이하", 0, 1e6], ["200만원 이하", 1e6, 2e6], ["400만원 이하", 2e6, 4e6], ["그 이상", 4e6, Infinity]],
   };
   const savedAmt = R => R.best && R.kr && R.save > 0 ? R.kr.net - R.best.net : 0;
   // 추천에 넣지 않는 것 (5.7절): 가격 확인 필요, 한국·대표 나라가 '살 수 있음'이 아님, 옵션 가격 범위(캐럿·사이즈마다 값이 다름)
@@ -597,7 +597,7 @@
       .map(o => ({ ...o, score: o.cheaper * o.medCheap })).sort((a, b) => b.score - a.score);
   }
   // 아이콘 제품 (②): 브랜드마다 제품 수가 가장 많은 컬렉션에서 한국 가격이 중간인 제품 (인기 순위 데이터가 오면 그 1위로)
-  // ② 아이콘 제품 가격표 (2026-10-27 개편): 관리할 목록 없이 '컬렉션'을 열 때마다 무작위로, 진짜가격 500만 원 이하 입문 제품을 한 줄씩
+  // ② 아이콘 제품 가격표 (2026-10-27 개편): 관리할 목록 없이 '컬렉션'을 열 때마다 무작위로, 진짜가격 500만원 이하 입문 제품을 한 줄씩
   //  - 컬렉션 후보: 제품 5개 이상, 이름 없음·'기타' 제외 / 브랜드를 먼저 고르고(공평) 그 안에서 컬렉션 / 한 번에 같은 브랜드 1개
   //  - 최근에 본 컬렉션은 덜 뽑힘(휴대폰에 기억) / 내 여행지가 있으면 그 나라에서 아끼는 컬렉션을 더 자주
   //  - 컬렉션 안: 500만 이하 중 가장 싼 제품(입문가). 주얼리는 종류(반지·목걸이·팔찌·귀걸이·시계)가 겹치지 않게, 패션은 가방 먼저·지갑은 2줄까지
@@ -682,7 +682,7 @@
   function twoItems(each) { const g = kind === "bag" ? "watchbag" : "jewel"; return { split: customs(each, g) * 2, real: customs(each * 2, g) }; }
 
   // 여러 개를 한 나라에서 사는 합계 (5.7절 ①b·⑥b). 관세는 합계에서 $800를 한 번만 뺀다 — ⑦ '면세는 한 번만'과 같은 시안용 간이 방식
-  // 정식 버전은 7장 규칙(제품마다 1,000만 원 일반 과세 판단)으로 계산
+  // 정식 버전은 7장 규칙(제품마다 1,000만원 일반 과세 판단)으로 계산
   function basket(ps, cc) {
     let net = 0, simpleBase = 0, duty = 0;
     const g = ps.some(q => grpOf(q) === "watchbag") ? "watchbag" : "jewel";
@@ -692,15 +692,15 @@
       if (cc === "KR") { net += r.net; continue; }
       net += r.net - r.duty;
       const b = r.krw - r.refund;
-      if (b <= CUS.simpleMax) simpleBase += b; else duty += customs(b, g);  // 1,000만 원 넘는 한 개는 그 제품만 일반 과세
+      if (b <= CUS.simpleMax) simpleBase += b; else duty += customs(b, g);  // 1,000만원 넘는 한 개는 그 제품만 일반 과세
     }
-    // 1,000만 원 이하 제품들은 합계에 간이세율, $800는 한 번만
+    // 1,000만원 이하 제품들은 합계에 간이세율, $800는 한 번만
     return cc === "KR" ? net : net + duty + (simpleBase ? customs(simpleBase, g, false, true) : 0);
   }
   // ①b 내 쇼핑 계산: 담은 제품(없으면 아이콘 3개 예시)을 내 여행지(없으면 16개 나라)에서 한 번에 살 때
   function shopCalc() {
     const mine = S.picks.map(k => { const i = k.indexOf("|"); return findP(k.slice(0, i), k.slice(i + 1)); }).filter(Boolean);
-    // 담은 게 없으면 예시: 한국 50만~200만 원 제품 중 많이 아끼는 것, 브랜드 하나씩 3개 (선물·첫 구매 규모)
+    // 담은 게 없으면 예시: 한국 50만~200만원 제품 중 많이 아끼는 것, 브랜드 하나씩 3개 (선물·첫 구매 규모)
     const ex = [], seen = new Set();
     if (!mine.length) for (const o of pool().filter(o => o.R.kr.net >= 5e5 && o.R.kr.net <= 2e6).sort((a, b) => savedAmt(b.R) - savedAmt(a.R)))
       if (ex.length < 3 && !seen.has(o.p.b)) { seen.add(o.p.b); ex.push(o.p); }
@@ -714,7 +714,7 @@
     const apart = bRows.reduce((n, r) => n + r.net, 0), extra = best ? best.net - apart : 0;
     const g = ps.some(q => grpOf(q) === "watchbag") ? "watchbag" : "jewel", thr = CUS.grp[g].thr;
     const taxable = bRows.reduce((n, r) => n + r.krw - r.refund, 0) - CUS.allowUsd * D.fx.US;
-    const why = taxable > thr ? `합계(환급 후 − $800)가 ${man(thr)} 원을 넘는 부분은 45%예요` : "$800 면세는 산 물건 전체에서 한 번만 빠져요";
+    const why = taxable > thr ? `합계(환급 후 − $800)가 ${man(thr)}을 넘는 부분은 45%예요` : "$800 면세는 산 물건 전체에서 한 번만 빠져요";
     const head = !kr ? "한국 가격이 없는 제품이 있어요"
       : !best ? (S.trip.length ? "내 여행지에서는 이 제품들을 다 살 수 없어요" : "이 제품들을 모두 파는 나라가 없어요")
       : save > 0 ? `${nationF(best.c)}에서 ${ps.length}개 사면 <b>${won(save)}</b> 아껴요`
@@ -777,10 +777,10 @@
     its.forEach(it => used.add(it.key));
     const keep = AT; AT = c;  // 카드 가격도 그 나라 기준
     const where = S.trip.length ? `내 여행지(${S.trip.map(x => esc(C[x].n)).join("·")})` : `${flag(c || "JP")}${esc(C[c || "JP"].n)}`;
-    const body = its.length ? listOrGrid(its) : `<p class="empty">지금은 ${S.trip.length ? "내 여행지에서" : "이 나라에서"} ${man(SAVE_MIN)} 원 넘게 아끼는 제품이 없어요.</p>`;
+    const body = its.length ? listOrGrid(its) : `<p class="empty">지금은 ${S.trip.length ? "내 여행지에서" : "이 나라에서"} ${man(SAVE_MIN)} 넘게 아끼는 제품이 없어요.</p>`;
     AT = keep;
     return `<section class="sec" id="h-flight">${section("Worth the Flight", `${where}에서 비행기값 뽑는 제품`,
-        `관세까지 넣고도 ${man(SAVE_MIN)} 원 넘게 아끼는 제품 · ${S.trip.length ? "고른 나라 안에서" : "나라를"} 열 때마다 바꿔 보여 줘요`,
+        `관세까지 넣고도 ${man(SAVE_MIN)} 넘게 아끼는 제품 · ${S.trip.length ? "고른 나라 안에서" : "나라를"} 열 때마다 바꿔 보여 줘요`,
         `<span class="shlinks"><button type="button" class="link" data-flightshuffle>↻ ${S.trip.length ? "다시 뽑기" : "다른 나라"}</button>${c ? ` <a class="link" href="#/country/${c}">${esc(C[c].n)} 모두 보기</a>` : ""}</span>`)}
       ${body}</section>`;
   }
@@ -814,7 +814,7 @@
     if (!isM()) html += calcHtml;
     // ② 아이콘 제품 가격표
     const ic = icons().filter(o => !used.has(o.it.key)).slice(0, isM() ? 4 : 8); ic.forEach(o => used.add(o.it.key));
-    if (ic.length) html += `<section class="sec" id="h-icons">${section("The Icons", "아이콘 제품 가격표", `브랜드 컬렉션을 ${man(ICON_CAP)} 원 이하 입문 제품으로 — 나라별 ${JINGA}, 열 때마다 바뀌어요`,
+    if (ic.length) html += `<section class="sec" id="h-icons">${section("The Icons", "아이콘 제품 가격표", `브랜드 컬렉션을 ${man(ICON_CAP)} 이하 입문 제품으로 — 나라별 ${JINGA}, 열 때마다 바뀌어요`,
         `<button type="button" class="link" data-iconshuffle>↻ 다른 컬렉션</button>`)}
       <div class="grid icong2">${ic.map(o => card(o.it, iconExtra(o))).join("")}</div></section>`;
     // ③ 지금 유리한 나라 / 내 여행지 추천
@@ -839,7 +839,7 @@
         <div class="center"><a class="more" href="#/country/${t}">${esc(C[t].n)} 모두 보기</a></div></section>`;
     }
     // ④ 비행기값 뽑는 제품 (2026-10-27): 열 때마다 무작위 — 내 여행지가 없으면 나라 하나를 무작위로 골라 그 나라에서,
-    //    내 여행지가 있으면 고른 나라들 안에서. 관세까지 넣고 50만 원 넘게 아끼는 제품 중 브랜드가 겹치지 않게
+    //    내 여행지가 있으면 고른 나라들 안에서. 관세까지 넣고 50만원 넘게 아끼는 제품 중 브랜드가 겹치지 않게
     html += flightSection(used);
     const cut = html.length;  // 휴대폰: 여기부터 아래는 '더 보기'로 접음 (첫 화면이 6,000px 넘던 것, 2026-10-28)
     // ⑤ 한국 가격이 바뀌었어요 (한국 먼저, 해외는 ±3% 이상)
@@ -870,16 +870,16 @@
     if (kind === "jewelry") {
       const over = items().map(it => itemRep(it)).filter(R => R.kr && R.kr.net > 1e7 && R.best);
       const krWins = over.filter(R => R.save <= 0).length;
-      wall = { eb: "The 10M Line", num: `${over.length ? Math.round(krWins / over.length * 100) : 0}%`, t: "1,000만 원의 벽",
-        body: `한 개 가격(환급 후)이 1,000만 원을 넘으면 간이세율 대신 일반 과세(관세·개별소비세·교육세·부가세)예요. 한국 가격 1,000만 원 넘는 제품 ${over.length}개 중 ${krWins}개는 한국이 더 싸요.` };
+      wall = { eb: "The 10M Line", num: `${over.length ? Math.round(krWins / over.length * 100) : 0}%`, t: "1,000만원의 벽",
+        body: `한 개 가격(환급 후)이 1,000만원을 넘으면 간이세율 대신 일반 과세(관세·개별소비세·교육세·부가세)예요. 한국 가격 1,000만원 넘는 제품 ${over.length}개 중 ${krWins}개는 한국이 더 싸요.` };
     } else {
       const g = customs(5_000_000, "watchbag"), j = customs(5_000_000, "jewel");
-      wall = { eb: "From 1.92M", num: "45%", t: "가방은 192만 원부터 45%",
-        body: `과세가격(환급 후 − $800)이 1,923,000원을 넘는 부분은 15%가 아니라 45%예요. 환급 후 500만 원 가방의 관세는 약 ${man(g)} 원 — 같은 값 보석(${man(j)} 원)보다 많아요.` };
+      wall = { eb: "From 1.92M", num: "45%", t: "가방은 192만원부터 45%",
+        body: `과세가격(환급 후 − $800)이 1,923,000원을 넘는 부분은 15%가 아니라 45%예요. 환급 후 500만원 가방의 관세는 약 ${man(g)} — 같은 값 보석(${man(j)})보다 많아요.` };
     }
     const facts = [wall,
       { eb: "Duty-free Once", num: `+${man(two.real - two.split)}`, t: "$800 면세는 한 번만",
-        body: `면세 한도는 산 물건 전체에서 한 번만 빼요. 환급 후 300만 원짜리 두 개를 사면 관세가 제품별 계산 합(${man(two.split)})보다 많은 약 ${man(two.real)} 원이에요. 담은 목록은 합계로 계산해요.`,
+        body: `면세 한도는 산 물건 전체에서 한 번만 빼요. 환급 후 300만원짜리 두 개를 사면 관세가 제품별 계산 합(${man(two.split)})보다 많은 약 ${man(two.real)}이에요. 담은 목록은 합계로 계산해요.`,
         more: `<a class="link" href="#/picks">담은 목록</a>` },
       { eb: "Best Refund", num: `${C[refundTop].refund}%`, t: `환급률 1위 · ${esc(C[refundTop].n)}`,
         body: `실효 환급률 약 ${C[refundTop].refund}%${C[refundTop].min ? `, 최소 구매 ${local(refundTop, C[refundTop].min)}` : ", 최소 구매 금액 없음"}. ${esc(C[refundTop].how)}`,
@@ -915,7 +915,7 @@
   }
 
   // ── 찾기·필터 판 (5.6a절): 검색창 → 빠른 칩 → 필터 더 보기 ──
-  // 가격 범위 (진가 기준, 만 원 단위로 움직임). 기본 0~400만, 막대 끝(2,000만)은 '제한 없음'
+  // 가격 범위 (진가 기준, 만원 단위로 움직임). 기본 0~400만, 막대 끝(2,000만)은 '제한 없음'
   const PR = { def: [0, Infinity], top: 2e7, step: 1e5 };  // 기본은 가격 제한 없음 (2026-10-27: 0~400만 기본값이 검색 결과를 크게 줄여 뺌)
   const SAVES = [["", "상관없음"], ["0", "한국보다 싼 것만"], ["10", "10% 이상"], ["20", "20% 이상"], ["30", "30% 이상"]];
   const SORTS = [["", "절약률 순"], ["amt", "절약 금액 순"], ["low", "진짜가격 낮은 순"], ["high", "진짜가격 높은 순"], ["new", "신상 순"], ["spread", "나라마다 가격 차이 큰 순"]];
@@ -1142,7 +1142,7 @@
         ${!lock.noResults && res.length > lim ? `<button type="button" class="btn ghost wide" data-moreF>${PAGE()}개 더 보기 (${res.length - lim}개 남음)</button>` : ""}
       </div></div>`;
   }
-  // 가격 범위: 두 손잡이 막대 + 숫자 칸(만 원). 손을 떼거나 [적용]을 누르면 반영
+  // 가격 범위: 두 손잡이 막대 + 숫자 칸(만원). 손을 떼거나 [적용]을 누르면 반영
   const rangeLabel = F => `${F.pmin ? man(F.pmin) : "0"}~${F.pmax === Infinity ? "제한 없음" : man(F.pmax)}`;
   function priceRange(F) {
     const mx = F.pmax === Infinity ? PR.top : Math.min(F.pmax, PR.top), mn = Math.min(F.pmin, mx);
@@ -1153,7 +1153,7 @@
         <input type="range" name="rmin" min="0" max="${PR.top}" step="${PR.step}" value="${mn}" aria-label="최소 가격">
         <input type="range" name="rmax" min="0" max="${PR.top}" step="${PR.step}" value="${mx}" aria-label="최대 가격"></div>
       <div class="pr-scale"><span>0</span><span>${man(PR.top)}+</span></div>
-      <div class="pr-num"><input name="pmin" inputmode="numeric" value="${mn / 1e4}" aria-label="최소 가격(만 원)"> ~ <input name="pmax" inputmode="numeric" value="${F.pmax === Infinity ? "" : mx / 1e4}" placeholder="제한 없음" aria-label="최대 가격(만 원)"> 만 원
+      <div class="pr-num"><input name="pmin" inputmode="numeric" value="${mn / 1e4}" aria-label="최소 가격(만원)"> ~ <input name="pmax" inputmode="numeric" value="${F.pmax === Infinity ? "" : mx / 1e4}" placeholder="제한 없음" aria-label="최대 가격(만원)"> 만원
         <button type="submit" class="link">적용</button><a class="link" href="#" data-prdef>제한 없음</a></div></form>`;
   }
   // 다른 앱 안내: 주얼리 앱에서 패션 종류 말, 패션 앱에서 주얼리 종류 말을 찾을 때
@@ -1182,8 +1182,8 @@
       ["반클리프 알함브라", { brand: "Van Cleef & Arpels", q: "알함브라" }],
       ["불가리 세르펜티", { brand: "Bulgari", q: "세르펜티" }],
       ["티파니 하트", { brand: "Tiffany & Co.", q: "하트" }],
-      ["100만 원 이하 선물", { pmax: 1000000, save: 0 }],
-      ["300만 원 이하", { pmax: 3000000, save: 0 }],
+      ["100만원 이하 선물", { pmax: 1000000, save: 0 }],
+      ["300만원 이하", { pmax: 3000000, save: 0 }],
       ["예물 반지", { type: "ring", sub: "밴드" }],
       ["일본이 가장 싼 것", { cheap: "JP" }],
     ],
@@ -1192,8 +1192,8 @@
       ["디올 레이디 디올", { brand: "Dior", q: "레이디 디올" }],
       ["보테가 인트레치아토", { brand: "Bottega Veneta", q: "인트레치아토" }],
       ["샤넬 가방", { brand: "Chanel", type: "bag" }],
-      ["100만 원 이하 지갑", { type: "wallet", pmax: 1000000, save: 0 }],
-      ["300만 원 이하 가방", { type: "bag", pmax: 3000000, save: 0 }],
+      ["100만원 이하 지갑", { type: "wallet", pmax: 1000000, save: 0 }],
+      ["300만원 이하 가방", { type: "bag", pmax: 3000000, save: 0 }],
       ["스카프·트윌리", { type: "silk", sub: "스카프·트윌리" }],
       ["일본이 가장 싼 것", { cheap: "JP" }],
     ],
@@ -1216,7 +1216,7 @@
     return Object.entries(by).sort((a, b) => b[1].length - a[1].length).map(([b, its]) => {
       const cnt = {}; for (const it of its) { const R = itemRep(it); if (R.best) cnt[R.best.cc] = (cnt[R.best.cc] || 0) + 1; }
       const best = Object.entries(cnt).sort((a, c) => c[1] - a[1])[0];
-      return `<a class="tile" href="#/brand/${encodeURIComponent(b)}"><b>${brandMark(b, "lg")}</b><span>${esc(bk(b))} · ${kind === "bag" ? "모델" : "제품"} ${its.length}개${SET.hide.includes(b) ? " · 숨김" : ""}</span>${best ? `<span class="tbest">주로 싼 곳 ${nationF(best[0])}</span>` : ""}</a>`;
+      return `<a class="tile" href="#/brand/${encodeURIComponent(b)}"><b>${brandMark(b, "lg")}</b><span>${esc(bk(b))} · ${kind === "bag" ? "모델" : "제품"} ${its.length}개${SET.hide.includes(b) ? " · 숨김" : ""}</span>${best ? `<span class="tbest">추천 ${nationF(best[0])}</span>` : ""}</a>`;
     }).join("");
   }
 
@@ -1535,7 +1535,7 @@
               SET.refund ? `예: 일본은 약 ${jpRate}%, 프랑스는 약 ${C.FR.refund}%가 빠져요.` : "환급 없이 현지 가격 그대로 계산해요.")}
             ${q("한국 들어올 때 세관에 신고하세요?", segBtns("customs", [[true, "신고해요"], [false, "관세 없이 볼게요"]]),
               SET.customs ? "면세 한도 $800을 넘는 만큼 관세를 더해요(제품 1개 기준)." : "관세를 빼고 보면 해외가 실제보다 싸 보여요.",
-              SET.customs ? `<div class="sub">${segBtns("self", [[true, "자진신고 (관세 30% 감면, 최대 20만 원)"], [false, "감면 없이"]])}</div>` : "")}
+              SET.customs ? `<div class="sub">${segBtns("self", [[true, "자진신고 (관세 30% 감면, 최대 20만원)"], [false, "감면 없이"]])}</div>` : "")}
             ${q("한국에서 살 때 받는 할인이 있어요?", segBtns("krDisc", [[0, "없어요"], [SET.krDisc || 5, "있어요"]]),
               "백화점 상품권·카드 할인 등. 한국 가격에서 빼고 비교해요.", SET.krDisc ? `<div class="sub">할인율 ${numIn("krDisc", "%", "0.5")}</div>` : "")}
             ${q("어디로 가세요?", `<button type="button" class="tchip" data-trip-open>✈ ${S.trip.length ? S.trip.map(c => esc(C[c].n)).join(" · ") : "여행지 고르기"}</button>`,
@@ -1573,8 +1573,8 @@
           <details class="setsec adv"><summary><h3>계산 기준 보기</h3><span class="note">법·제도로 정해진 값 — 바꿀 수 없어요</span></summary>
             <h4 class="refh">관세 (관세청 여행자 휴대품 기준, 2026-10-25 확인)</h4>
             ${refTable(["항목", "값"], [["면세 한도", "$800 (한 사람 전체에서 한 번)"], ["간이세율", "보석: 4,808,000원까지 15%, 넘는 부분 45% · 시계·가방: 1,923,000원까지 15%, 넘는 부분 45%"],
-              ["간이세율 적용 배제", "한 개 과세가격 1,000만 원 초과 → 일반 과세"], ["일반 과세", "관세 8% + 개별소비세 20%(보석 500만·시계·가방 200만 원 넘는 부분) + 교육세 30% + 부가세 10%"],
-              ["자진신고 감면", "관세의 30%, 최대 20만 원"]])}
+              ["간이세율 적용 배제", "한 개 과세가격 1,000만원 초과 → 일반 과세"], ["일반 과세", "관세 8% + 개별소비세 20%(보석 500만·시계·가방 200만원 넘는 부분) + 교육세 30% + 부가세 10%"],
+              ["자진신고 감면", "관세의 30%, 최대 20만원"]])}
             <h4 class="refh">나라별 세금·환급 (빌드 ${esc(D.generated)} · 환율은 지금 계산에 쓰는 값)</h4>
             ${refTable(["나라", "세율", "실효 환급률", "최소 구매", "환율"], TRIP_CODES.map(c => [nationF(c), C[c].tax + "%" + (C[c].incl ? "" : " (별도)"), C[c].refund ? C[c].refund + "%" : "없음", C[c].min ? local(c, C[c].min) : "—", "₩" + fxFmt(D.fx[c])]))}
             <h4 class="refh">태국 환급률 구간</h4>
@@ -1660,7 +1660,7 @@
         <div class="shophead">${!best ? "이 제품들을 모두 파는 나라가 없어요" : kr && kr > best.net ? `${nationF(best.c)}에서 다 사면 <b>${won(kr - best.net)}</b> 아껴요` : kr ? "한국에서 사는 게 가장 싸요" : `가장 싼 곳은 ${nationF(best.c)}`}</div>
         <ol class="plist">${kr ? `<li class="kr"><span>${nationF("KR")} <small>기준</small></span><span class="bar"><i style="width:${kr / mx * 100}%"></i></span><b>${won(kr)}</b><small></small></li>` : ""}${order.map(line).join("")}</ol>
         ${part.length ? `<p class="shopfoot">일부만 파는 나라 ${part.length}곳은 뺐어요 (${part.map(c => esc(C[c].n)).join(" · ")})</p>` : ""}
-        <p class="shopfoot">1,000만 원 이하 제품은 합계에 간이세율, 넘는 제품은 그 제품만 일반 과세 (7장) · 지금 설정: ${esc(setSummary())} <a class="link" href="#/settings">바꾸기</a></p>
+        <p class="shopfoot">1,000만원 이하 제품은 합계에 간이세율, 넘는 제품은 그 제품만 일반 과세 (7장) · 지금 설정: ${esc(setSummary())} <a class="link" href="#/settings">바꾸기</a></p>
       </div></section>
       <section class="sec"><div class="sh"><h2>담은 제품</h2>${gone ? `<p class="note">이번 데이터에 없는 제품 ${gone}개는 뺐어요</p>` : ""}</div>${grid(ps.map(itemOf))}</section>`;
   }
