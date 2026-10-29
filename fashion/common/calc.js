@@ -64,6 +64,11 @@
     }
     return { calc, customs, usTax, feeRate, jpExcluded, coupons, cpActive, today };
   }
+  // 한시 세율 (rules.countries[c].until·after, 2026-10-29 베트남 가방 부가세 8%): 기기 날짜가 until 을 지나면 after 값으로 (빌드를 다시 안 해도)
+  LuxCalc.dated = (countries, day) => {
+    for (const k of Object.values(countries)) if (k.until && day > k.until) { Object.assign(k, k.after); delete k.until; delete k.after; }
+    return countries;
+  };
   root.LuxCalc = LuxCalc;
   if (typeof module !== "undefined" && module.exports) module.exports = LuxCalc;
 })(typeof window !== "undefined" ? window : globalThis);

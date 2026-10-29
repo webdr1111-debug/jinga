@@ -29,6 +29,7 @@
   const TYPE_ALL = { ring: "반지", necklace: "목걸이", bracelet: "팔찌", earring: "귀걸이", watch: "시계", bag: "가방", wallet: "지갑", accessory: "액세서리", shoes: "신발", silk: "벨트·스카프·실크 소품", clothing: "의류", ...(RU.typeName || {}) };  // 앞의 값은 데이터에 typeName 이 없을 때만 쓰는 기본값
   // 5) 한글이 하나도 없는 제품 이름(보테가·생로랑 안경·참, 티파니 일부)은 앞에 세부 종류(없으면 종류)를 한글로: '선글라스 · Classic …' (2026-10-27)
   for (const p of D[kind]) if (p.n && !/[가-힣]/.test(p.n)) { const t = p.sb || TYPE_ALL[p.t]; if (t) p.n = `${t} · ${p.n}`; }
+  LuxCalc.dated(D.countries, LuxCalc(RU).today());  // 기간 지난 한시 세율은 기본값으로 (RU.countries 와 같은 것이라 계산에도 적용)
   const C = D.countries, CODES = Object.keys(C), TRIP_CODES = CODES.filter(c => c !== "KR");
   // 미리보기(시험)용: ?nokr=브랜드 — 그 브랜드의 한국 가격을 숨겨 '한국에 없는 브랜드' 화면을 확인 (저장하지 않음)
   if (new URLSearchParams(location.search).get("nokr")) { const nb = new URLSearchParams(location.search).get("nokr"); for (const p of D[kind]) if (p.b === nb) delete p.p.KR; }
