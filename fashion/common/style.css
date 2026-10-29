@@ -1063,10 +1063,55 @@ body::before { content: ""; position: fixed; left: 0; right: 0; top: 0; height: 
   .atrow { gap: 8px; }
   .atrow .atl { padding-top: 7px; font-size: 11.5px; }
   .atrow .chiprow { gap: 6px; align-items: center; }
-  .atrow .tchip { min-height: 32px; padding: 3px 10px 3px 7px; gap: 4px; font-size: 13px; white-space: nowrap; }
+  .atrow .tchip { min-height: 34px; padding: 2px 10px 2px 7px; gap: 4px; font-size: 13px; white-space: nowrap; }
   .atrow .tchip .flag { width: 16px; height: 16px; margin-right: 1px; }
   .atrow .tchip small { font-size: 11px; }
 }
 
 /* 금액 뒤 '원'이 붙어 줄이 길어지면서 '아 / 낌'처럼 낱글자로 갈리던 것 (10-30) — 낱말 단위로 줄바꿈 */
 .card .kr, .card .body { word-break: keep-all; }
+
+/* 찾기 화면 (2026-10-30 사용자): 제목 '찾기 SEARCH' 한 줄(글자 크기 그대로), 찾기 아래 단추 조금 작게, 필터 판 단추는 작고 여백 없이 */
+.pagehead.inl { display: flex; justify-content: center; align-items: baseline; gap: 12px; }
+.pagehead.inl .eyebrow { margin: 0; }
+@media (max-width: 1023px) {
+  .pagehead.inl { margin-top: 20px; }
+  .qchips { gap: 6px; align-items: center; -webkit-mask-image: none; mask-image: none; }  /* 줄바꿈되므로 오른쪽 흐림 없앰 */
+  .qchips .qchip.more { margin-top: 0; }  /* '.more' 의 위 여백(20px)이 붙어 같은 줄 단추가 늘어나던 것 */
+  .qchip, .fbar.stick .qchip { min-height: 34px; padding: 2px 12px; font-size: 13px; }
+  .fl.open .fpanel .fsec { padding: 10px 0; }
+  .fl.open .fpanel .fsec h4 { margin-bottom: 6px; }
+  .fl.open .fpanel .fopts { gap: 4px; }
+  .fl.open .fpanel .fopt, .fl.open .fpanel .qbrand .fopt { min-height: 28px; padding: 1px 8px; gap: 4px; font-size: 12.5px; }
+  .fl.open .fpanel .fopt .flag { width: 14px; height: 14px; }
+}
+
+/* 상품 카드 금액 (2026-10-30 사용자: 금액이 잘 보이게) — 금액 크게·굵게, 나라는 국기, 비교 가격 연하게+취소선, 아끼는 금액 초록 칩, 할인 배지 초록 */
+.card .pr { font-size: 12.5px; font-weight: 400; color: var(--sub); }
+.card .pr .prl .flag { width: 14px; height: 14px; vertical-align: -2px; margin-right: 3px; }
+.card .pr .amt { display: block; font-size: 18px; font-weight: 700; color: var(--ink); letter-spacing: -.01em; margin-top: 1px; }
+.card .pr.muted { color: var(--faint); }
+.card .kr { color: var(--faint); font-size: 12px; }
+.card .kr s { text-decoration-thickness: 1px; }
+.card .kr .saved { display: inline-block; margin-top: 4px; padding: 1px 7px; border-radius: 4px; background: var(--save-chip-bg); color: var(--save-chip); font-weight: 700; font-size: 12px; }
+.card .bdg.save { background: var(--save-chip); color: var(--save-chip-ink); }
+:root { --save-chip: #17653F; --save-chip-bg: #E3F1E8; --save-chip-ink: #FFFFFF; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --save-chip: #8CCBA9; --save-chip-bg: #1C3127; --save-chip-ink: #0F1A14; } }
+:root[data-theme="dark"] { --save-chip: #8CCBA9; --save-chip-bg: #1C3127; --save-chip-ink: #0F1A14; }
+
+/* 휴대폰 칩 단추 통일 (2026-10-30 사용자: 비슷한 화면 모두 '찾기' 단추 크기로) — 컬렉션·기준 나라·이벤트 종류/지역·나라 화면 등 .tchip 전부
+   찾기 화면 .qchip 과 같은 높이 34px·글자 13px. '+N개 더/접기'(.more)에 붙던 위 여백 20px 도 없앰 */
+@media (max-width: 1023px) {
+  .tchip, .tchip.sm, .hero .tchip, .hero .htpl .tchip, .rank .tchip { min-height: 34px; padding: 2px 12px; gap: 5px; font-size: 13px; }
+  .tchip .flag { width: 16px; height: 16px; }
+  .tchip small { font-size: 11px; }
+  .tchip.more, .chiprow .more { margin-top: 0; }
+  .chiprow { align-items: center; }
+}
+
+/* 휴대폰 '홈 › 브랜드 › 티파니' 위아래 여백 (2026-10-30 사용자: 너무 큼) — 모든 화면 같은 .crumb, 바로 아래 제목도 붙임 */
+@media (max-width: 1023px) {
+  .crumb { margin: 12px 0 6px; }
+  .pagehead { margin-top: 16px; }
+  .crumb + .pagehead, .crumb + * > .pagehead:first-child { margin-top: 6px; }
+}

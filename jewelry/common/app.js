@@ -283,11 +283,12 @@
   }, true);
 
   // ── 카드 (5.6절) ──
-  function priceLine(R) {
+  // 카드 가격 (2026-10-30 사용자: 금액이 잘 보이게): 위에 작은 '최저 🇹🇼대만', 아래 큰 굵은 금액
+  function priceLine(R, from = "") {
     if (!R.best) return `<div class="pr">비교할 가격 없음</div>`;
-    const opt = R.best.opt ? "부터" : "";
-    if (R.mode === "notrip") return `<div class="pr muted">내 여행지에서 안 팜</div><div class="kr">최저 ${cc(R.best.cc)} ${man(R.best.net)}${opt}</div>`;
-    return `<div class="pr">${R.mode === "all" ? "최저 " : ""}${cc(R.best.cc)} ${esc(C[R.best.cc].n)} ${man(R.best.net)}${opt}</div>`;
+    const opt = R.best.opt ? "부터" : from;
+    if (R.mode === "notrip") return `<div class="pr muted">내 여행지에서 안 팜</div><div class="kr">최저 ${nationF(R.best.cc)} ${man(R.best.net)}${opt}</div>`;
+    return `<div class="pr"><span class="prl">${R.mode === "all" ? "최저 " : ""}${nationF(R.best.cc)}</span> <span class="amt">${man(R.best.net)}${opt}</span></div>`;
   }
   function card(it, extra) {
     const p = head(it), R = rep(p), on = S.picks.includes(p.b + "|" + p.s);
@@ -312,8 +313,8 @@
         <div class="br">${esc(p.b.toUpperCase())}${!isBag && p.c ? " · " + esc(colName(p.c).toUpperCase()) : ""}</div>
         <div class="nm">${esc(name)}</div>
         ${chips}
-        ${priceLine(R).replace("</div>", from + "</div>")}
-        <div class="kr">${R.kr ? `${krLab(R)} ${man(R.kr.net)}` : "한국 가격 없음"}${savedAmt(R) ? ` · <span class="saved">${man(savedAmt(R))} 아낌</span>` : ""}</div>
+        ${priceLine(R, from)}
+        <div class="kr">${R.kr ? `${krLab(R)} ${savedAmt(R) ? `<s>${man(R.kr.net)}</s>` : man(R.kr.net)}` : "한국 가격 없음"}${savedAmt(R) ? ` <span class="saved">${man(savedAmt(R))} 아낌</span>` : ""}</div>
         ${extra || ""}
       </div></article>`;
   }
@@ -1167,7 +1168,7 @@
     const F = filterState(q), noCond = !F.q && [...q.keys()].filter(k => k !== "sort").length === 0;
     const recent = store.get(KEY("recent"), []);
     const popular = POPULAR[kind];
-    return `<div class="pagehead center"><p class="eyebrow">Search</p><h1>찾기</h1></div>
+    return `<div class="pagehead center inl"><h1>찾기</h1><p class="eyebrow">Search</p></div>
       ${filterView("#/search", q, noCond ? { noResults: true } : {})}
       ${noCond ? `<div class="sec">
         ${recent.length ? `<div class="sh"><p class="eyebrow">Recent</p><h3>최근 검색어</h3><button type="button" class="link" data-recent-clear>지우기</button></div><div class="chiprow center">${recent.map(r => `<a class="tchip" href="#/search?q=${encodeURIComponent(r)}">${esc(r)}</a>`).join("")}</div>` : ""}
