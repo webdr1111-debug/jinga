@@ -921,3 +921,28 @@ body.hasfix .totop { bottom: calc(144px + env(safe-area-inset-bottom)); }
   .fbar.stick .qchip { min-height: 36px; padding-top: 0; padding-bottom: 0; }
   .qchips { flex-wrap: wrap; overflow: visible; margin-right: 0; padding-right: 0; }
 }
+
+/* ── 이벤트 (2026-10-29, sheets/이벤트_설정.json): 첫 화면·나라 화면 띠 + 이벤트 화면 카드 ── */
+.evstrip { display: flex; align-items: center; gap: 10px; margin: 14px 0 6px; padding: 12px 14px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); font-size: 14px; }
+.evstrip:hover { border-color: var(--gold); }
+.evstrip .evt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.evstrip .evgo { color: var(--gold); font-size: 18px; line-height: 1; }
+.evcat { flex: none; font: 600 11.5px/1 var(--sans); letter-spacing: .08em; color: var(--brand-ink, #F4EEE3); background: var(--brand, #17202E); padding: 5px 8px; }
+.evfilter { max-width: 900px; margin: 0 auto 20px; display: flex; flex-direction: column; gap: 10px; }
+.evfilter .chiprow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: flex-start; }
+.evlab { font-size: 12.5px; letter-spacing: .1em; color: var(--sub); min-width: 34px; }
+.evlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; max-width: 1100px; margin: 0 auto; }
+.evcard { border: 1px solid var(--line); background: var(--paper); padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 8px; }
+.evcard.ad { border-color: var(--gold); }
+.evtop { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.evad { font-size: 12px; color: var(--gold); border: 1px solid var(--gold); padding: 3px 6px; }
+.evwhere { margin-left: auto; font-size: 13px; color: var(--sub); }
+.evcard h3 { font: 500 18px/1.4 var(--serif); margin: 4px 0 0; }
+.evcard p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--ink); }
+.evcard .evbr { font-size: 13px; color: var(--sub); }
+.evcard .evwhen { font-size: 13px; color: var(--sub); }
+.evcard .evwhen b { color: var(--up); font-weight: 600; margin-left: 4px; }
+.evnote { margin-top: 24px; }
+@media (max-width: 1023px) { .evlist { grid-template-columns: 1fr; } .evstrip { margin: 10px 0 4px; } }
+.evpv { font-size: 12.5px; color: var(--warn); background: var(--warn-bg); padding: 4px 8px; align-self: flex-start; }
+.evpvbar { max-width: 900px; margin: 0 auto 16px; padding: 10px 14px; background: var(--warn-bg); color: var(--warn); font-size: 13.5px; text-align: center; }

@@ -17,6 +17,8 @@
   const D = { generated: RU.generated, fx: RU.fx, countries: RU.countries, [kind]: LuxData.decodeSearch(LUX.search), changes: LUX.history || [],
     syn: RU.syn, presets: RU.presets, brandKo: RU.brandKo, subtypes: RU.subtypes, metals: RU.metals, stones: RU.stones,
     jpExcl: RU.jpExcl, stores: RU.stores, thTiers: RU.thTiers, leathers: RU.leathers || [], colors: RU.colors || [] };
+  // 이벤트·프로모션·광고 (sheets/이벤트_설정.json → data/events.json, 2026-10-29): 기간 안(휴대폰 시각)에만 보임
+  const EV = LUX.events && Array.isArray(LUX.events.events) ? LUX.events : { categories: [], events: [] };
   // 패션: 데이터 칸을 화면 이름으로 (소재 칸 = 색상 원문, 금속 칸 = 가죽 그룹, 스톤 칸 = 색상 그룹), 모델 번호 없으면 제품번호
   if (kind === "bag") for (const p of D.bag) { p.col = p.m; p.lt = p.mt; p.colg = p.g; p.md = p.md || p.s; }
   // 색상 표시: 원문이 한글이면 그대로, 아니면 한글 색 묶음 · 원문 ('블랙 · Black'), 원문이 번호뿐이면(생로랑 '1000') 한글만 (2026-10-27)
@@ -336,7 +338,7 @@
     document.getElementById("kindName").textContent = appName;
     const other = document.getElementById("otherApp");
     other.textContent = kind === "bag" ? "주얼리" : "패션";  // ↗ 는 style.css .other::after 가 붙임 (두 번 나오던 것, 2026-10-28)
-    other.hidden = !M.other;  // 다른 앱 페이지가 생기면 manifest 의 other 주소 (가방 페이지는 5-1단계)
+    other.hidden = !M.other || !!window.LUX_APP;  // 다른 앱 페이지가 생기면 manifest 의 other 주소. 앱 안에서는 숨김(다른 앱 열기는 4단계)
     document.getElementById("appIcon").href = "../common/" + (kind === "bag" ? "icon-fashion.svg" : "icon-jewelry.svg");
     document.title = "럭스캐너 " + appName;
     const chip = document.getElementById("tripChip");
@@ -734,6 +736,7 @@
     setTimeout(heroInit, 0);
     // ①a 믿음 띠: 어디서 · 몇 개 · 언제 · 무엇을 넣었는지 (5.7절)
     html += `<div class="trust"><span>${TRIP_CODES.length + 1}개국 공식 홈페이지</span><span>${kind === "bag" ? "패션" : "주얼리"} ${list().length.toLocaleString("ko-KR")}개</span><span>${esc(D.generated.slice(5).replace("-", "."))} 수집</span><span>환급 · 카드 수수료 · 관세 포함</span><a class="link" href="#/settings">계산 방법</a></div>`;
+    html += evStrip(liveEvents(), "#/events");  // 진행 중인 이벤트 (2026-10-29)
     // 모바일: 구역 바로 가기 칩 (5M.12절)
     if (isM()) html += `<nav class="jump" aria-label="바로 가기">${[["h-calc", "내 쇼핑"], ["h-icons", "아이콘"], ["h-where", S.trip.length ? "내 여행지" : "나라 순위"], ["h-flight", "비행기값"], ["h-price", "가격 변동"], ["h-gift", "선물"], ...(kind === "jewelry" ? [["h-bridal", "예물"]] : []), ["h-good", "알아 두면"], ["h-bq", "브랜드"]]
       .map(([id, l]) => `<button type="button" class="tchip sm" data-jump="${id}">${l}</button>`).join("")}</nav>`;
@@ -1195,7 +1198,7 @@
     const here = o => `<div class="here">${cc(c)} ${man(o.net)} · 한국 대비 ${pct(o.s)}</div>`;
     const cLim = countryShow || PAGE();
     const cards = listA.slice(0, cLim).map(o => viewMode(q) === "list" ? rowItem(o.it, here(o)) : card(o.it, here(o))).join("");
-    return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/country">여행지</a> › ${esc(k.n)}</nav>
+    return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/country">여행지</a> › ${esc(k.n)}</nav>${evStrip(liveEvents().filter(e => e.countries.includes(c)), "#/events?cc=" + c)}
       <div class="pagehead row"><div><h1>${nationF(c)}</h1><p class="lead">통화 ${esc(k.cur)} · 환율 ₩${fxFmt(D.fx[c])} (${esc(fxLabel())}) · 데이터 ${esc(D.generated)}</p>${stockNote(true)}</div>
         <button type="button" class="btn ${inTrip ? "ghost" : ""}" data-trip="${c}">${inTrip ? "✈ 내 여행지에서 빼기" : "✈ 내 여행지에 넣기"}</button></div>
       <div class="kpis"><div><b>${st.cheapest}</b><span>${esc(k.n)}이(가) 가장 싼 제품</span></div><div><b>${st.cheaper}</b><span>한국보다 싼 제품 (${st.total}개 중)</span></div><div><b>${pct(st.med)}</b><span>중간 절약률</span></div></div>
@@ -1295,7 +1298,8 @@
     const done = () => { if (location.hash.startsWith("#/p/")) render(); };
     // 웹앱 묶음(web/pack.py): 데이터가 순수 JSON — 코드로 실행하지 않고 읽기만 (앱 심사 2.5.2, 웹앱계획.md 10장)
     if (/\.json$/.test(f)) {
-      fetch("data/" + f, { credentials: "omit" }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      (window.LUXDATA ? LUXDATA.get(f)  // 앱: 앱 안 데이터 → 서명된 목록의 sha256 이 맞는 받은 파일 (web/app/appboot.js)
+        : fetch("data/" + f, { credentials: "omit" }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }))
         .then(d => LUX.addBrand(b, d)).catch(() => { brandState[b] = "fail"; }).then(done);
       return;
     }
@@ -1628,7 +1632,51 @@
   let lastRoute = "";
   // 설정에 들어오기 전 화면과 스크롤 위치 — 돌아가면 그 자리로
   let backTo = "", backY = 0, restoreY = null;
-  const routeName = r => { const s = r.split("?")[0].split("/")[1] || ""; return ({ "": "첫 화면", p: "제품", search: "찾기", brand: "브랜드", country: "여행지", picks: "담은 목록", changes: "가격 변동" })[s] || ""; };
+  const routeName = r => { const s = r.split("?")[0].split("/")[1] || ""; return ({ "": "첫 화면", p: "제품", search: "찾기", brand: "브랜드", country: "여행지", picks: "담은 목록", changes: "가격 변동", events: "이벤트" })[s] || ""; };
+  // ── 이벤트 (2026-10-29): 종류·지역으로 골라 보기. YYYY-MM-DD 는 휴대폰 날짜로 그날 0시~끝날 24시 ──
+  const evTime = (s, end) => {
+    if (!s) return end ? Infinity : -Infinity;
+    const m = /^(\d{4})-(\d\d)-(\d\d)$/.exec(s);
+    if (m) return end ? new Date(+m[1], m[2] - 1, +m[3] + 1).getTime() - 1 : new Date(+m[1], m[2] - 1, +m[3]).getTime();
+    const t = Date.parse(s); return isNaN(t) ? (end ? -Infinity : Infinity) : t;
+  };
+  const evLive = e => { const now = Date.now(); return evTime(e.from, false) <= now && now <= evTime(e.until, true); };
+  // 미리보기 (2026-10-29): 웹 주소 뒤 ?preview=1 (예: #/events?preview=1) — 샘플("sample": true)·시작 전 이벤트도 보임. 앱에는 주소창이 없어 못 들어감
+  const evPreview = () => !window.LUX_APP && /[?&]preview=1(&|$)/.test(location.hash);
+  const liveEvents = () => { const pv = evPreview(), now = Date.now();
+    return EV.events.filter(e => pv ? now <= evTime(e.until, true) : evLive(e) && !e.sample)
+      .sort((a, b) => (b.priority || 0) - (a.priority || 0) || evTime(a.until, true) - evTime(b.until, true)); };
+  const catName = id => (EV.categories.find(c => c.id === id) || {}).name || id;
+  const evDate = s => s ? s.slice(5, 10).replace("-", ".") : "";
+  const dLeft = e => { const d = Math.ceil((evTime(e.until, true) - Date.now()) / 864e5); return d <= 1 ? "오늘 끝" : d <= 7 ? `D-${d - 1}` : ""; };
+  const evStrip = (l, h) => l.length ? `<a class="evstrip" href="${h}"><span class="evcat">이벤트</span><span class="evt">${esc(l[0].title)}${l.length > 1 ? ` 외 ${l.length - 1}개` : ""}</span><span class="evgo">›</span></a>` : "";
+  const evCard = e => {
+    const links = (e.links || []).filter(l => safeUrl(l.url));
+    return `<article class="evcard${e.sponsor ? " ad" : ""}">
+      <div class="evtop">${e.sponsor && e.category === "ad" ? "" : `<span class="evcat">${esc(catName(e.category))}</span>`}${e.sponsor ? `<span class="evad">광고 · ${esc(e.sponsor)}</span>` : ""}
+        <span class="evwhere">${e.countries.length ? e.countries.filter(c => C[c]).map(nationF).join(" ") : "모든 지역"}</span></div>
+      ${e.sample || evTime(e.from, false) > Date.now() ? `<p class="evpv">${e.sample ? "샘플" : ""}${e.sample && evTime(e.from, false) > Date.now() ? " · " : ""}${evTime(e.from, false) > Date.now() ? `시작 전 · ${evDate(e.from)}부터` : ""} — 미리보기에만 보여요</p>` : ""}
+      <h3>${esc(e.title)}</h3>${e.text ? `<p>${esc(e.text)}</p>` : ""}
+      ${e.brands.length ? `<p class="evbr">${e.brands.map(b => esc(bk(b))).join(" · ")}</p>` : ""}
+      <p class="evwhen">${e.from ? evDate(e.from) + " ~ " : "~ "}${evDate(e.until)}${dLeft(e) ? ` <b>${dLeft(e)}</b>` : ""}</p>
+      ${links.length ? `<p class="evlinks">${links.map(l => `<a class="link" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer${e.sponsor ? " sponsored" : ""}">${esc(l.label)} ↗</a>`).join(" · ")}</p>` : ""}
+    </article>`;
+  };
+  function eventsPage(q) {
+    const all = liveEvents(), cat = q.get("cat") || "", cc = q.get("cc") || "";
+    const inCat = e => !cat || e.category === cat, inCc = e => !cc || !e.countries.length || e.countries.includes(cc);
+    const shown = all.filter(e => inCat(e) && inCc(e));
+    const href = (k, v) => { const p = new URLSearchParams(q); v ? p.set(k, v) : p.delete(k); const s = p.toString(); return "#/events" + (s ? "?" + s : ""); };
+    const cats = EV.categories.filter(c => all.some(e => e.category === c.id && inCc(e)));
+    const ccs = [...new Set(all.filter(inCat).flatMap(e => e.countries))].filter(c => C[c]).sort((a, b) => TRIP_CODES.indexOf(a) - TRIP_CODES.indexOf(b));
+    const chip = (on, h, label, n) => `<a class="tchip ${on ? "on" : ""}" href="${h}">${label}${n !== undefined ? ` <small>${n}</small>` : ""}</a>`;
+    return `<div class="pagehead center"><p class="eyebrow">Events</p><h1>이벤트</h1><p class="lead">해외 매장 프로모션·세일·면세 행사 — 기간 안에만 보여요</p></div>
+      ${evPreview() ? `<p class="evpvbar">미리보기 — 샘플과 시작 전 이벤트도 보여요. 일반 화면·앱에는 보이지 않아요. <a class="link" href="#/events">미리보기 끄기</a></p>` : ""}
+      <div class="evfilter"><div class="chiprow"><span class="evlab">종류</span>${chip(!cat, href("cat", ""), "전체", all.filter(inCc).length)}${cats.map(c => chip(cat === c.id, href("cat", c.id), esc(c.name), all.filter(e => e.category === c.id && inCc(e)).length)).join("")}</div>
+        <div class="chiprow"><span class="evlab">지역</span>${chip(!cc, href("cc", ""), "전체")}${ccs.map(c => chip(cc === c, href("cc", c), nationF(c))).join("")}</div></div>
+      ${shown.length ? `<div class="evlist">${shown.map(evCard).join("")}</div>` : `<p class="empty">${all.length ? "이 조건에 맞는 이벤트가 없어요." : "지금 진행 중인 이벤트가 없어요."}</p>`}
+      <p class="note center evnote">이벤트 조건은 매장·브랜드마다 달라요. 사러 가기 전에 공식 안내를 꼭 확인하세요.${all.some(e => e.sponsor) ? " '광고' 표시는 광고주가 낸 안내예요." : ""}</p>`;
+  }
   function render() {
     const raw = location.hash.slice(1) || "/", [path, qstr] = raw.split("?"), q = new URLSearchParams(qstr || "");
     const seg = path.split("/").filter(Boolean).map(decodeURIComponent);
@@ -1648,6 +1696,7 @@
     else if (r === "settings") html = seg[1] === "status" ? status() : settings(q);
     else if (r === "picks") html = picks();
     else if (r === "changes") html = changesPage(q);
+    else if (r === "events") html = eventsPage(q);
     else html = notFound();
     // 필터 판이 열린 채 조건을 바꾸면 판이 다시 그려진다 — 보던 위치를 지켜서 아래쪽 필터를 이어서 고를 수 있게
     AT = null;
