@@ -1786,7 +1786,17 @@
     } else location.hash = "#/";
     return true;
   }
+  // 뒤로 가기 때 보던 자리 (2026-10-30 사용자: 제품 화면에서 돌아오면 목록 맨 위로 가서 다시 스크롤해야 함)
+  // 화면을 떠날 때 스크롤·'더 보기'로 늘린 개수를 주소별로 적어 두고, 뒤로(기록에 이미 있는 화면으로) 돌아오면 되살림
+  const memo = new Map();
+  if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+  function saveSpot() {
+    if (!lastRoute) return;
+    memo.delete(lastRoute); memo.set(lastRoute, { y: window.scrollY, showN, countryShow, brandShow, homeMore });
+    if (memo.size > 60) memo.delete(memo.keys().next().value);
+  }
   function render() {
+    const back = !!(history.state && typeof history.state.d === "number");  // 새로 연 화면은 아직 d 가 없음 → 기록에 있는 화면으로 돌아온 것
     trackNav();
     const raw = location.hash.slice(1) || "/", [path, qstr] = raw.split("?"), q = new URLSearchParams(qstr || "");
     const seg = path.split("/").filter(Boolean).map(decodeURIComponent);
@@ -1794,6 +1804,8 @@
     if (inSet && !wasSet && lastRoute) { backTo = lastRoute; backY = window.scrollY; }
     if (!inSet && wasSet) { if (raw === backTo) restoreY = backY; backTo = ""; }
     if (raw !== lastRoute) { openRow.clear(); if (lastRoute.split("?")[0] !== path) { countryShow = 0; brandShow = 24; panelOpen = false; quickOpen = ""; allNations = false; barsAll = false; } }
+    const spot = back && raw !== lastRoute && memo.get(raw);
+    if (spot) { showN = spot.showN; countryShow = spot.countryShow; brandShow = spot.brandShow; homeMore = spot.homeMore; restoreY = spot.y; }
     fixbar.hidden = true; panel.hidden = true;
     AT = null;  // 기준 나라는 그 화면(브랜드 ?at=, 여행지+브랜드)에서만
     let html, r = seg[0] || "home";
@@ -2014,7 +2026,7 @@
   const Cap = window.Capacitor;
   const CapApp = Cap && Cap.isNativePlatform && Cap.isNativePlatform() && ((Cap.Plugins && Cap.Plugins.App) || (Cap.registerPlugin && Cap.registerPlugin("App")));
   if (CapApp) CapApp.addListener("backButton", () => { if (!goBack()) CapApp.exitApp(); });
-  window.addEventListener("hashchange", () => { if (!keepConv) lastConverted = []; keepConv = false; acOpen = false; showN = 0; document.body.classList.remove("noscroll"); render(); });
+  window.addEventListener("hashchange", () => { saveSpot(); if (!keepConv) lastConverted = []; keepConv = false; acOpen = false; showN = 0; document.body.classList.remove("noscroll"); render(); });
   let wasM = isM();
   window.addEventListener("resize", () => { if (isM() !== wasM) { wasM = isM(); render(); } });
   // 새 데이터 알림 띠 (4.2절): 마지막으로 본 버전과 다르면 한 번 알려 줌
