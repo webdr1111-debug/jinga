@@ -10,7 +10,7 @@
     const down10 = n => Math.floor(n / 10 + 1e-9) * 10;  // 엑셀 ROUNDDOWN처럼 부동소수 오차(…9.9999)는 올려 봄
     const jpExcluded = b => (rules.jpExcl[b] || [true])[0];  // 표에 없는 브랜드는 할인 제외로 본다(엑셀과 같음)
     const feeRate = set => set.pay === "travel" ? 0 : set.pay === "custom" ? set.fee / 100 : 0.012;
-    // 기간 쿠폰 (sheets/쿠폰_설정.json → rules.coupons, 2026-10-28): 기간 안(기기 날짜)이고 켰고 입점 브랜드일 때만
+    // 기간 쿠폰 (sheets/config/coupons.json → rules.coupons, 2026-10-28): 기간 안(기기 날짜)이고 켰고 입점 브랜드일 때만
     const pad = n => String(n).padStart(2, "0");
     const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
     const cpActive = (cp, day) => (!cp.from || cp.from <= day) && day <= cp.until;

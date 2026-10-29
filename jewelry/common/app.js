@@ -17,8 +17,8 @@
   const D = { generated: RU.generated, fx: RU.fx, countries: RU.countries, [kind]: LuxData.decodeSearch(LUX.search), changes: LUX.history || [],
     syn: RU.syn, presets: RU.presets, brandKo: RU.brandKo, subtypes: RU.subtypes, metals: RU.metals, stones: RU.stones,
     jpExcl: RU.jpExcl, stores: RU.stores, thTiers: RU.thTiers, leathers: RU.leathers || [], colors: RU.colors || [] };
-  // 이벤트·프로모션·광고 (sheets/이벤트_설정.json → data/events.json, 2026-10-29): 기간 안(휴대폰 시각)에만 보임
-  const EV = LUX.events && Array.isArray(LUX.events.events) ? LUX.events : { categories: [], events: [] };
+  // 이벤트·프로모션·광고 (sheets/config/events.json → data/events.json, 2026-10-29): 기간 안(휴대폰 시각)에만 보임
+  const EV = LUX.events && Array.isArray(LUX.events.events) ? { pages: [], ...LUX.events } : { categories: [], events: [], pages: [] };
   // 패션: 데이터 칸을 화면 이름으로 (소재 칸 = 색상 원문, 금속 칸 = 가죽 그룹, 스톤 칸 = 색상 그룹), 모델 번호 없으면 제품번호
   if (kind === "bag") for (const p of D.bag) { p.col = p.m; p.lt = p.mt; p.colg = p.g; p.md = p.md || p.s; }
   // 색상 표시: 원문이 한글이면 그대로, 아니면 한글 색 묶음 · 원문 ('블랙 · Black'), 원문이 번호뿐이면(생로랑 '1000') 한글만 (2026-10-27)
@@ -110,10 +110,10 @@
   const setSummary = () => [payLabel(), SET.refund ? "세금 환급 받음" : "환급 없음", SET.customs ? (SET.self ? "자진신고 관세 포함" : "관세 포함") : "관세 제외"]
     .concat(SET.krDisc ? [`한국 할인 ${SET.krDisc}%`] : [], SET.jpDept ? [`일본 백화점 ${SET.jpRate}%`] : [], cpOn().map(cp => `${cp.short} 쿠폰 ${cp.rate}%`), [fxLabel()]).join(" · ");
   const jpExcluded = b => CALC.jpExcluded(b);
-  // 기간 쿠폰 (sheets/쿠폰_설정.json, 2026-10-28): 기간이 지나면 켜 둔 것도 계산에서 빠지고 저장된 설정에서도 지운다
+  // 기간 쿠폰 (sheets/config/coupons.json, 2026-10-28): 기간이 지나면 켜 둔 것도 계산에서 빠지고 저장된 설정에서도 지운다
   const cpLive = cp => CALC.cpActive(cp, CALC.today());
   const cpOn = () => CALC.coupons.filter(cp => SET.cp[cp.id] && cpLive(cp));
-  // 쿠폰·매장 안내의 공식 링크 (쿠폰_설정.json links): https 만, 새 창
+  // 쿠폰·매장 안내의 공식 링크 (config/coupons.json links): https 만, 새 창
   const offLinks = ls => (ls || []).filter(l => safeUrl(l.url)).map(l => `<a class="link" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.label)} ↗</a>`).join(" · ");
   const NOTICES = RU.notices || [];
 
@@ -259,7 +259,7 @@
   // 사진을 못 불러오면 브랜드 칸으로 (인라인 onerror 대신 위임)
   // 브랜드 로고 (브랜드를 고르는 곳에만, 웹앱계획.md 6장). 위키미디어 공용의 로고 파일을 인터넷에서 읽고, 못 읽으면 지금처럼 글자로
   const WM = "https://upload.wikimedia.org/wikipedia/commons/";
-  const LOGOS = RU.logos || {};  // 브랜드 로고(위키미디어 공용 경로): sheets/브랜드_설정.csv '로고' 칸을 내보낸 것 — 새 브랜드도 화면 코드 수정 없이 (2026-10-27)
+  const LOGOS = RU.logos || {};  // 브랜드 로고(위키미디어 공용 경로): sheets/config/brands.csv '로고' 칸을 내보낸 것 — 새 브랜드도 화면 코드 수정 없이 (2026-10-27)
   const brandMark = (b, cls) => `<span class="bmark ${cls || ""}">${LOGOS[b] ? `<img src="${WM + LOGOS[b]}" alt="${esc(b)}" referrerpolicy="no-referrer" data-logo="1">` : ""}<span class="btext">${esc(b.toUpperCase())}</span></span>`;
   document.addEventListener("error", e => {
     const img = e.target;
@@ -374,7 +374,7 @@
     if (d.showModal) d.showModal(); else if (confirm("일본 백화점 할인 대상 브랜드는 백화점·지점마다 달라요. 사러 가기 전에 꼭 확인하세요. 켤까요?")) onOk();
   }
 
-  // 기간 쿠폰을 켤 때 경고 창 (2026-10-28): 문구·기간·입점 브랜드는 쿠폰_설정.json 에서. '켜기'를 눌러야 켜짐
+  // 기간 쿠폰을 켤 때 경고 창 (2026-10-28): 문구·기간·입점 브랜드는 config/coupons.json 에서. '켜기'를 눌러야 켜짐
   const ymd = s => s ? s.replace(/^(\d{4})-(\d\d)-(\d\d)$/, (_, y, m, d) => `${y}년 ${+m}월 ${+d}일`) : "";
   function cpWarn(cp, onOk) {
     let d = document.getElementById("cpwarn");
@@ -489,22 +489,31 @@
   // 대표 제품 넘김 (2026-10-28, 모바일에서 2px 점을 누르기 힘들던 것): 손가락으로 밀어 넘기는 가로 칸(scroll-snap) + 큰 이전·다음 단추 + '3 / 10'.
   // 사용자가 만지거나 단추를 누르면 자동 넘김을 20초 멈춤
   let heroHold = 0;
+  // 이벤트 묶음 페이지 배너 (sheets/config/events.json pages[].banner): 제품 10장 뒤 11·12번째… 노출 기간 안에만 (2026-10-29)
+  let heroBanners = [];
+  const heroCount = () => heroList.length + heroBanners.length;
+  const bannerHTML = pg => `<a class="feat fban" href="#/events/${esc(pg.id)}"><div class="fbin">
+      ${pg.banner.eyebrow ? `<p class="eyebrow">${esc(pg.banner.eyebrow)}</p>` : ""}<h2>${esc(pg.banner.title)}</h2>
+      ${pg.banner.text ? `<p class="fbt">${esc(pg.banner.text)}</p>` : ""}<span class="fbcta">${esc(pg.banner.cta || "자세히 보기")} ›</span>
+      <p class="fbwhen">${evDate(pg.until)}까지</p></div></a>`;
   function heroHTML() {
-    const n = heroList.length;
+    heroBanners = livePages().filter(pg => pg.banner).slice(0, 3);
+    const n = heroCount();
     return `<div class="htrack" id="hTrack" aria-roledescription="carousel" aria-label="이번 주 싸게 사는 제품">${heroList.map((_, j) =>
-      `<div class="hslide" role="group" aria-roledescription="slide" aria-label="${j + 1} / ${n}">${featHTML(j)}</div>`).join("")}</div>
+      `<div class="hslide" role="group" aria-roledescription="slide" aria-label="${j + 1} / ${n}">${featHTML(j)}</div>`).join("")}${heroBanners.map((pg, j) =>
+      `<div class="hslide" role="group" aria-roledescription="slide" aria-label="${heroList.length + j + 1} / ${n} 이벤트">${bannerHTML(pg)}</div>`).join("")}</div>
       ${n > 1 ? `<div class="hctl"><button type="button" class="hbtn" data-hnav="-1" aria-label="이전 제품"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
         <span class="hcount" aria-live="polite"><b id="hNow">${heroIdx % n + 1}</b> / ${n}</span>
         <span class="hbar"><i id="hBar" style="width:${(heroIdx % n + 1) / n * 100}%"></i></span>
         <button type="button" class="hbtn" data-hnav="1" aria-label="다음 제품"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div>` : ""}`;
   }
   function heroMark() {
-    const n = Math.max(1, heroList.length), a = document.getElementById("hNow"), b = document.getElementById("hBar");
+    const n = Math.max(1, heroCount()), a = document.getElementById("hNow"), b = document.getElementById("hBar");
     if (a) a.textContent = heroIdx % n + 1;
     if (b) b.style.width = (heroIdx % n + 1) / n * 100 + "%";
   }
   function heroGo(i, smooth) {
-    const tr = document.getElementById("hTrack"), n = heroList.length;
+    const tr = document.getElementById("hTrack"), n = heroCount();
     if (!tr || !n) return;
     heroIdx = (i + n) % n;
     tr.scrollTo({ left: heroIdx * tr.clientWidth, behavior: smooth && !reduced() ? "smooth" : "auto" });
@@ -834,7 +843,7 @@
   // 대표 제품 자동 넘김 (5초, 움직임 줄이기·마우스 올림·사용자가 만진 뒤 20초는 멈춤) — 가로 칸만 밀어서 입력 중인 검색어가 지워지지 않게
   setInterval(() => {
     const el = document.getElementById("heroFeat");
-    if (!el || heroList.length < 2 || document.hidden || reduced() || el.matches(":hover") || Date.now() < heroHold) return;
+    if (!el || heroCount() < 2 || document.hidden || reduced() || el.matches(":hover") || Date.now() < heroHold) return;
     heroInit();
     heroGo(heroIdx + 1, true);
   }, 5000);
@@ -1658,10 +1667,23 @@
       ${e.sample || evTime(e.from, false) > Date.now() ? `<p class="evpv">${e.sample ? "샘플" : ""}${e.sample && evTime(e.from, false) > Date.now() ? " · " : ""}${evTime(e.from, false) > Date.now() ? `시작 전 · ${evDate(e.from)}부터` : ""} — 미리보기에만 보여요</p>` : ""}
       <h3>${esc(e.title)}</h3>${e.text ? `<p>${esc(e.text)}</p>` : ""}
       ${e.brands.length ? `<p class="evbr">${e.brands.map(b => esc(bk(b))).join(" · ")}</p>` : ""}
-      <p class="evwhen">${e.from ? evDate(e.from) + " ~ " : "~ "}${evDate(e.until)}${dLeft(e) ? ` <b>${dLeft(e)}</b>` : ""}</p>
+      <p class="evwhen">${e.period ? `행사 ${esc(e.period)}` : `${e.from ? evDate(e.from) + " ~ " : "~ "}${evDate(e.until)}`}${!e.period && dLeft(e) ? ` <b>${dLeft(e)}</b>` : ""}</p>
       ${links.length ? `<p class="evlinks">${links.map(l => `<a class="link" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer${e.sponsor ? " sponsored" : ""}">${esc(l.label)} ↗</a>`).join(" · ")}</p>` : ""}
     </article>`;
   };
+  // 묶음 페이지 (2026-10-29): 노출 기간 안의 것만. 미리보기(?preview=1)는 샘플·시작 전도
+  const livePages = () => { const pv = evPreview(), now = Date.now();
+    return (EV.pages || []).filter(pg => pv ? now <= evTime(pg.until, true) : !pg.sample && evTime(pg.from, false) <= now && now <= evTime(pg.until, true)); };
+  function eventPage(id) {
+    const pg = (EV.pages || []).find(x => x.id === id);
+    if (!pg || !livePages().includes(pg)) return `<div class="pagehead center"><h1>이벤트가 끝났어요</h1><p class="lead"><a class="link" href="#/events">진행 중인 이벤트 보기</a></p></div>`;
+    const evs = pg.events.map(i => EV.events.find(e => e.id === i)).filter(Boolean);
+    return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/events">이벤트</a> › ${esc(pg.title)}</nav>
+      <div class="pagehead center evphead">${pg.banner && pg.banner.eyebrow ? `<p class="eyebrow">${esc(pg.banner.eyebrow)}</p>` : ""}<h1>${esc(pg.title)}</h1>${pg.sub ? `<p class="lead">${esc(pg.sub)}</p>` : ""}
+        <p class="evwhen">이 페이지는 ${evDate(pg.until)}까지 보여요</p></div>
+      <div class="evlist">${evs.map(evCard).join("")}</div>
+      <p class="note center evnote">행사·카드 조건은 바뀔 수 있어요. 사러 가기 전에 공식 안내와 매장에서 꼭 확인하세요. 럭스캐너는 각 매장·카드사와 관계없는 정보 모음이에요.</p>`;
+  }
   function eventsPage(q) {
     const all = liveEvents(), cat = q.get("cat") || "", cc = q.get("cc") || "";
     const inCat = e => !cat || e.category === cat, inCc = e => !cc || !e.countries.length || e.countries.includes(cc);
@@ -1672,6 +1694,7 @@
     const chip = (on, h, label, n) => `<a class="tchip ${on ? "on" : ""}" href="${h}">${label}${n !== undefined ? ` <small>${n}</small>` : ""}</a>`;
     return `<div class="pagehead center"><p class="eyebrow">Events</p><h1>이벤트</h1><p class="lead">해외 매장 프로모션·세일·면세 행사 — 기간 안에만 보여요</p></div>
       ${evPreview() ? `<p class="evpvbar">미리보기 — 샘플과 시작 전 이벤트도 보여요. 일반 화면·앱에는 보이지 않아요. <a class="link" href="#/events">미리보기 끄기</a></p>` : ""}
+      ${livePages().length ? `<div class="evpages">${livePages().map(pg => `<a class="evpage" href="#/events/${esc(pg.id)}${evPreview() ? "?preview=1" : ""}"><b>${esc(pg.title)}</b><small>${esc(pg.sub)}</small><span class="evgo">›</span></a>`).join("")}</div>` : ""}
       <div class="evfilter"><div class="chiprow"><span class="evlab">종류</span>${chip(!cat, href("cat", ""), "전체", all.filter(inCc).length)}${cats.map(c => chip(cat === c.id, href("cat", c.id), esc(c.name), all.filter(e => e.category === c.id && inCc(e)).length)).join("")}</div>
         <div class="chiprow"><span class="evlab">지역</span>${chip(!cc, href("cc", ""), "전체")}${ccs.map(c => chip(cc === c, href("cc", c), nationF(c))).join("")}</div></div>
       ${shown.length ? `<div class="evlist">${shown.map(evCard).join("")}</div>` : `<p class="empty">${all.length ? "이 조건에 맞는 이벤트가 없어요." : "지금 진행 중인 이벤트가 없어요."}</p>`}
@@ -1696,7 +1719,7 @@
     else if (r === "settings") html = seg[1] === "status" ? status() : settings(q);
     else if (r === "picks") html = picks();
     else if (r === "changes") html = changesPage(q);
-    else if (r === "events") html = eventsPage(q);
+    else if (r === "events") html = seg[1] ? eventPage(seg[1]) : eventsPage(q);
     else html = notFound();
     // 필터 판이 열린 채 조건을 바꾸면 판이 다시 그려진다 — 보던 위치를 지켜서 아래쪽 필터를 이어서 고를 수 있게
     AT = null;
