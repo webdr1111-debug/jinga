@@ -40,7 +40,7 @@ svg { width: 20px; height: 20px; }
 /* 맨 위 안내 줄 + 머리글 */
 .topnote .short { display: none; }
 .topnote { background: var(--dark); color: var(--dark-sub); font-size: 11.5px; letter-spacing: .04em; text-align: center; padding: 8px 16px; }
-.top { position: sticky; top: 0; z-index: 30; background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+.top { position: sticky; top: var(--sat, 0px); z-index: 30; background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
 .top .wrap { max-width: 1360px; margin: 0 auto; height: 76px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 0 40px; }
 .menu { display: flex; gap: 28px; }
 .menu a { font-size: 13px; letter-spacing: .08em; color: var(--sub); padding: 6px 0; border-bottom: 1px solid transparent; }
@@ -658,7 +658,7 @@ body.hasfix .totop { bottom: calc(144px + env(safe-area-inset-bottom)); }
 @media (min-width: 1024px) { .totop { bottom: 32px; } }
 @media (max-width: 1023px) {
   .top { transition: transform .25s ease; }
-  body.hidehead .top { transform: translateY(-100%); }
+  body.hidehead .top { transform: translateY(calc(-100% - var(--sat, 0px))); }
   .sec { margin-top: 40px; }
   .sh { margin-bottom: 16px; }
   .sh .eyebrow, .sh .desc { display: none; }
@@ -916,8 +916,8 @@ body.hasfix .totop { bottom: calc(144px + env(safe-area-inset-bottom)); }
   .fxwhere { font-size: 12.5px; color: var(--sub); }
   .fxinfo .save { font-size: 12.5px; color: var(--save); }
   .fixbar .btn { padding: 0 22px; flex: none; }
-  .fbar.stick { position: sticky; top: 60px; z-index: 22; background: var(--bg); margin: 0 -16px 16px; padding: 2px 16px 10px; transition: top .2s; box-shadow: 0 8px 12px -12px rgb(0 0 0 / .25); }
-  body.hidehead .fbar.stick { top: 0; }
+  .fbar.stick { position: sticky; top: calc(60px + var(--sat, 0px)); z-index: 22; background: var(--bg); margin: 0 -16px 16px; padding: 2px 16px 10px; transition: top .2s; box-shadow: 0 8px 12px -12px rgb(0 0 0 / .25); }
+  body.hidehead .fbar.stick { top: var(--sat, 0px); }
   .fbar.stick .qchips { margin-top: 10px; gap: 6px; }
   .fbar.stick .qchip { min-height: 36px; padding-top: 0; padding-bottom: 0; }
   .qchips { flex-wrap: wrap; overflow: visible; margin-right: 0; padding-right: 0; }
@@ -996,7 +996,7 @@ body.canback .top .wrap { grid-template-columns: auto 1fr auto 1fr; }
   .hero.hm .htop .hchk span { color: #8A5A33; }
   .hero.hm .htop .hchk b { color: #5E5951; }
   .hero.hm .hrest { padding: 20px 20px 28px; }
-  .hero.hm .feat .ph { aspect-ratio: auto; height: calc(var(--hth, 92px) + clamp(220px, 100vh - 440px, 440px)); height: calc(var(--hth, 92px) + clamp(220px, 100svh - 440px, 440px));
+  .hero.hm .feat .ph { aspect-ratio: auto; height: calc(var(--hth, 92px) + clamp(220px, 100vh - 440px, 440px)); height: calc(var(--hth, 92px) + var(--php, clamp(220px, 100svh - 440px, 440px)));
     padding-top: calc(var(--hth, 92px) + 28px); box-sizing: border-box; }  /* 사진 높이 = 화면 높이에 맞춤 — 보통 휴대폰(높이 약 740)에서도 카드 전체가 한 화면에 */
   .hero.hm .feat .ph img { width: 92%; height: 100%; }
   .hero.hm .fpct { font-size: 38px; left: 14px; top: calc(var(--hth, 92px) + 6px); bottom: auto; padding: 8px 12px 7px; border-radius: 10px; background: rgb(255 255 255 / .9); box-shadow: 0 1px 4px rgb(0 0 0 / .12); }
@@ -1033,3 +1033,28 @@ body.canback .top .wrap { grid-template-columns: auto 1fr auto 1fr; }
   .trippanel .tripgrid .tchip .flag { width: 16px; height: 16px; }
   .trippanel .plabel { margin: 12px 0 6px; }
 }
+
+/* 휴대폰 첫 화면 넘김 (2026-10-29 사용자: 상품 설명 위아래 빈 공간): 이벤트 배너 장이 상품 장보다 길어(최소 520px + 큰 글자)
+   모든 장이 그 높이로 늘어나던 것 → 배너는 높이에 끼지 않고 상품 장 높이를 채움, 상품 장은 늘어나도 위로 붙임 */
+@media (max-width: 1023px) {
+  .hero.hm .hslide { position: relative; }
+  .hero.hm .hslide .fban { position: absolute; inset: 0; }
+  .hero.hm .fban .fbin, .hero.hm .fban.hasimg .fbin { min-height: 0; height: 100%; padding: 22px 22px 20px; gap: 10px; overflow: hidden; }
+  .hero.hm .feat { align-content: start; }
+}
+
+/* 휴대폰 '브랜드로 보기' 칸 (2026-10-30 사용자: 너무 큼): 3칸, 로고·글자 작게, 설명은 한 줄씩 */
+@media (max-width: 1023px) {
+  .brands { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tile { padding: 12px 6px 10px; gap: 1px; font-size: 11px; line-height: 1.35; }
+  .tile b { font-size: 12px; letter-spacing: .1em; margin-bottom: 4px; max-width: 100%; }
+  .tile .bmark.lg img { height: 16px; max-width: 100%; }
+  .tile span { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile .tbest .flag { width: 13px; height: 13px; vertical-align: -2px; margin: 0 2px 0 1px; }
+}
+
+/* 앱 상태 표시줄 (2026-10-30 사용자: 머리글이 시계·배터리 줄과 겹침). 안드로이드 앱은 화면 맨 위까지 그림 →
+   Capacitor 가 알려 주는 높이(--safe-area-inset-top, 웹은 env 또는 0)만큼 아래로 내리고, 그 자리는 바탕색으로 덮어 아이콘이 보이게 */
+:root { --sat: var(--safe-area-inset-top, env(safe-area-inset-top, 0px)); }
+body { padding-top: var(--sat, 0px); }
+body::before { content: ""; position: fixed; left: 0; right: 0; top: 0; height: var(--sat, 0px); background: var(--bg); z-index: 45; pointer-events: none; }

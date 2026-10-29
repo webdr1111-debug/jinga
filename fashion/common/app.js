@@ -567,12 +567,20 @@
         } };
       const set = () => { if (!top.isConnected) return; const h = top.querySelector("h1"), c = top.querySelector(".hchk"); fit(h); fit(c);
         tops.slice(1).forEach(x => { x.querySelector("h1").style.fontSize = h.style.fontSize; x.querySelector(".hchk").style.fontSize = c.style.fontSize; });  // 장마다 같은 글이라 첫 장 값을 그대로
-        hm.style.setProperty("--hth", Math.ceil(top.offsetHeight) + "px"); };
+        hm.style.setProperty("--hth", Math.ceil(top.offsetHeight) + "px");
+        // 사진 높이 = 화면에 남은 높이 (10-30 사용자: 상품 이름·넘김 단추까지 한 화면에) — 상태 표시줄·안내 띠·글자 크기를 실제로 재서
+        const f = hm.querySelector(".hslide .feat"), ctl = hm.querySelector(".hctl"), bar = document.getElementById("bottombar");
+        if (f && ctl) {
+          const barH = bar && getComputedStyle(bar).display !== "none" ? bar.offsetHeight : 0;
+          const avail = innerHeight - (hm.getBoundingClientRect().top + scrollY) - top.offsetHeight - f.querySelector(".ftx").offsetHeight - ctl.offsetHeight - barH - 8;
+          hm.style.setProperty("--php", Math.round(Math.max(170, Math.min(460, avail))) + "px");
+        } };
       set();
       if (window.ResizeObserver) new ResizeObserver(set).observe(top);
       // 글꼴(제목 명조)이 늦게 내려오면 폭이 넓어지는데 상자 크기는 그대로라 위 관찰로는 못 잡음 → 글꼴을 다 받은 뒤·잠시 뒤에 다시 맞춤 (10-29 휴대폰에서 제목이 잘리던 것)
       if (document.fonts) { document.fonts.ready.then(set); document.fonts.addEventListener && document.fonts.addEventListener("loadingdone", set); }
       [300, 1500].forEach(ms => setTimeout(set, ms));
+      addEventListener("resize", () => setTimeout(set, 100));
     }
     evImgFill();  // 배너 그림
     heroGo(heroIdx, false);  // 다시 그려도 보던 장에 머묾
@@ -1208,7 +1216,7 @@
     return Object.entries(by).sort((a, b) => b[1].length - a[1].length).map(([b, its]) => {
       const cnt = {}; for (const it of its) { const R = itemRep(it); if (R.best) cnt[R.best.cc] = (cnt[R.best.cc] || 0) + 1; }
       const best = Object.entries(cnt).sort((a, c) => c[1] - a[1])[0];
-      return `<a class="tile" href="#/brand/${encodeURIComponent(b)}"><b>${brandMark(b, "lg")}</b><span>${esc(bk(b))} · ${kind === "bag" ? "모델" : "제품"} ${its.length}개${SET.hide.includes(b) ? " · 숨김" : ""}</span>${best ? `<span>가장 많이 싼 곳 ${nation(best[0])}</span>` : ""}</a>`;
+      return `<a class="tile" href="#/brand/${encodeURIComponent(b)}"><b>${brandMark(b, "lg")}</b><span>${esc(bk(b))} · ${kind === "bag" ? "모델" : "제품"} ${its.length}개${SET.hide.includes(b) ? " · 숨김" : ""}</span>${best ? `<span class="tbest">주로 싼 곳 ${nationF(best[0])}</span>` : ""}</a>`;
     }).join("");
   }
 
