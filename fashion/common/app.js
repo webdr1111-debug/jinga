@@ -79,6 +79,17 @@
   const isM = () => matchMedia("(max-width: 1023px)").matches;
   const bk = b => (RU.brandName || {})[b] || b;  // 브랜드 한글 이름: 빌더 BR_NAME_KO(엑셀과 같은 표)를 내보낸 것 — 새 브랜드는 빌더 표 한 곳만 고침 (2026-10-27)
   const link = p => "#/p/" + encodeURIComponent(p.b) + "/" + encodeURIComponent(p.s);
+  // 공유 링크 (2026-10-29, 임시): web/pack.py 가 만든 제품 공유 페이지(카톡 미리보기 사진·이름) — 파일 이름 규칙은 pack.py share_slug 와 같음
+  const SHARE_BASE = "https://webdr1111-debug.github.io/jinga/" + (kind === "bag" ? "fashion" : "jewelry") + "/p/";
+  const slugPart = t => Array.from(t).map(c => /^[A-Za-z0-9-]$/.test(c) ? c : Array.from(new TextEncoder().encode(c), x => "_" + x.toString(16).toUpperCase().padStart(2, "0")).join("")).join("");
+  const shareUrl = p => SHARE_BASE + slugPart(p.b) + "--" + slugPart(p.s) + ".html";
+  function copyLink(btn) {
+    const url = btn.dataset.copylink, done = ok => { const o = btn.textContent; btn.textContent = ok ? "✓ 복사했어요" : "복사 못 했어요"; setTimeout(() => { btn.textContent = o; }, 1800); };
+    const old = () => { const ta = document.createElement("textarea"); ta.value = url; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand("copy"); } catch (e) { ok = false; } ta.remove(); return ok; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(() => done(true), () => done(old()));
+    else done(old());
+  }
 
   // ── 설정 (웹앱계획.md 5.15절). 앱마다 따로 저장 ──
   const DEF = { pay: "card", fee: 1.2, refund: true, customs: true, self: true, krDisc: 0, jpDept: false, jpRate: 5, jpFeeOn: true, jpFee: 1.55, cp: {},
@@ -1411,7 +1422,7 @@
             ? `<p class="stocknote sm" role="note"><b>⚠ ${esc(C[R.best.cc].n)} 공홈은 지금 온라인 품절·미판매예요</b> 매장에 재고가 있는지 꼭 확인하세요.</p>`
             : stockNote(true)}
           ${varHtml}
-          <div class="acts"><button type="button" class="btn" data-pick="${esc(p.b + "|" + p.s)}">${on ? "♥ 담음" : "♡ 담기"}</button>${kurl ? `<a class="btn ghost" href="${esc(kurl)}" target="_blank" rel="noopener noreferrer">공홈에서 보기 ↗</a>` : ""}</div>
+          <div class="acts"><button type="button" class="btn" data-pick="${esc(p.b + "|" + p.s)}">${on ? "♥ 담음" : "♡ 담기"}</button>${kurl ? `<a class="btn ghost" href="${esc(kurl)}" target="_blank" rel="noopener noreferrer">공홈에서 보기 ↗</a>` : ""}<button type="button" class="btn ghost" data-copylink="${esc(shareUrl(p))}">링크 복사</button></div>
           ${stockNote()}
         </div></section>
       <section class="sec"><div class="sh"><h3>나라별 ${JINGA}</h3><span class="note">내 여행지 먼저 · 행을 누르면 계산 과정</span><a class="link" href="#/settings">${esc(setSummary())} ✎</a></div>${table}</section>
@@ -1831,6 +1842,7 @@
       S.picks = S.picks.includes(k) ? S.picks.filter(x => x !== k) : [...S.picks, k].slice(0, 50);
       store.set(pickKey(), S.picks); render(); return;
     }
+    if (t.dataset.copylink) { copyLink(t); return; }
     if (t.dataset.sel) { S.sel[t.dataset.sel] = t.dataset.sku; render(); return; }
     if (t.dataset.hnav) { heroHold = Date.now() + 20000; heroGo(heroIdx + +t.dataset.hnav, true); return; }
     if (t.dataset.budget) { budgetIdx = +t.dataset.budget; render(); return; }
