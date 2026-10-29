@@ -355,7 +355,7 @@
     document.getElementById("appIcon").href = "../common/" + (kind === "bag" ? "icon-fashion.svg" : "icon-jewelry.svg");
     document.title = "럭스캐너 " + appName;
     const chip = document.getElementById("tripChip");
-    chip.innerHTML = S.trip.length ? S.trip.map(c => esc(C[c].n)).join(" · ") : "여행지 고르기";
+    chip.innerHTML = S.trip.length ? S.trip.map(c => esc(C[c].n)).join(" · ") : "내 여행지";  // 머리글 단추 (10-30 사용자: "여행지 고르기" → "내 여행지")
     chip.classList.toggle("set", S.trip.length > 0);
     const n = S.picks.length;
     document.getElementById("pickCnt").textContent = n;
@@ -501,7 +501,7 @@
     const p = o.p, R = o.R;
     // 사진을 크게 + 절약률을 사진 위 큰 숫자로 (첫인상, 2026-10-26). '30% · 한국보다 싸요' + 사진 위 국기·나라 이름 (2026-10-29)
     const cc = R.best.cc, cheaper = R.save > 0;
-    return `<a class="feat" href="${link(p)}" data-brand="${esc(bk(p.b))}"><div class="fimg">${isM() ? `<div class="htop">${heroTopHTML(i === 0)}</div>` : ""}${photo(p, "big")}<span class="fpct">${cheaper ? Math.round(R.save * 100) + "%" : pct(R.save)}<small>${krLab(R)}보다${cheaper ? " 싸요" : ""}</small></span>
+    return `<a class="feat" href="${link(p)}" data-brand="${esc(bk(p.b))}"><div class="fimg">${isM() ? `<div class="htop">${heroTopHTML(i === 0)}</div>` : ""}${photo(p, "big")}<span class="fpct">${cheaper ? Math.round(R.save * 100) + "%" : pct(R.save)}<small>${krLab(R)}보다${cheaper ? " 이득" : ""}</small></span>
       <span class="fcc">${flag(cc)}${esc(C[cc].n)}</span></div>
       <div class="ftx"><p class="eyebrow">${esc(o.lab || (R.mode === "trip" ? "내 여행지에서 가장 싸게 사는 제품" : "이번 주 가장 싸게 사는 제품"))}</p>
         <div class="br">${esc(p.b)}</div><div class="fname">${esc(p.n)}</div>
