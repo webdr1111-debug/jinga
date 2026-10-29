@@ -362,7 +362,7 @@
     // 기본 설정과 다르게 계산 중이면 머리글 아래 띠 (5.15절)
     const sb = document.getElementById("setbar"), dn = diffs().length;
     sb.hidden = !dn;
-    if (dn) sb.innerHTML = `기본 설정과 다르게 계산 중 (${dn}개) · ${esc(setSummary())} <a class="link" href="#/settings">보기</a> <button type="button" class="link" data-reset="calc">되돌리기</button>`;
+    if (dn) sb.innerHTML = `<span class="sbt">기본 설정과 다르게 계산 중 (${dn}개) · ${esc(setSummary())}</span> <a class="link" href="#/settings">보기</a> <button type="button" class="link" data-reset="calc">되돌리기</button>`;
     const footMore = `가격 기준: 공홈 표시가 · 데이터 ${esc(D.generated)} (버전 ${esc(M.version)}) · ${esc(fxLabel())} · ${JINGA} = 공홈가 − 환급 + 결제 수수료 + <b>관세</b>(제품 1개 기준, 면세 $800 공제) — 지금 설정: ${esc(setSummary())}` +
       `<br>각 브랜드와 관계없는 개인 비교입니다 · 브랜드 이름·로고·제품 사진은 각 브랜드의 것 · <b>가격이 있어도 매장 재고·가격은 다를 수 있으니 사러 가기 전에 매장에 꼭 확인하세요</b>`;
     // 모바일 바닥글은 짧게 (5M.12절)
@@ -452,7 +452,10 @@
   const HERO_RAND = 7, HERO_MIN = 0.05;
   let heroSel = null;
   function heroPick(P, byRate, take, used) {
-    const okT = o => o.p.img && (kind !== "bag" || o.p.t === "bag");
+    const okT0 = o => o.p.img && (kind !== "bag" || o.p.t === "bag");
+    // 첫 화면 대표는 '한국보다 N% 싸요'로 보이게 한국 가격이 있는 제품 먼저 (2026-10-29) — 모자라면(내 여행지를 좁게 고른 때) 나라 평균 기준도
+    const okK = o => okT0(o) && o.R.kr && !o.R.kr.ref;
+    const okT = P.filter(okK).length >= 10 ? okK : okT0;
     const top = take(P.filter(okT).sort(byRate), 3).map((o, i) => ({ ...o, lab: `${o.R.mode === "trip" ? "내 여행지에서" : "이번 주"} 절약률 ${i + 1}위` }));
     const sig = S.trip.join(",") + "|" + top.map(o => o.it.key).join(",");
     if (!heroSel || heroSel.sig !== sig) {
@@ -487,12 +490,18 @@
     const order = [top[0], rnd[0], rnd[1], top[1], rnd[2], rnd[3], top[2], rnd[4], rnd[5], rnd[6]];
     return order.filter(Boolean);
   }
+  // 첫 화면 제목 (2026-10-29 '같은 명품, 가장 싸게 사는 나라'). 휴대폰은 상품 장마다 사진 위에 넣어 넘길 때 같이 넘어감 — 이벤트 배너 장에는 없음
+  const heroTopHTML = (first = true) => `<p class="eyebrow">The Real Price · 16 Countries</p>
+        <h1${first ? "" : ' aria-hidden="true"'}>같은 명품, <em>가장 싸게</em> 사는 나라</h1>
+        <p class="hchk"><span>✓ 환급</span><span>✓ 카드 수수료</span><span>✓ 관세</span><b>까지 넣은 진짜 가격</b></p>`;
   function featHTML(i) {
     const o = heroList[i % Math.max(1, heroList.length)];
     if (!o) return "";
     const p = o.p, R = o.R;
-    // 사진을 크게 + 절약률을 사진 위 큰 숫자로 (첫인상, 2026-10-26)
-    return `<a class="feat" href="${link(p)}" data-brand="${esc(bk(p.b))}"><div class="fimg">${photo(p, "big")}<span class="fpct">${pct(R.save)}<small>${krLab(R)}보다</small></span></div>
+    // 사진을 크게 + 절약률을 사진 위 큰 숫자로 (첫인상, 2026-10-26). '30% · 한국보다 싸요' + 사진 위 국기·나라 이름 (2026-10-29)
+    const cc = R.best.cc, cheaper = R.save > 0;
+    return `<a class="feat" href="${link(p)}" data-brand="${esc(bk(p.b))}"><div class="fimg">${isM() ? `<div class="htop">${heroTopHTML(i === 0)}</div>` : ""}${photo(p, "big")}<span class="fpct">${cheaper ? Math.round(R.save * 100) + "%" : pct(R.save)}<small>${krLab(R)}보다${cheaper ? " 싸요" : ""}</small></span>
+      <span class="fcc">${flag(cc)}${esc(C[cc].n)}</span></div>
       <div class="ftx"><p class="eyebrow">${esc(o.lab || (R.mode === "trip" ? "내 여행지에서 가장 싸게 사는 제품" : "이번 주 가장 싸게 사는 제품"))}</p>
         <div class="br">${esc(p.b)}</div><div class="fname">${esc(p.n)}</div>
         <div class="fsave">${esc(C[R.best.cc].n)}에서 사면 <b>${won(savedAmt(R))}</b> 아껴요</div>
@@ -541,6 +550,30 @@
     const tr = document.getElementById("hTrack");
     if (!tr || tr.dataset.ready) return;
     tr.dataset.ready = "1";
+    // 휴대폰: 사진 위에 겹친 문구의 실제 높이 → --hth (휴대폰 글자 크기를 키우면 문구가 두 줄이 되어 할인율과 겹치던 것, 2026-10-29)
+    const tops = [...document.querySelectorAll(".hero.hm .htop")], top = tops[0], hm = document.querySelector(".hero.hm");
+    if (top) {
+      // 제목·확인 줄은 한 줄씩(style.css nowrap) — 휴대폰 글자 크기를 키워 넘치면 그 줄만 글자를 줄여 폭에 맞춤
+      // 안드로이드 앱은 시스템 글자 크기(textZoom)를 넣은 값에 한 번 더 곱함 → 읽은 크기로 계산하면 다시 커져 계속 넘침(10-29 휴대폰).
+      // 그래서 '넣은 값 × (폭 ÷ 실제 폭)'으로만 줄임 — 곱해지는 배율과 상관없이 맞음
+      const fit = el => { if (!el) return; el.style.fontSize = "";
+        if (el.scrollWidth <= el.clientWidth + 1) return;
+        let fs = parseFloat(getComputedStyle(el).fontSize);
+        for (let i = 0; i < 6; i++) {
+          el.style.fontSize = fs + "px";
+          const w = el.clientWidth, sw = el.scrollWidth;
+          if (sw <= w + 1) break;
+          fs = Math.floor(fs * w / sw * 0.98 * 10) / 10;
+        } };
+      const set = () => { if (!top.isConnected) return; const h = top.querySelector("h1"), c = top.querySelector(".hchk"); fit(h); fit(c);
+        tops.slice(1).forEach(x => { x.querySelector("h1").style.fontSize = h.style.fontSize; x.querySelector(".hchk").style.fontSize = c.style.fontSize; });  // 장마다 같은 글이라 첫 장 값을 그대로
+        hm.style.setProperty("--hth", Math.ceil(top.offsetHeight) + "px"); };
+      set();
+      if (window.ResizeObserver) new ResizeObserver(set).observe(top);
+      // 글꼴(제목 명조)이 늦게 내려오면 폭이 넓어지는데 상자 크기는 그대로라 위 관찰로는 못 잡음 → 글꼴을 다 받은 뒤·잠시 뒤에 다시 맞춤 (10-29 휴대폰에서 제목이 잘리던 것)
+      if (document.fonts) { document.fonts.ready.then(set); document.fonts.addEventListener && document.fonts.addEventListener("loadingdone", set); }
+      [300, 1500].forEach(ms => setTimeout(set, ms));
+    }
     evImgFill();  // 배너 그림
     heroGo(heroIdx, false);  // 다시 그려도 보던 장에 머묾
     let t;
@@ -751,16 +784,14 @@
     const byRate = (a, b) => (b.R.save ?? -9) - (a.R.save ?? -9) || savedAmt(b.R) - savedAmt(a.R);
     // ① 히어로
     heroList = heroPick(P, byRate, take, used);
-    let html = `<section class="hero">
-      <div class="herotx">
-        <p class="eyebrow">The Real Price · 16 Countries</p>
-        <h1>명품, <em>어디서</em> 사야 쌀까?</h1>
-        <p class="hchk"><span>✓ 환급</span><span>✓ 카드 수수료</span><span>✓ 관세</span><b>까지 넣은 진짜 가격</b></p>
-        <form class="hsearch" data-search role="search"><input name="q" placeholder="${isM() ? `예: ${HINT[kind]}` : `브랜드 · 제품 이름 · 예산 — 예: ${HINT[kind]}`}" aria-label="브랜드, 제품 이름, 예산으로 찾기" autocomplete="off"><button type="submit" aria-label="찾기"><svg><use href="#i-search"/></svg></button></form>
+    // 휴대폰 (2026-10-29): 제목('같은 명품, 가장 싸게 사는 나라' — 10-29 사용자: 고급스럽고 직접적으로)과 대표 제품 카드가 한 화면에 — 찾기 칸·칩은 카드 아래로
+    const heroRest = `<form class="hsearch" data-search role="search"><input name="q" placeholder="${isM() ? `예: ${HINT[kind]}` : `브랜드 · 제품 이름 · 예산 — 예: ${HINT[kind]}`}" aria-label="브랜드, 제품 이름, 예산으로 찾기" autocomplete="off"><button type="submit" aria-label="찾기"><svg><use href="#i-search"/></svg></button></form>
         ${templates()}
-        <div class="hchips"><span>어디로 가세요?</span>${brd.slice(0, 5).map(o => `<button type="button" class="tchip ${S.trip.includes(o.c) ? "on" : ""}" data-trip="${o.c}">${nationF(o.c)}</button>`).join("")}</div>
-      </div>
-      <div class="herofeat" id="heroFeat">${heroHTML()}</div></section>`;
+        <div class="hchips"><span>어디로 가세요?</span>${brd.slice(0, 5).map(o => `<button type="button" class="tchip ${S.trip.includes(o.c) ? "on" : ""}" data-trip="${o.c}">${nationF(o.c)}</button>`).join("")}</div>`;
+    const heroFeat = `<div class="herofeat" id="heroFeat">${heroHTML()}</div>`;
+    let html = isM()
+      ? `<section class="hero hm">${heroFeat}<div class="herotx hrest">${heroRest}</div></section>`
+      : `<section class="hero"><div class="herotx">${heroTopHTML()}${heroRest}</div>${heroFeat}</section>`;
     setTimeout(heroInit, 0);
     // ①a 믿음 띠: 어디서 · 몇 개 · 언제 · 무엇을 넣었는지 (5.7절)
     html += `<div class="trust"><span>${TRIP_CODES.length + 1}개국 공식 홈페이지</span><span>${kind === "bag" ? "패션" : "주얼리"} ${list().length.toLocaleString("ko-KR")}개</span><span>${esc(D.generated.slice(5).replace("-", "."))} 수집</span><span>환급 · 카드 수수료 · 관세 포함</span><a class="link" href="#/settings">계산 방법</a></div>`;
@@ -1789,7 +1820,7 @@
     if (e.target.closest("a.olink")) return;
     const ex = e.target.closest("[data-expand]"); if (ex) { ex.classList.toggle("clamp2"); return; }  // 긴 제품 이름 펼치기  // 공홈 링크는 새 창으로만 (행 펼치기와 겹치지 않게)
     const t = e.target.closest("button, [data-row], a.tchip[data-trip]");
-    if (!t) { if (!panel.hidden && !e.target.closest("#trippanel") && !e.target.closest("#tripChip")) { panel.hidden = true; onbSheet = false; } return; }
+    if (!t) { if (!panel.hidden && (!e.target.closest("#trippanel") || e.target === panel) && !e.target.closest("#tripChip")) { panel.hidden = true; onbSheet = false; } return; }  // 휴대폰: 판 바깥 어두운 곳(= #trippanel 자신)을 눌러도 닫힘
     if (t.id === "tripChip" || t.hasAttribute("data-trip-open")) { if (panel.hidden) openTrip(); else panel.hidden = true; return; }
     if (t.id === "otherApp") { if (M.other) location.href = M.other; return; }
     if (t.hasAttribute("data-fx-fetch")) { fetchFx(); render(); return; }
