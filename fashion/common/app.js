@@ -373,13 +373,15 @@
   }
 
   // 일본 백화점 할인을 켤 때 경고 창 (5.15절, 2026-10-27): 외국인 할인 대상 브랜드는 백화점·지점마다 달라 꼭 확인하라고 알림. '켜기'를 눌러야 켜짐
+  // 2026-10-30: 이세탄·미쓰코시 게스트 카드는 2025.03.25 발급 끝 → 받는 방법을 앱 쿠폰·한큐 게스트 쿠폰 기준으로
   function jpDeptWarn(onOk) {
     let d = document.getElementById("jpwarn");
     if (!d) { d = document.createElement("dialog"); d.id = "jpwarn"; d.className = "warndlg"; d.setAttribute("aria-labelledby", "jpwarnT"); document.body.appendChild(d); }
-    d.innerHTML = `<h3 id="jpwarnT">⚠ 일본 백화점 할인은 백화점·지점마다 달라요</h3>
-      <ul><li>외국인 ${SET.jpRate}% 할인 대상 브랜드는 <b>백화점(이세탄·미쓰코시, 다이마루·마쓰자카야, 다카시마야 등)과 지점마다 다르고</b> 수시로 바뀌어요.</li>
-        <li>럭스캐너는 <b>이세탄·미쓰코시 공식 제외 목록</b>을 기준으로 계산해요. 예: ${kind === "bag" ? "셀린느는 이세탄·미쓰코시에서는 할인되지만 마쓰자카야 나고야·다이마루 삿포로에서는" : "타사키는 이세탄·미쓰코시에서는 할인되지만 다이마루 우메다에서는"} 빠져요.</li>
-        <li>쿠폰 제시(앱·여권), 세일 상품 제외, 최소 금액 같은 조건도 있어요.</li></ul>
+    d.innerHTML = `<h3 id="jpwarnT">⚠ 일본 백화점 할인은 쿠폰이 있어야 하고 백화점·지점마다 달라요</h3>
+      <ul><li>받는 방법: 이세탄·미쓰코시는 <b>'MITSUKOSHI ISETAN JAPAN' 앱 쿠폰</b>(여권 등록, 그룹 게스트 카드는 2025.03 발급 끝), 후쿠오카 이와타야는 <b>신관 7층 면세 카운터에서 여권으로 받는 게스트 카드</b>, 한큐(하카타 한큐 포함)는 <b>안내 데스크·면세 카운터에서 여권으로 받는 게스트 쿠폰</b>(받은 날부터 7일)이에요. 계산 전에 보여 줘야 해요.</li>
+        <li>외국인 ${SET.jpRate}% 할인 대상 브랜드는 <b>백화점과 지점마다 다르고</b> 수시로 바뀌어요. 다카시마야처럼 시계·주얼리·명품 브랜드를 빼는 곳도 있어요.</li>
+        <li>럭스캐너는 <b>이세탄·미쓰코시 공식 제외 목록</b>을 기준으로 계산해요. 한큐는 제외 브랜드를 공개하지 않아요. 예: ${kind === "bag" ? "셀린느는 이세탄·미쓰코시에서는 할인되지만 마쓰자카야 나고야·다이마루 삿포로에서는" : "타사키는 이세탄·미쓰코시에서는 할인되지만 다이마루 우메다에서는"} 빠져요.</li>
+        <li>세일 상품 제외, 최소 금액, 다른 할인과 중복 안 됨 같은 조건도 있어요.</li></ul>
       <p class="wmain">사러 가기 전에 그 백화점·지점의 면세 카운터나 안내 데스크에 <b>이 브랜드가 할인되는지 꼭 확인하세요.</b></p>
       <form method="dialog" class="row"><button type="submit" class="btn ghost" value="no">취소</button><button type="submit" class="btn" value="ok">확인했어요, 켜기</button></form>`;
     d.returnValue = "";
@@ -1507,7 +1509,7 @@
     // 나라별 옵션: 내 여행지에 있는 나라를 위로
     const country = [
       { cs: ["JP"], html: q("일본 백화점에서 사요?", segBtns("jpDept", [[false, "아니요"], [true, "네"]]),
-        `켜면 외국인 할인 ${SET.jpRate}%를 빼요. <b class="stk">할인 대상 브랜드는 백화점·지점마다 달라 꼭 확인하세요.</b> 이세탄·미쓰코시 기준 할인 제외 브랜드(${Object.entries(D.jpExcl).filter(([, v]) => v[0]).map(([b]) => bk(b)).slice(0, 6).join("·")} 등)는 자동으로 빠져요.`,
+        `켜면 외국인 할인 ${SET.jpRate}%를 빼요. 이세탄·미쓰코시 앱 쿠폰, 이와타야 게스트 카드, 한큐 게스트 쿠폰(모두 여권)이 있어야 해요. <b class="stk">할인 대상 브랜드는 백화점·지점마다 달라 꼭 확인하세요.</b> 이세탄·미쓰코시 기준 할인 제외 브랜드(${Object.entries(D.jpExcl).filter(([, v]) => v[0]).map(([b]) => bk(b)).slice(0, 6).join("·")} 등)는 자동으로 빠져요.`,
         SET.jpDept ? `<div class="sub">할인율 ${numIn("jpRate", "%", "0.5")}</div>` : "") },
       { cs: ["US"], html: q("미국 어디서 사요?", segBtns("us", [["ny", "뉴욕 8.875%"], ["hawaii", "하와이 4.712%"], ["guam", "괌 0%"], ["custom", "직접 입력"]]),
         "하와이·괌 세율은 그 지역에 매장이 있는 브랜드에만 써요(없으면 뉴욕 세율).", SET.us === "custom" ? `<div class="sub">판매세 ${numIn("usTax", "%", "0.1")}</div>` : "") },
@@ -1580,7 +1582,7 @@
             ${refTable(["나라", "세율", "실효 환급률", "최소 구매", "환율"], TRIP_CODES.map(c => [nationF(c), C[c].tax + "%" + (C[c].incl ? "" : " (별도)"), C[c].refund ? C[c].refund + "%" : "없음", C[c].min ? local(c, C[c].min) : "—", "₩" + fxFmt(D.fx[c])]))}
             <h4 class="refh">태국 환급률 구간</h4>
             ${refTable(["구매액", "환급률"], D.thTiers.map(([a, r]) => [a.toLocaleString("ko-KR") + "바트 이상", (r * 100).toFixed(1) + "%"]))}
-            <h4 class="refh">일본 백화점 할인 제외 브랜드</h4>
+            <h4 class="refh">일본 백화점 할인 제외 브랜드 (이세탄·미쓰코시 기준 · 앱 쿠폰·이와타야 게스트 카드·한큐 게스트 쿠폰)</h4>
             ${refTable(["브랜드", "할인", "근거"], Object.entries(D.jpExcl).map(([b, [ex, why]]) => [esc(bk(b)), ex ? "제외" : "가능", esc(why)]))}
             <h4 class="refh">기간 쿠폰</h4>
             ${refTable(["쿠폰", "할인", "기간", "할인 브랜드", "입점했지만 제외", "근거"], CALC.coupons.map(cp => [esc(cp.name) + (cpLive(cp) ? "" : " (지금 못 씀)"), cp.rate + "%", `${cp.from ? esc(cp.from) + " ~ " : "~ "}${esc(cp.until)}`,
