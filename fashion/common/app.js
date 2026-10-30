@@ -1802,6 +1802,30 @@
     memo.delete(lastRoute); memo.set(lastRoute, { y: window.scrollY, showN, countryShow, brandShow, homeMore });
     if (memo.size > 60) memo.delete(memo.keys().next().value);
   }
+  // 입력 중인 검색 칸은 그대로 두고 나머지만 바꿔 그림 — 칸을 새로 만들면 휴대폰 한글 조합이 끊겨 '안ㄴ안녀ㅇ'처럼 겹쳐 들어갔다 (10-31 사용자)
+  function keepTyping(html) {
+    const keep = document.activeElement;
+    if (!keep || !keep.matches("input[data-live]") || !app.contains(keep)) return false;
+    const tpl = document.createElement("template");
+    tpl.innerHTML = html;
+    const nk = keep.id && tpl.content.getElementById(keep.id);
+    if (!nk) return false;
+    const up = (n, top) => { const a = []; for (; n !== top; n = n.parentNode) a.unshift(n); return a; };
+    const L = up(keep, app), N = up(nk, tpl.content);
+    if (L.length !== N.length || L.some((n, i) => n.nodeName !== N[i].nodeName)) return false;
+    L.forEach((lc, i) => {
+      const lp = lc.parentNode, fc = N[i], kids = [...fc.parentNode.childNodes], at = kids.indexOf(fc);
+      [...lp.childNodes].forEach(c => { if (c !== lc) c.remove(); });  // 입력 칸이 든 줄기만 남기고 형제는 새것으로
+      lc.before(...kids.slice(0, at));
+      lc.after(...kids.slice(at + 1));
+      if (lc !== keep) {
+        [...lc.attributes].forEach(a => { if (!fc.hasAttribute(a.name)) lc.removeAttribute(a.name); });
+        [...fc.attributes].forEach(a => lc.setAttribute(a.name, a.value));
+      } else [...fc.attributes].forEach(a => { if (a.name !== "value") lc.setAttribute(a.name, a.value); });
+    });
+    return true;
+  }
+
   function render() {
     const back = !!(history.state && typeof history.state.d === "number");  // 새로 연 화면은 아직 d 가 없음 → 기록에 있는 화면으로 돌아온 것
     trackNav();
@@ -1830,7 +1854,7 @@
     // 필터 판이 열린 채 조건을 바꾸면 판이 다시 그려진다 — 보던 위치를 지켜서 아래쪽 필터를 이어서 고를 수 있게
     AT = null;
     const fpOld = app.querySelector(".fl.open .fpanel"), fpTop = fpOld ? fpOld.scrollTop : 0;
-    app.innerHTML = html;
+    if (lastRoute.split("?")[0] !== path || !keepTyping(html)) app.innerHTML = html;  // 다른 화면으로 가면 입력 칸도 새로
     const fpNew = app.querySelector(".fl.open .fpanel");
     const qp = app.querySelector(".qpop"), qc = app.querySelector(".qchip.open");  // 펼친 판의 꼬리를 누른 단추 가운데로
     if (qp && qc) { const cr = qc.getBoundingClientRect(), pr = qp.getBoundingClientRect();
@@ -2017,7 +2041,7 @@
       history.replaceState(history.state, "", "#" + path + (q.toString() ? "?" + q : ""));  // state = 뒤로 가기 깊이(navDepth) 유지
       render();
       const inp = document.getElementById("fq");
-      if (inp && typing) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }  // 입력 중일 때만 커서를 되돌림
+      if (inp && typing && inp !== document.activeElement) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }  // 입력 중일 때만 커서를 되돌림
     }, 200);
   });
   // 모바일: 아래로 내리면 머리글 숨김, 올리면 다시 보임. 1.5화면 넘게 내려가면 '맨 위로' (5M.12절)
