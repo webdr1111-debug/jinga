@@ -1454,10 +1454,11 @@
       fixbar.innerHTML = `<div class="fxinfo"><span class="fxwhere">가장 싼 곳 ${cc(R.best.cc)} ${esc(C[R.best.cc].n)}</span><span><b>${won(R.best.net)}</b>${R.save > 0 && R.kr ? ` <span class="save">${esc(krLab(R))}보다 ${won(R.kr.net - R.best.net)} 아껴요</span>` : ""}</span></div><button type="button" class="btn" data-pick="${esc(p.b + "|" + p.s)}">${on ? "♥ 담음" : "♡ 담기"}</button>`;
       fixbar.hidden = false;
     }
+    // 사진 여러 장: 확대값(fb)은 첫 장(대표 사진)을 잰 값 — 2번째 장부터는 각도·위치가 달라 사진 전체를 그대로 (10-30)
     return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/brand/${encodeURIComponent(p.b)}">${esc(bk(p.b))}</a>${p.c ? ` › <a href="#/brand/${encodeURIComponent(p.b)}?c=${encodeURIComponent(p.c)}">${esc(colName(p.c))}</a>` : ""}</nav>
       <section class="pd" data-brand="${esc(bk(p.b))}">
-        <div class="pdimg">${photo(p.imgs && p.imgs[pImg] ? { ...p, img: p.imgs[pImg] } : p, "big")}
-          ${p.imgs && p.imgs.length > 1 ? `<div class="pthumbs">${p.imgs.map((u, i) => `<button type="button" class="${i === pImg ? "on" : ""}" data-pimg="${i}" aria-label="사진 ${i + 1}">${photo({ ...p, img: u })}</button>`).join("")}</div>` : ""}
+        <div class="pdimg">${photo(p.imgs && p.imgs[pImg] ? { ...p, img: p.imgs[pImg], fb: pImg ? null : p.fb } : p, "big")}
+          ${p.imgs && p.imgs.length > 1 ? `<div class="pthumbs">${p.imgs.map((u, i) => `<button type="button" class="${i === pImg ? "on" : ""}" data-pimg="${i}" aria-label="사진 ${i + 1}">${photo({ ...p, img: u, fb: i ? null : p.fb })}</button>`).join("")}</div>` : ""}
           ${brandState[p.b] === "loading" ? `<p class="note">나라별 공홈 주소를 읽는 중…</p>` : brandState[p.b] === "fail" ? `<p class="note">공홈 주소 파일을 읽지 못했어요 (data/brands)</p>` : ""}</div>
         <div class="pdtx">
           <div class="br">${esc(p.b.toUpperCase())}${p.c ? " · " + esc(colName(p.c).toUpperCase()) : ""}</div>
