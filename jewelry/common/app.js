@@ -1393,9 +1393,15 @@
     const isBag = kind === "bag";
     // ② 변형: 주얼리 = 같은 모델의 다른 소재·폭(시안 규칙: 이름 끝 괄호를 뺀 이름이 같음), 가방 = 같은 모델의 다른 색
     const vars = isBag ? D.bag.filter(q => q.md === p.md) : D.jewelry.filter(q => q.v === p.v);
+    // 칩 이름: 이름 끝 괄호 → 없으면 같은 묶음 이름들의 다른 부분 → 그래도 같으면 제품번호 (10-31: 제품번호로 묶는 브랜드)
+    const ws = vars.map(q => q.n.split(" "));
+    let k = 0;
+    while (ws.length > 1 && ws.every(w => k < w.length - 1 && w[k] === ws[0][k])) k++;
+    const pre = ws[0].slice(0, k).join(" ");
+    const chipName = q => (q.n.match(/\(([^)]*)\)\s*$/) || [])[1] || q.n.slice(pre.length).replace(/^[\s,·\-–]+/, "").trim() || q.s;
     const varHtml = vars.length > 1 ? `<div class="vars"><span class="vl">${isBag ? "색상" : "소재·크기"}</span>${vars.map(q => isBag
       ? `<a class="sw big ${q === p ? "on" : ""}" href="${link(q)}" title="${esc(colKo(q))}" aria-label="${esc(colKo(q))}" style="background:${COLG[q.colg] || "#999"}"></a>`
-      : (() => { const lab = (q.n.match(/\(([^)]*)\)\s*$/) || [, q.s])[1];  // 긴 소재 설명은 칩에서 줄이고 전체는 title 로
+      : (() => { const lab = chipName(q);  // 긴 소재 설명은 칩에서 줄이고 전체는 title 로
           return `<a class="tchip sm vchip ${q === p ? "on" : ""}" href="${link(q)}" title="${esc(lab)}">${esc(lab.length > 28 ? lab.slice(0, 27) + "…" : lab)}</a>`; })()).join("")}
       ${isBag ? `<span class="vname">${esc(colKo(p))}</span>` : ""}</div>` : "";
     // ③ 나라별: 내 여행지 맨 위 고정 → 나머지 싼 순 → 한국(기준) → 비교 불가 회색
@@ -1454,11 +1460,12 @@
       fixbar.innerHTML = `<div class="fxinfo"><span class="fxwhere">가장 싼 곳 ${cc(R.best.cc)} ${esc(C[R.best.cc].n)}</span><span><b>${won(R.best.net)}</b>${R.save > 0 && R.kr ? ` <span class="save">${esc(krLab(R))}보다 ${won(R.kr.net - R.best.net)} 아껴요</span>` : ""}</span></div><button type="button" class="btn" data-pick="${esc(p.b + "|" + p.s)}">${on ? "♥ 담음" : "♡ 담기"}</button>`;
       fixbar.hidden = false;
     }
-    // 사진 여러 장: 확대값(fb)은 첫 장(대표 사진)을 잰 값 — 2번째 장부터는 각도·위치가 달라 사진 전체를 그대로 (10-30)
+    // 사진 여러 장: 첫 장은 fb, 2번째 장부터는 그 사진을 잰 fbs[i] — 잰 값이 없으면 사진 전체를 그대로 (10-30, 10-31)
+    const fbAt = i => i ? (p.fbs && p.fbs[i]) || null : p.fb;
     return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/brand/${encodeURIComponent(p.b)}">${esc(bk(p.b))}</a>${p.c ? ` › <a href="#/brand/${encodeURIComponent(p.b)}?c=${encodeURIComponent(p.c)}">${esc(colName(p.c))}</a>` : ""}</nav>
       <section class="pd" data-brand="${esc(bk(p.b))}">
-        <div class="pdimg">${photo(p.imgs && p.imgs[pImg] ? { ...p, img: p.imgs[pImg], fb: pImg ? null : p.fb } : p, "big")}
-          ${p.imgs && p.imgs.length > 1 ? `<div class="pthumbs">${p.imgs.map((u, i) => `<button type="button" class="${i === pImg ? "on" : ""}" data-pimg="${i}" aria-label="사진 ${i + 1}">${photo({ ...p, img: u, fb: i ? null : p.fb })}</button>`).join("")}</div>` : ""}
+        <div class="pdimg">${photo(p.imgs && p.imgs[pImg] ? { ...p, img: p.imgs[pImg], fb: fbAt(pImg) } : p, "big")}
+          ${p.imgs && p.imgs.length > 1 ? `<div class="pthumbs">${p.imgs.map((u, i) => `<button type="button" class="${i === pImg ? "on" : ""}" data-pimg="${i}" aria-label="사진 ${i + 1}">${photo({ ...p, img: u, fb: fbAt(i) })}</button>`).join("")}</div>` : ""}
           ${brandState[p.b] === "loading" ? `<p class="note">나라별 공홈 주소를 읽는 중…</p>` : brandState[p.b] === "fail" ? `<p class="note">공홈 주소 파일을 읽지 못했어요 (data/brands)</p>` : ""}</div>
         <div class="pdtx">
           <div class="br">${esc(p.b.toUpperCase())}${p.c ? " · " + esc(colName(p.c).toUpperCase()) : ""}</div>
@@ -1854,7 +1861,11 @@
     // 필터 판이 열린 채 조건을 바꾸면 판이 다시 그려진다 — 보던 위치를 지켜서 아래쪽 필터를 이어서 고를 수 있게
     AT = null;
     const fpOld = app.querySelector(".fl.open .fpanel"), fpTop = fpOld ? fpOld.scrollTop : 0;
-    if (lastRoute.split("?")[0] !== path || !keepTyping(html)) app.innerHTML = html;  // 다른 화면으로 가면 입력 칸도 새로
+    // 같은 화면을 다시 그릴 때 펼쳐 둔 접기 칸(설정 묶음 등)은 그대로 — 설정을 바꾸면 묶음이 접혀서 바뀐 걸 확인하기 어려웠다 (10-31 사용자)
+    const same = lastRoute.split("?")[0] === path, keyOf = d => d.id || d.className + "|" + (d.querySelector("summary")?.textContent || "").trim();  // 같은 제목(바깥 '나라별 옵션'·안쪽 '나라별 옵션')도 구분
+    const opened = same ? new Map([...app.querySelectorAll("details")].map(d => [keyOf(d), d.open])) : null;
+    if (!same || !keepTyping(html)) app.innerHTML = html;  // 다른 화면으로 가면 입력 칸도 새로
+    if (opened) app.querySelectorAll("details").forEach(d => { const k = keyOf(d); if (opened.has(k)) d.open = opened.get(k); });
     const fpNew = app.querySelector(".fl.open .fpanel");
     const qp = app.querySelector(".qpop"), qc = app.querySelector(".qchip.open");  // 펼친 판의 꼬리를 누른 단추 가운데로
     if (qp && qc) { const cr = qc.getBoundingClientRect(), pr = qp.getBoundingClientRect();

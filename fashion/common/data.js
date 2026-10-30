@@ -22,7 +22,7 @@ if (typeof window !== "undefined") window.LUX = window.LUX || {};
       const n = r[I.n], p = { b, s: r[I.s], n, ne: r[I.ne] || n, c: d.c[r[I.c]], t: d.t[r[I.t]], m: d.m[r[I.m]], g: d.g[r[I.g]],
         mt: d.mt[r[I.mt]], sb: d.sb[r[I.sb]], img: unmid(r[I.img], im[0], im[1]), v: vkey(b, n), p: pr };
       const ex = r[I.extra];
-      if (ex) { if (ex.x) p.x = ex.x; if (ex.rk) p.rk = ex.rk; if (ex.pc) p.pc = ex.pc; if (ex.ck) p.ck = ex.ck; if (ex.md) p.md = ex.md; if (ex.nc) p.nc = ex.nc; if (ex.cg) p.cg = ex.cg; if (ex.fb) p.fb = ex.fb; }  // md 모델 번호 · nc 합친 색상 수 · cg 관세 품목  // ck: 가격 확인 필요 (엑셀 가격DB와 같은 판정)  // pc: 원래 통화로 적힌 칸 {나라: [값, 통화]}
+      if (ex) { if (ex.x) p.x = ex.x; if (ex.rk) p.rk = ex.rk; if (ex.pc) p.pc = ex.pc; if (ex.ck) p.ck = ex.ck; if (ex.md) p.md = ex.md; if (ex.nc) p.nc = ex.nc; if (ex.cg) p.cg = ex.cg; if (ex.fb) p.fb = ex.fb; if (ex.v) p.v = b + "|" + ex.v; }  // v: 이름 규칙으로 안 묶이는 브랜드(미키모토·포멜라토·루이비통)의 변형 묶음 키 (10-31)  // md 모델 번호 · nc 합친 색상 수 · cg 관세 품목  // ck: 가격 확인 필요 (엑셀 가격DB와 같은 판정)  // pc: 원래 통화로 적힌 칸 {나라: [값, 통화]}
       return p;
     });
   }
@@ -41,8 +41,11 @@ if (typeof window !== "undefined") window.LUX = window.LUX || {};
         if (!p.p[cc]) p.p[cc] = [0, 0, "", null];  // 가격은 없고 공홈 페이지만 있는 나라 (제품 화면에 '공홈 ↗'만)
         p.p[cc][2] = url;
       }
-      p.imgs = imgs.map(m => unmid(m, data.img[0], data.img[1])).filter(Boolean);
-      p.x = { ...(p.x || {}), ...x };
+      // fbm: 2번째 장부터 사진마다 잰 제품 영역(첫 장 fb와 같은 형식) — 사진 목록과 같은 순서로 맞춰 둠, 제품 정보(x)에는 안 보이게 (10-31)
+      const { fbm, ...info } = x || {}, all = imgs.map(m => unmid(m, data.img[0], data.img[1]));
+      p.imgs = all.filter(Boolean);
+      p.fbs = all.map((u, i) => [u, i && fbm ? fbm[i - 1] || null : null]).filter(a => a[0]).map(a => a[1]);
+      p.x = { ...(p.x || {}), ...info };
       p.detail = true;
     }
   }
