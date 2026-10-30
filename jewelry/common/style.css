@@ -526,14 +526,15 @@ html { overflow-x: clip; }  /* 무엇이 넘쳐도 화면(고정 메뉴 기준)�
 /* 브랜드 로고 — 브랜드 고르는 곳에만 (6장). 로고를 못 읽으면 .btext(글자)가 보임 */
 .bmark { display: inline-flex; align-items: center; justify-content: center; }
 .bmark img + .btext { display: none; }
-.bmark img { display: block; object-fit: contain; mix-blend-mode: multiply; }
+.bmark img { display: block; object-fit: contain; mix-blend-mode: multiply; filter: brightness(0); }  /* 로고 색을 검정으로 맞춤 — 쇼메 글자 로고는 금색이라 안 보였음 (10-31) */
 .bmark.lg img { height: 26px; max-width: 160px; }
 .bmark.sm img { height: 13px; max-width: 86px; }
 .bmark.sm .btext { font-size: 11px; letter-spacing: .12em; }
-.fopt.on .bmark img { filter: invert(1); mix-blend-mode: normal; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .bmark img { filter: invert(1); mix-blend-mode: screen; } :root:not([data-theme="light"]) .fopt.on .bmark img { filter: none; } }
-:root[data-theme="dark"] .bmark img { filter: invert(1); mix-blend-mode: screen; }
-:root[data-theme="dark"] .fopt.on .bmark img { filter: none; }
+.bmark.lg .btext { font: 500 22px/1 var(--display); letter-spacing: .2em; margin-right: -.2em; color: var(--ink); }  /* 로고 그림이 없는 브랜드(메시카·타사키)도 다른 로고와 비슷한 크기로 (10-31 사용자) */
+.fopt.on .bmark img { filter: brightness(0) invert(1); mix-blend-mode: normal; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .bmark img { filter: brightness(0) invert(1); mix-blend-mode: screen; } :root:not([data-theme="light"]) .fopt.on .bmark img { filter: brightness(0); } }
+:root[data-theme="dark"] .bmark img { filter: brightness(0) invert(1); mix-blend-mode: screen; }
+:root[data-theme="dark"] .fopt.on .bmark img { filter: brightness(0); }
 
 /* ── 설정 (웹앱계획.md 5.15절) ── */
 .setbar { background: var(--warn-bg); color: var(--warn); font-size: 12.5px; text-align: center; padding: 8px 16px; border-bottom: 1px solid var(--line); }
@@ -629,6 +630,7 @@ table.ref td { border-bottom: 1px solid var(--line); padding: 8px; vertical-alig
 .bgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .blogo { display: flex; align-items: center; justify-content: center; height: 56px; padding: 0 8px; border: 1px solid var(--line); min-width: 0; overflow: hidden; font-size: 12px; text-align: center; }
 .blogo .bmark.lg img { height: 16px; max-width: 100%; }
+.blogo .bmark.lg .btext { font-size: 15px; }
 /* 모바일 가로 밀기 줄이기 (5M.13절): 나라 순위표 · 알아 두면 접힌 제목 */
 .rank { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
 .rank li { position: relative; display: grid; grid-template-columns: 22px auto minmax(0, 1fr) 44px; gap: 10px; align-items: center; min-height: 60px; border-bottom: 1px solid var(--line); }
@@ -1136,9 +1138,9 @@ body::before { content: ""; position: fixed; left: 0; right: 0; top: 0; height: 
 .qpop .fopt.on { background: var(--paper); color: var(--ink); border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); font-weight: 600; }
 .qpop .fopt.on::before { content: "✓"; color: var(--gold); font-weight: 700; }
 .qpop .fopt.on small { color: var(--faint); opacity: 1; }
-.qpop .fopt.on .bmark img { filter: none; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .qpop .fopt.on .bmark img { filter: invert(1); mix-blend-mode: screen; } }
-:root[data-theme="dark"] .qpop .fopt.on .bmark img { filter: invert(1); mix-blend-mode: screen; }
+.qpop .fopt.on .bmark img { filter: brightness(0); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .qpop .fopt.on .bmark img { filter: brightness(0) invert(1); mix-blend-mode: screen; } }
+:root[data-theme="dark"] .qpop .fopt.on .bmark img { filter: brightness(0) invert(1); mix-blend-mode: screen; }
 .fsec.hassub { border-bottom: 0; padding-bottom: 6px; }
 .fsec.fsubs { margin-left: 6px; padding: 8px 0 14px 12px; border-left: 2px solid var(--gold); }
 .fsec.fsubs h4 { text-transform: none; letter-spacing: .04em; }
