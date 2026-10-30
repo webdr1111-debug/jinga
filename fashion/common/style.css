@@ -1019,7 +1019,9 @@ body.canback .top .wrap { grid-template-columns: auto 1fr auto 1fr; }
   .setbar:not([hidden]) { display: flex; align-items: center; gap: 12px; white-space: nowrap; padding: 6px 16px; font-size: 12.5px; }
   .setbar .sbt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: left; }
   .setbar .link { margin-left: 0; flex: none; }
+  .newbar .nbl { display: none; }
 }
+@media (min-width: 1024px) { .newbar .nbs { display: none; } }
 
 /* 휴대폰 여행지 고르기 판 (2026-10-29 사용자: 판이 화면보다 길어 위가 잘리고 스크롤 안 되던 것)
    높이를 화면 안으로 제한 + 판 안에서 스크롤, 제목·'모두 빼기/완료'는 위아래에 고정, 묶음은 옆으로 미는 1줄, 나라 칸 낮게 */

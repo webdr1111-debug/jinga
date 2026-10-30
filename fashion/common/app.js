@@ -2043,7 +2043,8 @@
   const seen = store.get(KEY("lastVersion"), null);
   if (seen && seen !== M.version) {
     const nb = document.getElementById("newbar");
-    nb.innerHTML = `새 가격이 반영됐어요 (${esc(M.fxDate.slice(5).replace("-", "."))}) · 오른 제품 ${M.changes.up} · 내린 제품 ${M.changes.down} <a class="link" href="#/changes">변동 보기</a> <button type="button" class="link" data-newbar-close>닫기</button>`;
+    // 휴대폰은 짧은 글(nbs)만 — 패션처럼 변동 수가 크면 '변동 보기'가 화면 밖으로 밀리던 것 (10-30 사용자)
+    nb.innerHTML = `<span class="sbt"><span class="nbl">새 가격이 반영됐어요 (${esc(M.fxDate.slice(5).replace("-", "."))}) · 오른 제품 ${M.changes.up} · 내린 제품 ${M.changes.down}</span><span class="nbs">새 가격 ${esc(M.fxDate.slice(5).replace("-", "."))} · 오름 ${M.changes.up} · 내림 ${M.changes.down}</span></span> <a class="link" href="#/changes">변동 보기</a> <button type="button" class="link" data-newbar-close>닫기</button>`;
     nb.hidden = false;
   }
   store.set(KEY("lastVersion"), M.version);
