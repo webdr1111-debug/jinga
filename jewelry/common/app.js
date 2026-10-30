@@ -1052,7 +1052,7 @@
     const brands = [...new Set(all.map(o => o.p.b))];
     const oneBrand = lock.brand || (F.brand.length === 1 ? F.brand[0] : "");
     const types = [...new Set(all.map(o => o.p.t))];
-    const sec = (title, body) => `<section class="fsec"><h4>${title}</h4><div class="fopts">${body}</div></section>`;
+    const sec = (title, body, cls = "") => `<section class="fsec ${cls}"><h4>${title}</h4><div class="fopts">${body}</div></section>`;
     // 필터 더 보기 (3단계)
     const cB = countBy("brand", o => o.p.b), cC = countBy("c", o => o.p.c), cT = countBy("type", o => o.p.t), cS = countBy("sub", o => o.p.sb),
       cM = countBy("mat", o => fMat(o.p)), cSt = countBy("stone", o => fStone(o.p)), cCh = countBy("cheap", o => o.ab);
@@ -1061,8 +1061,9 @@
       lock.brand ? "" : sec("브랜드", brands.sort((a, b) => (cB.get(b) || 0) - (cB.get(a) || 0)).map(b => opt("", toggle("brand", b, F.brand), F.brand.includes(b), cB.get(b) || 0, brandMark(b, "sm"))).join("")),
       (() => { const cs = oneBrand ? [...new Set(all.filter(o => o.p.b === oneBrand).map(o => o.p.c).filter(Boolean))] : [];  // 값이 없는 칸은 숨김
         return cs.length ? sec(isBag() ? "라인" : "컬렉션", cs.sort((a, b) => (cC.get(b) || 0) - (cC.get(a) || 0)).map(c => opt(colName(c), toggle("c", c, F.c), F.c.includes(c), cC.get(c) || 0)).join("")) : ""; })(),
-      sec("종류", types.map(t => opt(TYPE_ALL[t], url({ type: F.type === t ? "" : t }, ["sub"]), F.type === t, cT.get(t) || 0)).join("")),
-      subs.length ? sec("세부 종류", subs.map(s => opt(s, toggle("sub", s, F.sub), F.sub.includes(s), cS.get(s) || 0)).join("")) : "",
+      sec("종류", types.map(t => opt(TYPE_ALL[t], url({ type: F.type === t ? "" : t }, ["sub"]), F.type === t, cT.get(t) || 0)).join(""), subs.length ? "hassub" : ""),
+      // 세부 종류는 고른 종류에 딸린 것 — 들여쓰고 왼쪽 선으로 묶음 (2026-10-30 사용자: 상위 필터와 구분이 안 됨)
+      subs.length ? sec(`<span aria-hidden="true">└ </span>${esc(TYPE_ALL[F.type])} 세부 종류`, subs.map(s => opt(s, toggle("sub", s, F.sub), F.sub.includes(s), cS.get(s) || 0)).join(""), "fsubs") : "",
       sec(isBag() ? "가죽·소재" : "소재", (isBag() ? D.leathers : D.metals).map(m => opt(matLabel(m), toggle("mat", m, F.mat), F.mat.includes(m), cM.get(m) || 0)).join("")),
       sec(isBag() ? "색상" : "스톤", (isBag() ? D.colors : D.stones).map(s => opt(s, toggle(stoneKey(), s, F.stone), F.stone.includes(s), cSt.get(s) || 0,
         isBag() ? `<i class="dotc" style="background:${COLG[s] || "#999"}"></i>` : "")).join("")),
@@ -1117,17 +1118,20 @@
       if (hits.length) ac = `<ul class="ac" role="listbox">${hits.map(([k, v, h]) => `<li><a href="${esc(h)}"><small>${esc(k)}</small> ${esc(v)}</a></li>`).join("")}</ul>`;
     }
     const conv = lastConverted.length ? `<p class="conv">이렇게 찾았어요 — 조건 ${lastConverted.map(w => `<b>${esc(w)}</b>`).join(" · ")}${F.q ? ` · 검색어 <b>“${esc(F.q)}”</b>` : ""}</p>` : "";
-    const quickRow = quickOpen === "brand" ? `<div class="qsub qbrand">${[...brands].sort((a, b) => (cB.get(b) || 0) - (cB.get(a) || 0)).map(b => opt("", toggle("brand", b, F.brand), F.brand.includes(b), cB.get(b) || 0, brandMark(b, "sm"))).join("")}</div>`
-      : quickOpen === "type" ? `<div class="qsub">${types.map(t => opt(TYPE_ALL[t], url({ type: F.type === t ? "" : t }, ["sub"]), F.type === t, cT.get(t) || 0)).join("")}</div>`
-      : quickOpen === "price" ? `<div class="qsub">${priceRange(F)}</div>` : "";
+    // 빠른 단추로 펼친 목록: 위 단추 줄과 같은 모양이라 한 줄 더 생긴 것처럼 보이던 것 → 옅은 판 + 누른 단추를 가리키는 꼬리 + 제목·닫기 (10-30 사용자)
+    const qpop = (k, title, body, cls = "") => `<div class="qpop" role="group" aria-label="${title}"><div class="qphead"><b>${title}</b><button type="button" class="link" data-quick="${k}">닫기</button></div><div class="qsub ${cls}">${body}</div></div>`;
+    const quickRow = quickOpen === "brand" ? qpop("brand", "브랜드 고르기 · 여러 개", [...brands].sort((a, b) => (cB.get(b) || 0) - (cB.get(a) || 0)).map(b => opt("", toggle("brand", b, F.brand), F.brand.includes(b), cB.get(b) || 0, brandMark(b, "sm"))).join(""), "qbrand")
+      : quickOpen === "type" ? qpop("type", "종류 고르기", types.map(t => opt(TYPE_ALL[t], url({ type: F.type === t ? "" : t }, ["sub"]), F.type === t, cT.get(t) || 0)).join(""))
+      : quickOpen === "price" ? qpop("price", `가격대 · ${JINGA} 기준`, priceRange(F)) : "";
+    const qo = k => `${quickOpen === k ? " open" : ""}" aria-expanded="${quickOpen === k}`;
     const lim = showN || PAGE(), shown = res.slice(0, lim);
     return `<div class="fbar${quickOpen || panelOpen ? "" : " stick"}">
       <form class="fsearch" data-search role="search"><svg><use href="#i-search"/></svg><input id="fq" name="q" value="${esc(F.q)}" placeholder="${isM() ? "이름·제품번호로 찾기" : isBag() ? "제품 이름, 제품번호, 라인 — 예: 보테가 토트백 블랙" : "제품 이름, 제품번호, 컬렉션 — 예: 까르띠에 반지 러브"}" aria-label="찾기" autocomplete="off" data-live><button type="submit" class="link">찾기</button>${ac}</form>
       ${conv}
       <div class="qchips">
-        ${lock.brand ? "" : `<button type="button" class="qchip ${F.brand.length ? "on" : ""}" data-quick="brand">${F.brand.length ? esc(F.brand.map(bk).join("·")) : "브랜드"} ▾</button>`}
-        <button type="button" class="qchip ${F.type ? "on" : ""}" data-quick="type">${F.type ? esc(TYPE_ALL[F.type]) : "종류"} ▾</button>
-        <button type="button" class="qchip ${F.pmin || F.pmax !== Infinity ? "on" : ""}" data-quick="price">${esc(F.pmin || F.pmax !== Infinity ? rangeLabel(F) : "가격대")} ▾</button>
+        ${lock.brand ? "" : `<button type="button" class="qchip ${F.brand.length ? "on" : ""}${qo("brand")}" data-quick="brand"><span class="qtx">${F.brand.length ? esc(F.brand.map(bk).join("·")) : "브랜드"}</span>&nbsp;▾</button>`}
+        <button type="button" class="qchip ${F.type ? "on" : ""}${qo("type")}" data-quick="type">${F.type ? esc(TYPE_ALL[F.type]) : "종류"} ▾</button>
+        <button type="button" class="qchip ${F.pmin || F.pmax !== Infinity ? "on" : ""}${qo("price")}" data-quick="price">${esc(F.pmin || F.pmax !== Infinity ? rangeLabel(F) : "가격대")} ▾</button>
         <a class="qchip ${F.save === "0" ? "on" : ""}" href="${esc(url({ save: F.save === "0" ? "" : "0" }))}">한국보다 싼 것만</a>
         ${lock.at ? `<span class="qchip on" title="가격을 이 나라 기준으로 보여 줘요">${flag(lock.at)}${esc(C[lock.at].n)} 기준</span>` : `<button type="button" class="qchip ${S.trip.length ? "on" : ""}" data-trip-open>✈ ${S.trip.length ? S.trip.map(c => esc(C[c].n)).join("·") : "내 여행지"}</button>`}
         <button type="button" class="qchip more" data-fpanel>필터 더 보기${moreN ? ` (${moreN})` : ""}</button>
@@ -1827,6 +1831,10 @@
     const fpOld = app.querySelector(".fl.open .fpanel"), fpTop = fpOld ? fpOld.scrollTop : 0;
     app.innerHTML = html;
     const fpNew = app.querySelector(".fl.open .fpanel");
+    const qp = app.querySelector(".qpop"), qc = app.querySelector(".qchip.open");  // 펼친 판의 꼬리를 누른 단추 가운데로
+    if (qp && qc) { const cr = qc.getBoundingClientRect(), pr = qp.getBoundingClientRect();
+      qp.style.setProperty("--qx", Math.round(cr.left + cr.width / 2 - pr.left) + "px");
+      qp.classList.toggle("noarrow", pr.top - cr.bottom > 24); }  // 사이에 단추 줄이 하나 더 있으면 꼬리가 엉뚱한 단추를 가리킴 → 숨김
     if (fpNew && fpOld) fpNew.scrollTop = fpTop;
     document.body.classList.toggle("noscroll", !!fpNew && isM());  // 판이 열려 있는 동안 뒤 페이지는 멈춤
     document.querySelectorAll("[data-r]").forEach(a => a.classList.toggle("on", a.dataset.r === r));
