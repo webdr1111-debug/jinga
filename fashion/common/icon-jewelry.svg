@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 럭스캐너 주얼리 앱 아이콘 (2026-10-31 사용자 'O 시안'): LUX(X 는 '스캔 X') + CANNER = 앱 이름, 아래 '주얼리'. 글자는 Georgia·맑은 고딕으로 그려 PNG 로 굳힘(pack.py·mobile/make_icons.py) -->
+  <rect id="bg" width="512" height="512" fill="#17202E"/>
+  <g id="art">
+    <text x="288.5" y="212.5" text-anchor="end" font-family="Georgia, 'Times New Roman', serif" font-size="150" letter-spacing="4" fill="#F4EEE3">LU</text>
+    <g transform="translate(287.75 88.75) scale(1.425)">
+      <path d="M19 12H36L55.24 44.5H38.24Z M44.76 55.5H61.76L81 88H64Z M75 12H82L61.05 44.5H54.05Z M46.95 55.5H53.95L33 88H26Z" fill="#F4EEE3"/>
+      <rect x="2" y="48.3" width="96" height="3.4" fill="#D2B07A"/>
+    </g>
+    <text x="263" y="288" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="62" letter-spacing="14" fill="#D2B07A">CANNER</text>
+    <text x="259" y="418" text-anchor="middle" font-family="'Malgun Gothic', sans-serif" font-size="62" font-weight="700" letter-spacing="6" fill="#F4EEE3">주얼리</text>
+  </g>
+</svg>
