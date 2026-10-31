@@ -494,8 +494,11 @@
     return order.filter(Boolean);
   }
   // 첫 화면 제목 (2026-10-29 '같은 명품, 가장 싸게 사는 나라'). 휴대폰은 상품 장마다 사진 위에 넣어 넘길 때 같이 넘어감 — 이벤트 배너 장에는 없음
-  const heroTopHTML = (first = true) => `<p class="eyebrow">The Real Price · 16 Countries</p>
-        <h1${first ? "" : ' aria-hidden="true"'}>같은 명품, <em>가장 싸게</em> 사는 나라</h1>
+  // 휴대폰은 장마다 제목이 붙어서 같은 말이 반복됨 (10-31 사용자) → 첫 장만 이 제목, 다음 장부터는 아래 문구를 앱을 열 때마다 섞어 돌려 씀
+  const HERO_LINES = ["명품, <em>어디서</em> 사야 이득일까?", "여행 가서 사면 <em>얼마나</em> 아낄까?", "관세까지 넣어도 <em>더 싼</em> 나라", "16개 나라 <em>공식 가격</em>을 한 번에", "공항 가기 전에 <em>한 번</em> 비교"]
+    .map(l => [Math.random(), l]).sort((x, y) => x[0] - y[0]).map(x => x[1]);
+  const heroTopHTML = (i = 0) => `<p class="eyebrow">The Real Price · 16 Countries</p>
+        <h1${i ? ' aria-hidden="true"' : ""}>${i ? HERO_LINES[(i - 1) % HERO_LINES.length] : "같은 명품, <em>가장 싸게</em> 사는 나라"}</h1>
         <p class="hchk"><span>✓ 환급</span><span>✓ 카드 수수료</span><span>✓ 관세</span><b>까지 넣은 진짜 가격</b></p>`;
   function featHTML(i) {
     const o = heroList[i % Math.max(1, heroList.length)];
@@ -503,11 +506,11 @@
     const p = o.p, R = o.R;
     // 사진을 크게 + 절약률을 사진 위 큰 숫자로 (첫인상, 2026-10-26). '30% · 한국보다 싸요' + 사진 위 국기·나라 이름 (2026-10-29)
     const cc = R.best.cc, cheaper = R.save > 0;
-    return `<a class="feat" href="${link(p)}" data-brand="${esc(bk(p.b))}"><div class="fimg">${isM() ? `<div class="htop">${heroTopHTML(i === 0)}</div>` : ""}${photo(p, "big")}<span class="fpct">${cheaper ? Math.round(R.save * 100) + "%" : pct(R.save)}<small>${krLab(R)}보다${cheaper ? " 이득" : ""}</small></span>
+    return `<a class="feat" href="${link(p)}" data-brand="${esc(bk(p.b))}"><div class="fimg">${isM() ? `<div class="htop">${heroTopHTML(i)}</div>` : ""}${photo(p, "big")}<span class="fpct">${cheaper ? Math.round(R.save * 100) + "%" : pct(R.save)}<small>${krLab(R)}보다${cheaper ? " 이득" : ""}</small></span>
       <span class="fcc">${flag(cc)}${esc(C[cc].n)}</span></div>
       <div class="ftx"><p class="eyebrow">${esc(o.lab || (R.mode === "trip" ? "내 여행지에서 가장 싸게 사는 제품" : "이번 주 가장 싸게 사는 제품"))}</p>
         <div class="br">${esc(p.b)}</div><div class="fname">${esc(p.n)}</div>
-        <div class="fsave">${esc(C[R.best.cc].n)}에서 사면 <b>${won(savedAmt(R))}</b> 아껴요</div>
+        <div class="fsave">${esc(C[R.best.cc].n)}에서 사면 ${krLab(R)}보다 <b>${man(savedAmt(R))}</b> 싸요</div>
         <div class="fsub">${krLab(R)} ${won(R.kr.net)} → ${esc(C[R.best.cc].n)} ${JINGA} ${won(R.best.net)} · 관세 포함</div></div></a>`;
   }
   // 대표 제품 넘김 (2026-10-28, 모바일에서 2px 점을 누르기 힘들던 것): 손가락으로 밀어 넘기는 가로 칸(scroll-snap) + 큰 이전·다음 단추 + '3 / 10'.
@@ -569,7 +572,11 @@
           fs = Math.floor(fs * w / sw * 0.98 * 10) / 10;
         } };
       const set = () => { if (!top.isConnected) return; const h = top.querySelector("h1"), c = top.querySelector(".hchk"); fit(h); fit(c);
-        tops.slice(1).forEach(x => { x.querySelector("h1").style.fontSize = h.style.fontSize; x.querySelector(".hchk").style.fontSize = c.style.fontSize; });  // 장마다 같은 글이라 첫 장 값을 그대로
+        // 제목은 장마다 글이 달라 따로 맞춘 뒤 가장 작은 크기로 통일(넘길 때 글자 크기·높이가 바뀌지 않게), 확인 줄은 같은 글이라 첫 장 값 그대로
+        const hs = tops.map(x => x.querySelector("h1")); hs.slice(1).forEach(fit);
+        const fsMin = Math.min(...hs.map(x => parseFloat(x.style.fontSize) || Infinity));
+        if (fsMin < Infinity) hs.forEach(x => { x.style.fontSize = fsMin + "px"; });
+        tops.slice(1).forEach(x => { x.querySelector(".hchk").style.fontSize = c.style.fontSize; });
         hm.style.setProperty("--hth", Math.ceil(top.offsetHeight) + "px");
         // 사진 높이 = 화면에 남은 높이 (10-30 사용자: 상품 이름·넘김 단추까지 한 화면에) — 상태 표시줄·안내 띠·글자 크기를 실제로 재서
         const f = hm.querySelector(".hslide .feat"), ctl = hm.querySelector(".hctl"), bar = document.getElementById("bottombar");
@@ -1394,14 +1401,21 @@
     // ② 변형: 주얼리 = 같은 모델의 다른 소재·폭(시안 규칙: 이름 끝 괄호를 뺀 이름이 같음), 가방 = 같은 모델의 다른 색
     const vars = isBag ? D.bag.filter(q => q.md === p.md) : D.jewelry.filter(q => q.v === p.v);
     // 칩 이름: 이름 끝 괄호 → 없으면 같은 묶음 이름들의 다른 부분 → 그래도 같으면 제품번호 (10-31: 제품번호로 묶는 브랜드)
-    const ws = vars.map(q => q.n.split(" "));
+    const nm = q => q.n.endsWith(" · " + q.s) ? q.n.slice(0, -(q.s.length + 3)) : q.n;  // 이름 끝에 붙은 '· 제품번호'는 빼고 비교
+    const ws = vars.map(q => nm(q).split(" "));
     let k = 0;
     while (ws.length > 1 && ws.every(w => k < w.length - 1 && w[k] === ws[0][k])) k++;
     const pre = ws[0].slice(0, k).join(" ");
-    const chipName = q => (q.n.match(/\(([^)]*)\)\s*$/) || [])[1] || q.n.slice(pre.length).replace(/^[\s,·\-–]+/, "").trim() || q.s;
+    const chipName = q => (nm(q).match(/\(([^)]*)\)\s*$/) || [])[1] || nm(q).slice(pre.length).replace(/^[\s,·\-–]+/, "").trim() || q.s;
+    // 이름으로 못 가르면(제품번호·이름 통째·겹침) 소재 칸(m)으로 — 포멜라토·미키모토·루이비통처럼 이름이 제각각인 묶음 (10-31)
+    const byName = vars.map(chipName), mOf = q => [...new Set(String(q.m || "").split(/\s*\/\s*/).filter(Boolean))].join(" / ");
+    const weak = byName.some((l, i) => l === nm(vars[i]) || l.includes(vars[i].s) || /^[A-Z0-9][A-Z0-9-]{4,}$/.test(l)) || new Set(byName).size < vars.length;
+    const byM = vars.map(mOf), useM = weak && byM.every(Boolean) && new Set(byM).size === vars.length;
+    const labs = useM ? byM : byName, uniq = new Set(labs).size === vars.length;  // 그래도 겹치면 제품번호
+    const chipOf = q => uniq ? labs[vars.indexOf(q)] : q.s;
     const varHtml = vars.length > 1 ? `<div class="vars"><span class="vl">${isBag ? "색상" : "소재·크기"}</span>${vars.map(q => isBag
       ? `<a class="sw big ${q === p ? "on" : ""}" href="${link(q)}" title="${esc(colKo(q))}" aria-label="${esc(colKo(q))}" style="background:${COLG[q.colg] || "#999"}"></a>`
-      : (() => { const lab = chipName(q);  // 긴 소재 설명은 칩에서 줄이고 전체는 title 로
+      : (() => { const lab = chipOf(q);  // 긴 소재 설명은 칩에서 줄이고 전체는 title 로
           return `<a class="tchip sm vchip ${q === p ? "on" : ""}" href="${link(q)}" title="${esc(lab)}">${esc(lab.length > 28 ? lab.slice(0, 27) + "…" : lab)}</a>`; })()).join("")}
       ${isBag ? `<span class="vname">${esc(colKo(p))}</span>` : ""}</div>` : "";
     // ③ 나라별: 내 여행지 맨 위 고정 → 나머지 싼 순 → 한국(기준) → 비교 불가 회색
