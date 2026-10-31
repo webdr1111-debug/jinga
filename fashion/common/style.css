@@ -532,9 +532,9 @@ html { overflow-x: clip; }  /* 무엇이 넘쳐도 화면(고정 메뉴 기준)�
 .bmark.sm .btext { font-size: 11px; letter-spacing: .12em; }
 .bmark.lg .btext { font: 500 26px/1 var(--display); letter-spacing: .14em; margin-right: -.14em; color: var(--ink); white-space: nowrap; }  /* 로고 그림이 없는 브랜드(메시카·타사키)도 다른 로고와 비슷한 크기로 (10-31 사용자) */
 .fopt.on .bmark img { filter: brightness(0) invert(1); mix-blend-mode: normal; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .bmark img { filter: brightness(0) invert(1); mix-blend-mode: screen; } :root:not([data-theme="light"]) .fopt.on .bmark img { filter: brightness(0); } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .bmark img { filter: brightness(0) invert(1); mix-blend-mode: screen; } :root:not([data-theme="light"]) .fopt.on .bmark img { filter: brightness(0); mix-blend-mode: normal; } }
 :root[data-theme="dark"] .bmark img { filter: brightness(0) invert(1); mix-blend-mode: screen; }
-:root[data-theme="dark"] .fopt.on .bmark img { filter: brightness(0); }
+:root[data-theme="dark"] .fopt.on .bmark img { filter: brightness(0); mix-blend-mode: normal; }
 
 /* ── 설정 (웹앱계획.md 5.15절) ── */
 .setbar { background: var(--warn-bg); color: var(--warn); font-size: 12.5px; text-align: center; padding: 8px 16px; border-bottom: 1px solid var(--line); }
