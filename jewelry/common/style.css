@@ -548,6 +548,11 @@ html { overflow-x: clip; }  /* 무엇이 넘쳐도 화면(고정 메뉴 기준)�
 .setsec summary { cursor: pointer; padding: 12px 0; list-style: none; display: flex; align-items: baseline; gap: 14px; }
 .setsec summary::after { content: "＋"; margin-left: auto; color: var(--sub); }
 .setsec[open] > summary::after { content: "－"; }
+/* 접힌 묶음에도 안에 무엇이 있는지 보이게 (10-31 사용자) */
+.stt { display: flex; flex-direction: column; gap: 4px; flex: 1 1 200px; }
+.sth { gap: 12px; }
+.sth > .link { white-space: nowrap; }
+.sdesc { font-size: 13px; line-height: 1.5; font-weight: 400; color: var(--sub); }
 .qrow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 24px; padding: 18px 0; border-bottom: 1px solid var(--line); }
 .qt h4 { font: 400 16px var(--serif); margin: 0 0 4px; }
 .eff { color: var(--sub); font-size: 12.5px; margin: 0; }
@@ -1146,3 +1151,13 @@ body::before { content: ""; position: fixed; left: 0; right: 0; top: 0; height: 
 .fsec.fsubs { margin-left: 6px; padding: 8px 0 14px 12px; border-left: 2px solid var(--gold); }
 .fsec.fsubs h4 { text-transform: none; letter-spacing: .04em; }
 .fsec.fsubs .fopt { min-height: 32px; font-size: 12px; }
+
+/* 첫 화면 검색창 아래 단추 (10-31 사용자: 단추가 크고 줄 사이가 높음) — 검색 예시·여행지 나라를 한 단계 작게, 줄 간격도 좁게 */
+.hero .htpl { gap: 6px; margin-top: 12px; }
+.hero .htpl .tchip, .hero .hchips .tchip { min-height: 30px; padding: 2px 11px; font-size: 12.5px; }
+.hero .hchips { gap: 6px; margin-top: 16px; }
+.hero .hchips .tchip .flag { width: 15px; height: 15px; }
+@media (max-width: 1023px) {
+  .hero .htpl .tchip, .hero .hchips .tchip { min-height: 30px; padding: 1px 10px; gap: 4px; font-size: 12.5px; }
+  .hero .hchips { margin-top: 14px; }
+}

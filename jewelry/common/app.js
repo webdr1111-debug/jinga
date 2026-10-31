@@ -1543,7 +1543,7 @@
         <p class="lead">지금 계산 기준: <b>${esc(setSummary())}</b></p></div>
       <div class="setwrap">
         <div class="setmain">
-          <section class="setsec"><div class="sth"><h3>내 상황</h3><button type="button" class="link" data-reset="pay,fee,refund,customs,self,krDisc">이 묶음 기본값으로</button></div>
+          <section class="setsec"><div class="sth"><span class="stt"><h3>내 상황</h3><span class="sdesc">결제 방법 · 세금 환급 · 관세 신고 · 한국 할인 · 여행지</span></span><button type="button" class="link" data-reset="pay,fee,refund,customs,self,krDisc">이 묶음 기본값으로</button></div>
             ${q("어떻게 결제하세요?", segBtns("pay", [["card", "신용카드 1.2%"], ["travel", "트래블카드 0%"], ["custom", "직접 입력"]]),
               "해외 결제 수수료예요. 원화 결제(DCC)는 3~8%가 더 붙으니 현지 통화로 결제하세요.", SET.pay === "custom" ? `<div class="sub">수수료 ${numIn("fee", "%", "0.1")}</div>` : "")}
             ${q("출국할 때 세금 환급을 받으세요?", segBtns("refund", [[true, "받아요"], [false, "안 받아요"]]),
@@ -1556,18 +1556,18 @@
             ${q("어디로 가세요?", `<button type="button" class="tchip" data-trip-open>✈ ${S.trip.length ? S.trip.map(c => esc(C[c].n)).join(" · ") : "여행지 고르기"}</button>`,
               "고르면 그 나라 옵션이 아래 '나라별 옵션' 맨 위로 올라와요.")}
           </section>
-          <details class="setsec" ${isM() ? "" : "open"}><summary class="sth"><h3>나라별 옵션</h3></summary><div class="right"><button type="button" class="link" data-reset="jpDept,jpRate,cp,us,usTax,euHigh">이 묶음 기본값으로</button></div>
+          <details class="setsec" ${isM() ? "" : "open"}><summary class="sth"><span class="stt"><h3>나라별 옵션</h3><span class="sdesc">일본 백화점 할인 · 미국 판매세 지역 · 기간 쿠폰 · 유럽 고액 환급</span></span></summary><div class="right"><button type="button" class="link" data-reset="jpDept,jpRate,cp,us,usTax,euHigh">이 묶음 기본값으로</button></div>
             ${mine.length ? `<p class="plabel">내 여행지</p>${mine.map(x => x.html).join("")}` : ""}
             ${rest.length ? `<details class="more2" ${mine.length ? "" : "open"}><summary>${mine.length ? "다른 나라 옵션 보기" : "나라별 옵션"}</summary>${rest.map(x => x.html).join("")}</details>` : ""}
           </details>
-          <details class="setsec" ${isM() ? "" : "open"}><summary class="sth"><h3>보기</h3></summary><div class="right"><button type="button" class="link" data-reset="off,hide,tripOnly,num,theme">이 묶음 기본값으로</button></div>
+          <details class="setsec" ${isM() ? "" : "open"}><summary class="sth"><span class="stt"><h3>보기</h3><span class="sdesc">비교할 나라 · 브랜드 숨기기 · 숫자 표기 · 화면 밝기</span></span></summary><div class="right"><button type="button" class="link" data-reset="off,hide,tripOnly,num,theme">이 묶음 기본값으로</button></div>
             ${q("비교할 나라", `<div class="fopts">${TRIP_CODES.map(c => `<button type="button" class="fopt ${SET.off.includes(c) ? "" : "on"}" data-toggle-off="${c}">${flag(c)}${esc(C[c].n)}</button>`).join("")}</div>`, "끈 나라는 가장 싼 나라·순위 계산에서 빠져요. 한국은 늘 비교해요.")}
             ${q("내 여행지 나라만 비교", segBtns("tripOnly", [[false, "모든 나라"], [true, "한국 + 내 여행지만"]]))}
             ${q("관심 없는 브랜드 숨기기", `<div class="fopts">${[...new Set(list().map(p => p.b))].map(b => `<button type="button" class="fopt ${SET.hide.includes(b) ? "" : "on"}" data-toggle-hide="${esc(b)}">${brandMark(b, "sm")}</button>`).join("")}</div>`, "숨긴 브랜드도 브랜드를 직접 고르면 보여요.")}
             ${q("숫자 표기", segBtns("num", [["man", "812만"], ["M", "8.1M"]]))}
             ${q("화면 밝기", segBtns("theme", [["auto", "기기 따름"], ["light", "밝게"], ["dark", "어둡게"]]))}
           </details>
-          <details class="setsec" ${isM() ? "" : "open"} id="set-fx"><summary class="sth"><h3>환율</h3></summary><div class="right"><button type="button" class="link" data-reset="fxMode,fxCustom">이 묶음 기본값으로</button></div>
+          <details class="setsec" ${isM() ? "" : "open"} id="set-fx"><summary class="sth"><span class="stt"><h3>환율</h3><span class="sdesc">최신·빌드·직접 입력 중 고르기 · 통화별 환율 표</span></span></summary><div class="right"><button type="button" class="link" data-reset="fxMode,fxCustom">이 묶음 기본값으로</button></div>
             ${q("어떤 환율로 계산할까요?", segBtns("fxMode", [["live", "최신 환율"], ["build", `빌드 환율 (${M.fxDate.slice(5).replace("-", ".")})`], ["custom", "직접 입력"]]),
               SET.fxMode === "live" ? (FXL ? `${FXL.date} 기준 최신 환율로 계산해요. 페이지를 열 때마다 한 번 새로 받아요.` : "최신 환율을 아직 받지 못해서 빌드 환율로 계산하고 있어요.")
                 : SET.fxMode === "build" ? "가격을 모은 날의 환율이에요. 엑셀 계산과 같아요." : "통화마다 원하는 값(예: 카드 청구 환율)을 넣어요. 빈칸은 최신(없으면 빌드) 환율을 써요.",
@@ -1580,12 +1580,12 @@
             <p class="note" data-err="fx"></p>
             <p class="note">통화 1단위의 원화 값이에요. 시장 환율이라 카드 청구 환율과 1% 안팎 다를 수 있어요. 최신 환율은 <a class="link" href="https://www.exchangerate-api.com" target="_blank" rel="noopener noreferrer">Rates By Exchange Rate API</a>에서 받아요(이 기기 주소 외에는 아무것도 보내지 않아요).</p>
           </details>
-          <details class="setsec adv"><summary><h3>고급 설정</h3></summary>
+          <details class="setsec adv"><summary><span class="stt"><h3>고급 설정</h3><span class="sdesc">일본 환급 수수료 · 유럽 고액 기준 · 오래된 가격 경고</span></span></summary>
             ${q("일본 택스리펀드 수수료", segBtns("jpFeeOn", [[true, "반영"], [false, "없이(최대 9.09%)"]]), `일본 환급률 = (10% − 수수료) ÷ 1.1 → 지금 약 ${jpRate}%`, SET.jpFeeOn ? `<div class="sub">수수료율 ${numIn("jpFee", "%", "0.05")}</div>` : "")}
             ${q("유럽 고액 기준 금액·상향 폭", `<div class="sub">기준 ${numIn("euThr", "€", "100")}</div><div class="sub">프랑스 ${numIn("euUp.FR", "%p", "0.1")} 이탈리아 ${numIn("euUp.IT", "%p", "0.1")} 스페인 ${numIn("euUp.ES", "%p", "0.1")}</div>`, "'유럽 한 매장에서 €5,000 넘게 사요?'를 켰을 때만 써요.")}
             ${q("오래된 가격 경고", numIn("stale", "일", "1"), "수집한 지 이 일수가 지난 나라 가격에 '오래된 가격'을 표시해요(엑셀과 같은 30일 기본).")}
           </details>
-          <details class="setsec adv"><summary><h3>계산 기준 보기</h3><span class="note">법·제도로 정해진 값 — 바꿀 수 없어요</span></summary>
+          <details class="setsec adv"><summary><span class="stt"><h3>계산 기준 보기</h3><span class="sdesc">관세 · 나라별 세금·환급 · 할인 제외 브랜드 · 쿠폰 · 하와이·괌 매장 — 법·제도로 정해진 값이라 바꿀 수 없어요</span></span></summary>
             <h4 class="refh">관세 (관세청 여행자 휴대품 기준, 2026-10-25 확인)</h4>
             ${refTable(["항목", "값"], [["면세 한도", "$800 (한 사람 전체에서 한 번)"], ["간이세율", "보석: 4,808,000원까지 15%, 넘는 부분 45% · 시계·가방: 1,923,000원까지 15%, 넘는 부분 45%"],
               ["간이세율 적용 배제", "한 개 과세가격 1,000만원 초과 → 일반 과세"], ["일반 과세", "관세 8% + 개별소비세 20%(보석 500만·시계·가방 200만원 넘는 부분) + 교육세 30% + 부가세 10%"],
@@ -1602,7 +1602,7 @@
             <h4 class="refh">하와이·괌 매장</h4>
             ${refTable(["브랜드", "하와이", "괌"], Object.entries(D.stores).map(([b, [h, g]]) => [esc(bk(b)), esc(h), esc(g)]))}
           </details>
-          <details class="setsec" ${isM() ? "" : "open"}><summary class="sth"><h3>데이터·백업</h3></summary>
+          <details class="setsec" ${isM() ? "" : "open"}><summary class="sth"><span class="stt"><h3>데이터·백업</h3><span class="sdesc">데이터 버전·상태 · 담은 목록·설정 파일로 내보내기·가져오기</span></span></summary>
             ${q("데이터", `<p class="note">버전 ${esc(M.version)} · 데이터 ${esc(D.generated)} · ${esc(fxLabel())} · 제품 ${list().length.toLocaleString("ko-KR")}개</p><a class="link" href="#/settings/status">데이터 상태 보기</a>`)}
             ${q("담은 목록·설정 백업", `<button type="button" class="btn ghost" data-export>파일로 내보내기</button> <label class="btn ghost">파일에서 가져오기<input type="file" accept="application/json,.json" data-import hidden></label><p class="note" id="impMsg"></p>`, "이 기기에만 저장돼요. 브라우저를 바꾸기 전에 내보내 두세요.")}
           </details>
