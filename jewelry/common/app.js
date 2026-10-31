@@ -517,8 +517,8 @@
   // 사용자가 만지거나 단추를 누르면 자동 넘김을 20초 멈춤
   let heroHold = 0;
   // 이벤트 묶음 페이지 배너 (sheets/config/events.json pages[].banner): 제품 10장 뒤 11·12번째… 노출 기간 안에만 (2026-10-29)
-  let heroBanners = [];
-  const heroCount = () => heroList.length + heroBanners.length;
+  let heroBanners = [], heroGuide = null;  // heroGuide: 쇼핑 리스트 배너 — 첫 이벤트 배너 바로 다음 (11번째 이벤트, 12번째 쇼핑 리스트, 나머지 이벤트는 그 뒤 — 11-01 사용자)
+  const heroCount = () => heroList.length + heroBanners.length + (heroGuide ? 1 : 0);
   // 배너 그림: 웹은 data/ 주소 그대로, 앱은 서명 목록의 sha256 을 확인한 뒤(LUXDATA.img) 넣음
   const evImg = (b, cls) => b && b.image ? `<img class="${cls}" data-evimg="${esc(b.image)}" alt="${esc(b.alt || "")}" decoding="async">` : "";
   const evImgFill = () => document.querySelectorAll("img[data-evimg]:not([src])").forEach(im => {
@@ -531,10 +531,11 @@
       <p class="fbwhen">${evDate(pg.until)}까지</p></div></a>`;
   function heroHTML() {
     heroBanners = livePages().filter(pg => pg.banner).slice(0, 3);
+    heroGuide = heroList.length ? guideBanner() : null;
     const n = heroCount();
     return `<div class="htrack" id="hTrack" aria-roledescription="carousel" aria-label="이번 주 싸게 사는 제품">${heroList.map((_, j) =>
-      `<div class="hslide" role="group" aria-roledescription="slide" aria-label="${j + 1} / ${n}">${featHTML(j)}</div>`).join("")}${heroBanners.map((pg, j) =>
-      `<div class="hslide" role="group" aria-roledescription="slide" aria-label="${heroList.length + j + 1} / ${n} 이벤트">${bannerHTML(pg)}</div>`).join("")}</div>
+      `<div class="hslide" role="group" aria-roledescription="slide" aria-label="${j + 1} / ${n}">${featHTML(j)}</div>`).join("")}${(() => { const bs = heroBanners.map(pg => [bannerHTML(pg), "이벤트"]); if (heroGuide) bs.splice(Math.min(1, bs.length), 0, [guideBannerHTML(heroGuide), "쇼핑 리스트"]);
+        return bs.map(([h, lab], j) => `<div class="hslide" role="group" aria-roledescription="slide" aria-label="${heroList.length + j + 1} / ${n} ${lab}">${h}</div>`).join(""); })()}</div>
       ${n > 1 ? `<div class="hctl"><button type="button" class="hbtn" data-hnav="-1" aria-label="이전 제품"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
         <span class="hcount" aria-live="polite"><b id="hNow">${heroIdx % n + 1}</b> / ${n}</span>
         <span class="hbar"><i id="hBar" style="width:${(heroIdx % n + 1) / n * 100}%"></i></span>
@@ -1298,7 +1299,7 @@
     const here = o => `<div class="here">${cc(c)} ${man(o.net)} · 한국 대비 ${pct(o.s)}</div>`;
     const cLim = countryShow || PAGE();
     const cards = listA.slice(0, cLim).map(o => viewMode(q) === "list" ? rowItem(o.it, here(o)) : card(o.it, here(o))).join("");
-    return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/country">여행지</a> › ${esc(k.n)}</nav>${evStrip(liveEvents().filter(e => e.countries.includes(c)), "#/events?cc=" + c)}
+    return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/country">여행지</a> › ${esc(k.n)}</nav>${evStrip(liveEvents().filter(e => e.countries.includes(c)), "#/events?cc=" + c)}${gCountry(c) ? `<a class="evstrip" href="#/guide/${c}"><span class="evcat">쇼핑</span><span class="evt">${esc(k.n)} 쇼핑 리스트 — 꼭 사 오는 것 ${gCountry(c).items.length}가지</span><span class="evgo">›</span></a>` : ""}
       <div class="pagehead row"><div><h1>${nationF(c)}</h1><p class="lead">통화 ${esc(k.cur)} · 환율 ₩${fxFmt(D.fx[c])} (${esc(fxLabel())}) · 데이터 ${esc(D.generated)}</p>${stockNote(true)}</div>
         <button type="button" class="btn ${inTrip ? "ghost" : ""}" data-trip="${c}">${inTrip ? "✈ 내 여행지에서 빼기" : "✈ 내 여행지에 넣기"}</button></div>
       <div class="kpis"><div><b>${st.cheapest}</b><span>${esc(k.n)}이(가) 가장 싼 제품</span></div><div><b>${st.cheaper}</b><span>한국보다 싼 제품 (${st.total}개 중)</span></div><div><b>${pct(st.med)}</b><span>중간 절약률</span></div></div>
@@ -1385,8 +1386,8 @@
   const openRow = new Set();
   let allNations = false, barsAll = false;  // 모바일 제품 화면: 접힌 나라까지 보기
   // 브랜드 상세 파일 (data/brands/*.js) — 제품 화면을 열 때만 읽는다 (3.5절)
-  const brandState = {};
-  LUX.addBrand = (b, data) => { LuxData.applyBrand(D[kind].filter(p => p.b === b), data); brandState[b] = "ok"; cache.clear(); };
+  const brandState = {}, aliasOf = {};  // aliasOf: 색상이 한 줄로 합쳐져 대표가 아니게 된 제품번호 → 대표 번호 (브랜드 파일 alias, 11-01)
+  LUX.addBrand = (b, data) => { LuxData.applyBrand(D[kind].filter(p => p.b === b), data); aliasOf[b] = data.alias || {}; brandState[b] = "ok"; cache.clear(); };
   function loadBrand(b) {
     if (brandState[b]) return;
     // 한 파일본(휴대폰용, build_single.py): 브랜드 상세가 페이지 안에 JSON 으로 들어 있음
@@ -1413,6 +1414,13 @@
   function product(b, s) {
     const p = findP(b, s);
     if (p && !p.detail) loadBrand(p.b);
+    // 예전에 공유된 다른 색 번호: 브랜드 파일을 읽어 대표 번호로 넘김
+    if (!p && list().some(q => q.b === b)) {
+      loadBrand(b);
+      const to = (aliasOf[b] || {})[s], q = to && findP(b, to);
+      if (q) { location.replace(link(q)); return ""; }
+      if (brandState[b] === "loading") return `<div class="pagehead"><p class="lead">불러오는 중…</p></div>`;
+    }
     if (p && pImgKey !== p.b + "|" + p.s) { pImg = 0; pImgKey = p.b + "|" + p.s; }
     if (!p) return `<div class="pagehead"><h1>이 제품은 이번 데이터에 없어요</h1><p class="lead">판매가 끝났거나 제품번호가 바뀌었을 수 있어요.</p><a class="btn" href="#/search">찾기</a></div>`;
     const R = rep(p), rs = rows(p), on = S.picks.includes(p.b + "|" + p.s);
@@ -1747,7 +1755,7 @@
   let lastRoute = "";
   // 설정에 들어오기 전 화면과 스크롤 위치 — 돌아가면 그 자리로
   let backTo = "", backY = 0, restoreY = null;
-  const routeName = r => { const s = r.split("?")[0].split("/")[1] || ""; return ({ "": "첫 화면", p: "제품", search: "찾기", brand: "브랜드", country: "여행지", picks: "담은 목록", changes: "가격 변동", events: "이벤트" })[s] || ""; };
+  const routeName = r => { const s = r.split("?")[0].split("/")[1] || ""; return ({ "": "첫 화면", p: "제품", search: "찾기", brand: "브랜드", country: "여행지", picks: "담은 목록", changes: "가격 변동", events: "이벤트", guide: "쇼핑 리스트" })[s] || ""; };
   // ── 이벤트 (2026-10-29): 종류·지역으로 골라 보기. YYYY-MM-DD 는 휴대폰 날짜로 그날 0시~끝날 24시 ──
   const evTime = (s, end) => {
     if (!s) return end ? Infinity : -Infinity;
@@ -1866,6 +1874,82 @@
     return true;
   }
 
+  // ── 나라별 쇼핑 리스트 (sheets/config/guides.json → data/guides.json, 2026-11-01): 목록 #/guide → 나라 #/guide/JP?city=&cat= ──
+  //  추천(pick) 아이템만 사진(Wikimedia Commons 자유 이용 사진, 찍은 사람·허가 표시). 첫 화면 넘김은 이벤트 배너 다음 장(11번째 이벤트면 12번째)
+  const GD = LUX.guides && Array.isArray(LUX.guides.countries) ? LUX.guides : { categories: [], rules: [], countries: [] };
+  const gCountry = c => C[c] && c !== "KR" ? GD.countries.find(g => g.cc === c) : null;
+  const gCat = id => (GD.categories.find(x => x.id === id) || {}).name || id;
+  const gCity = (g, id) => (g.cities.find(x => x.id === id) || {}).name || id;
+  const gIn = (it, city) => !city || !it.cities.length || it.cities.includes(city);
+  const WARN = { meat: "축산물", plant: "과일·식물", liquid: "액체", alcohol: "술", medicine: "의약품" };
+  const gPrice = it => {
+    const p = it.price, r = p && fxNow(p.cur);
+    if (!p || !(p.min > 0)) return "";
+    const f = n => n.toLocaleString("ko-KR"), two = p.max > p.min;
+    return `${f(p.min)}${two ? "~" + f(p.max) : ""} ${esc(p.cur)}${r ? ` <small>(약 ${won(p.min * r)}${two ? "~" + won(p.max * r) : ""})</small>` : ""}`;
+  };
+  const gImg = (im, cls) => im && safeUrl(im.url) ? `<img class="${cls}" src="${esc(im.url)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : "";
+  const gCredit = im => im && safeUrl(im.page) ? `<a class="gcred" href="${esc(im.page)}" target="_blank" rel="noopener noreferrer">사진 ${esc(im.credit || "Wikimedia Commons")} · ${esc(im.license || "")}</a>` : "";
+  const host = u => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return ""; } };
+  const gItem = (it, g) => `<details class="gitem${it.pick && it.img ? " pick" : ""}">
+      <summary>${it.pick && it.img ? `<span class="gph">${gImg(it.img, "gimg")}</span>` : ""}<span class="gtx"><span class="gcat">${esc(gCat(it.cat))}${it.cities.length ? " · " + it.cities.map(id => esc(gCity(g, id))).join("·") : ""}</span>
+        <b>${esc(it.name)}</b>${it.local ? `<small>${esc(it.local)}</small>` : ""}<span class="gwhy">${esc(it.why)}</span></span></summary>
+      <dl class="gdl">${it.origin ? `<dt>산지</dt><dd>${esc(it.origin)}</dd>` : ""}${it.where ? `<dt>어디서</dt><dd>${esc(it.where)}</dd>` : ""}${gPrice(it) ? `<dt>가격대</dt><dd>${gPrice(it)}</dd>` : ""}${it.tip ? `<dt>팁</dt><dd>${esc(it.tip)}</dd>` : ""}${it.warn.length ? `<dt>주의</dt><dd>${it.warn.map(w => `<span class="gwarn">${esc(WARN[w] || w)}</span>`).join(" ")} <small>아래 '한국에 가져올 때'를 확인하세요</small></dd>` : ""}</dl>
+      ${it.pick && it.img ? `<p class="gfoot">${gCredit(it.img)}</p>` : ""}${it.src.length ? `<p class="gfoot">참고 ${it.src.filter(safeUrl).map(u => `<a class="link" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(host(u))} ↗</a>`).join(" · ")}</p>` : ""}
+    </details>`;
+  function guides() {
+    const order = [...S.trip, ...GD.countries.map(g => g.cc).filter(c => !S.trip.includes(c))].filter(gCountry);  // 내 여행지 → _common.json order 순
+    if (!order.length) return `<div class="pagehead center"><h1>나라별 쇼핑 리스트</h1><p class="lead">아직 준비 중이에요.</p></div>`;
+    return `<div class="pagehead center"><p class="eyebrow">Shopping List</p><h1>나라별 쇼핑 리스트</h1><p class="lead">여행 가서 사 오면 좋은 먹거리·화장품·기념품을 도시별로 모았어요</p></div>
+      <div class="gccs">${order.map(c => { const g = gCountry(c), pk = g.items.find(it => it.pick && it.img), mine = S.trip.includes(c);
+        return `<a class="gcc${mine ? " mine" : ""}" href="#/guide/${c}"><span class="gccph">${pk ? gImg(pk.img, "gccimg") : ""}</span><span class="gcctx"><b>${nationF(c)}${mine ? ` <small class="gmine">내 여행지</small>` : ""}</b>
+          <small>${g.cities.map(x => esc(x.name)).join(" · ")}</small><span class="gccpk">${g.items.filter(it => it.pick).slice(0, 3).map(it => esc(it.name)).join(" · ")}</span><em>아이템 ${g.items.length}개 ›</em></span></a>`; }).join("")}</div>
+      <p class="note center evnote">여러 여행 정보를 참고해 정리한 초안이에요. 가격·판매처는 바뀔 수 있어요. 럭스캐너는 소개한 매장과 관계없어요.</p>`;
+  }
+  function guideCountry(c, q) {
+    const g = gCountry(c);
+    if (!g) return notFound();
+    const city = g.cities.some(x => x.id === q.get("city")) ? q.get("city") : "", cat = GD.categories.some(x => x.id === q.get("cat")) ? q.get("cat") : "";
+    const its = g.items.filter(it => gIn(it, city) && (!cat || it.cat === cat)), picks = its.filter(it => it.pick && it.img), rest = its.filter(it => !picks.includes(it));
+    const href = (k, v) => { const p = new URLSearchParams(q); v ? p.set(k, v) : p.delete(k); const s = p.toString(); return `#/guide/${c}` + (s ? "?" + s : ""); };
+    const chip = (on, h, label, n) => `<a class="tchip ${on ? "on" : ""}" href="${h}">${label}${n !== undefined ? ` <small>${n}</small>` : ""}</a>`;
+    const cats = GD.categories.filter(x => g.items.some(it => it.cat === x.id && gIn(it, city)));
+    const warns = new Set(g.items.flatMap(it => it.warn)), rules = (GD.rules || []).filter(r => r.code === "general" || warns.has(r.code));
+    const st = countryStats(c);
+    return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/guide">쇼핑 리스트</a> › ${esc(C[c].n)}</nav>
+      <div class="pagehead"><p class="eyebrow">Shopping List</p><h1>${nationF(c)} 쇼핑 리스트</h1>${g.intro ? `<p class="lead">${esc(g.intro)}</p>` : ""}
+        <p class="note">${g.draft ? "초안 · " : ""}${esc(g.checked || "")} 정리 · 가격·판매처는 바뀔 수 있어요</p></div>
+      <div class="evfilter">${g.cities.length > 1 ? `<div class="chiprow"><span class="evlab">도시</span>${chip(!city, href("city", ""), "전체")}${g.cities.map(x => chip(city === x.id, href("city", x.id), esc(x.name))).join("")}</div>` : ""}
+        <div class="chiprow"><span class="evlab">종류</span>${chip(!cat, href("cat", ""), "전체", g.items.filter(it => gIn(it, city)).length)}${cats.map(x => chip(cat === x.id, href("cat", x.id), esc(x.name), g.items.filter(it => it.cat === x.id && gIn(it, city)).length)).join("")}</div></div>
+      ${picks.length ? `<section class="sec"><div class="sh"><h2>${city ? esc(gCity(g, city)) + "에서 " : ""}꼭 사 오는 것</h2></div><div class="gpicks">${picks.map(it => gItem(it, g)).join("")}</div></section>` : ""}
+      ${rest.length ? `<section class="sec"><div class="sh"><h2>${picks.length ? "이것도 많이 사요" : "쇼핑 리스트"}</h2><span class="note">누르면 자세히</span></div><div class="glist">${rest.map(it => gItem(it, g)).join("")}</div></section>` : ""}
+      ${its.length ? "" : `<p class="empty">이 조건에 맞는 아이템이 없어요.</p>`}
+      ${st.cheaper ? `<a class="evstrip" href="#/country/${c}"><span class="evcat">명품</span><span class="evt">${esc(C[c].n)}에서 한국보다 싼 명품 ${st.cheaper}개 보기</span><span class="evgo">›</span></a>` : ""}
+      ${rules.length ? `<section class="sec gcustoms"><div class="sh"><h2>한국에 가져올 때</h2></div><ul>${rules.map(r => `<li><b>${esc(r.title)}</b> ${esc(r.text)}${safeUrl(r.src) ? ` <a class="link" href="${esc(r.src)}" target="_blank" rel="noopener noreferrer">${esc(host(r.src))} ↗</a>` : ""}</li>`).join("")}</ul>
+        <p class="note">${esc(GD.rulesChecked || "")} 확인 · 규칙은 바뀔 수 있어요. 출국 전 관세청·검역본부 안내를 확인하세요.</p></section>` : ""}
+      <p class="note center evnote">추천 사진은 Wikimedia Commons의 자유 이용 사진이에요(찍은 사람·허가 표시). 럭스캐너는 소개한 매장과 관계없어요.</p>`;
+  }
+  // 첫 화면 넘김 배너: 내 여행지가 있으면 그 나라 중, 없으면 전체에서 무작위 — 앱을 열거나 내 여행지를 바꿀 때만 다시 고름
+  let gBan = null;
+  function guideBanner() {
+    const pool = GD.countries.filter(g => gCountry(g.cc) && g.items.length), mine = pool.filter(g => S.trip.includes(g.cc)), sig = S.trip.join(",");
+    if (!pool.length) return null;
+    if (!gBan || gBan.sig !== sig) {
+      const from = mine.length ? mine : pool, g = from[Math.floor(Math.random() * from.length)];
+      const cs = g.cities.filter(x => g.items.some(it => it.pick && it.img && gIn(it, x.id))), city = cs.length > 1 ? cs[Math.floor(Math.random() * cs.length)] : null;
+      const pk = g.items.filter(it => it.pick && it.img && gIn(it, city && city.id));
+      gBan = { sig, cc: g.cc, city: city ? city.id : "", img: pk.length ? pk[Math.floor(Math.random() * pk.length)].id : "" };
+    }
+    return gBan;
+  }
+  const guideBannerHTML = b => {
+    const g = gCountry(b.cc), its = g.items.filter(it => gIn(it, b.city)), im = (g.items.find(it => it.id === b.img) || {}).img;
+    const where = b.city ? gCity(g, b.city) : C[b.cc].n;
+    return `<a class="feat fban gban${im ? " hasimg" : ""}" href="#/guide/${b.cc}${b.city ? "?city=" + encodeURIComponent(b.city) : ""}">${gImg(im, "fbimg")}<div class="fbin">
+      <p class="eyebrow">${flag(b.cc)} ${esc(C[b.cc].n)} 쇼핑 리스트</p><h2>${esc(where)} 가면<br>꼭 사 오는 것 ${its.length}가지</h2>
+      <p class="fbt">${its.filter(it => it.pick).slice(0, 3).map(it => esc(it.name)).join(" · ")}</p><span class="fbcta">리스트 보기 ›</span></div></a>`;
+  };
+
   function render() {
     const back = !!(history.state && typeof history.state.d === "number");  // 새로 연 화면은 아직 d 가 없음 → 기록에 있는 화면으로 돌아온 것
     trackNav();
@@ -1890,6 +1974,7 @@
     else if (r === "picks") html = picks();
     else if (r === "changes") html = changesPage(q);
     else if (r === "events") html = seg[1] ? eventPage(seg[1]) : eventsPage(q);
+    else if (r === "guide") html = seg[1] ? guideCountry(seg[1], q) : guides();
     else html = notFound();
     // 필터 판이 열린 채 조건을 바꾸면 판이 다시 그려진다 — 보던 위치를 지켜서 아래쪽 필터를 이어서 고를 수 있게
     AT = null;
