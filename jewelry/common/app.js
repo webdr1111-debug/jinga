@@ -1200,6 +1200,14 @@
       ["300만원 이하", { pmax: 3000000, save: 0 }],
       ["예물 반지", { type: "ring", sub: "밴드" }],
       ["일본이 가장 싼 것", { cheap: "JP" }],
+      ["까르띠에 저스트 앵 끌루", { brand: "Cartier", q: "저스트 앵 끌루" }],
+      ["티파니 스마일", { brand: "Tiffany & Co.", q: "스마일" }],
+      ["쇼메 조세핀", { brand: "Chaumet", q: "조세핀" }],
+      ["메시카 무브", { brand: "Messika", q: "무브" }],
+      ["불가리 비제로원", { brand: "Bulgari", q: "비제로원" }],
+      ["부쉐론 콰트로", { brand: "Boucheron", q: "콰트로" }],
+      ["미키모토 진주 목걸이", { brand: "Mikimoto", type: "necklace" }],
+      ["100만원 이하 귀걸이", { type: "earring", pmax: 1000000, save: 0 }],
     ],
     bag: [
       ["루이비통 네버풀", { brand: "Louis Vuitton", q: "네버풀" }],
@@ -1210,10 +1218,21 @@
       ["300만원 이하 가방", { type: "bag", pmax: 3000000, save: 0 }],
       ["스카프·트윌리", { type: "silk", sub: "스카프·트윌리" }],
       ["일본이 가장 싼 것", { cheap: "JP" }],
+      ["셀린느 트리옹프", { brand: "Celine", q: "트리옹프" }],
+      ["루이비통 스피디", { brand: "Louis Vuitton", q: "스피디" }],
+      ["디올 북 토트", { brand: "Dior", q: "북 토트" }],
+      ["구찌 홀스빗", { brand: "Gucci", q: "홀스빗" }],
+      ["로에베 퍼즐", { brand: "Loewe", q: "퍼즐" }],
+      ["미우미우 아르카디", { brand: "Miu Miu", q: "Arcadie" }],
+      ["생로랑 카산드라", { brand: "Saint Laurent", q: "카산드라" }],
+      ["에르메스 가방", { brand: "Hermès", type: "bag" }],
     ],
   };
+  // 앱을 열 때마다 섞어서 앞의 6·8개만 (10-31 사용자: 늘 같은 예시) — 한 번 연 동안은 같은 순서
+  let tplMix = null;
   const templates = () => {
-    const t = (TEMPLATES[kind] || []).slice(0, isM() ? 6 : 8);  // 휴대폰은 6개(두세 줄)
+    if (!tplMix) tplMix = (TEMPLATES[kind] || []).map(t => [Math.random(), t]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
+    const t = tplMix.slice(0, isM() ? 6 : 8);  // 휴대폰은 6개(두세 줄)
     return t.length ? `<div class="htpl" aria-label="이렇게 찾아 보세요">${t.map(([l, q]) => `<a class="tchip sm" href="#/search?${esc(new URLSearchParams(q).toString())}">${esc(l)}</a>`).join("")}</div>` : "";
   };
   // 브랜드로 찾기 (첫 화면 위쪽): 제품 많은 순 로고 — PC 12개, 휴대폰 6개 + 모든 브랜드

@@ -1161,3 +1161,11 @@ body::before { content: ""; position: fixed; left: 0; right: 0; top: 0; height: 
   .hero .htpl .tchip, .hero .hchips .tchip { min-height: 30px; padding: 1px 10px; gap: 4px; font-size: 12.5px; }
   .hero .hchips { margin-top: 14px; }
 }
+
+/* 휴대폰 머리글 돋보기 (10-31 사용자: 찾기가 아래 탭에만 있어 찾기 어려움) — 좁은 폰에서도 '내 여행지'가 안 잘리게 간격을 줄임 */
+@media (max-width: 1023px) {
+  .tools { gap: 4px; }
+  .top .hsrch { padding: 6px 4px; }
+  .top .hsrch svg { width: 21px; height: 21px; }
+}
+@media (max-width: 380px) { .top .wrap { padding: 0 12px; } .tripchip { padding: 6px 8px; } }
