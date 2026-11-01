@@ -2010,13 +2010,16 @@
     if (!rows) return crumb + head + stWait(STO.ccSt[cc]);
     const base = `#/stores/${cc}`, cityOk = c.cities.some(x => x.id === q.get("city")), city = cityOk ? q.get("city") : "";
     const L1 = rows.filter(r => !city || r[1] === city);
+    // 브랜드를 고른 채 들어오면 도시 칩도 그 브랜드 매장 수로 세고, 그 브랜드가 없는 도시는 감춤 (11-02: 미키모토 고른 뒤 '후쿠오카현'을 누르면 브랜드가 풀려 루이비통이 보이던 것)
+    const qb = I.brands[q.get("b")] && rows.some(r => r[0] === q.get("b")) ? q.get("b") : "";
+    const cityN = id => rows.filter(r => r[1] === id && (!qb || r[0] === qb)).length, cities = c.cities.filter(x => !qb || x.id === city || cityN(x.id));
     const bs = Object.keys(I.brands).filter(b => L1.some(r => r[0] === b)), b = bs.includes(q.get("b")) ? q.get("b") : "";
     const L2 = L1.filter(r => !b || r[0] === b);
     const ks = I.kinds.map((k, i) => i).filter(i => L2.some(r => r[6] === i)), k = ks.includes(+q.get("k")) && q.get("k") !== "" && q.get("k") !== null ? +q.get("k") : -1;
     const L3 = L2.filter(r => k < 0 || r[6] === k);
     const cnt = (L, f) => L.filter(f).length;
     const filters = `<div class="evfilter stfilter">
-      ${c.cities.length > 1 ? `<div class="chiprow"><span class="evlab">도시</span>${stChip(!city, stHref(base, q, "city", ""), "전체", rows.length)}${c.cities.map(x => stChip(city === x.id, stHref(base, q, "city", x.id), esc(x.ko.replace(/\s*\([^)]*밖\)$/, "")), x.n)).join("")}</div>` : ""}
+      ${cities.length > 1 ? `<div class="chiprow"><span class="evlab">도시</span>${stChip(!city, stHref(base, q, "city", ""), "전체", qb ? cnt(rows, r => r[0] === qb) : rows.length)}${cities.map(x => stChip(city === x.id, stHref(base, q, "city", x.id), esc(x.ko.replace(/\s*\([^)]*밖\)$/, "")), cityN(x.id))).join("")}</div>` : ""}
       <div class="chiprow"><span class="evlab">브랜드</span>${stChip(!b, stHref(base, q, "b", ""), "전체", L1.length)}${bs.map(x => stChip(b === x, stHref(base, q, "b", x), esc(I.brands[x]), cnt(L1, r => r[0] === x))).join("")}</div>
       ${ks.length > 1 ? `<div class="chiprow"><span class="evlab">종류</span>${stChip(k < 0, stHref(base, q, "k", ""), "전체", L2.length)}${ks.map(i => stChip(k === i, stHref(base, q, "k", String(i)), esc(I.kinds[i]), cnt(L2, r => r[6] === i))).join("")}</div>` : ""}</div>`;
     const cityName = id => (c.cities.find(x => x.id === id) || {}).ko || id;
