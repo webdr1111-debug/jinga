@@ -1140,9 +1140,9 @@
         ${lock.brand ? "" : `<button type="button" class="qchip ${F.brand.length ? "on" : ""}${qo("brand")}" data-quick="brand"><span class="qtx">${F.brand.length ? esc(F.brand.map(bk).join("·")) : "브랜드"}</span>&nbsp;▾</button>`}
         <button type="button" class="qchip ${F.type ? "on" : ""}${qo("type")}" data-quick="type">${F.type ? esc(TYPE_ALL[F.type]) : "종류"} ▾</button>
         <button type="button" class="qchip ${F.pmin || F.pmax !== Infinity ? "on" : ""}${qo("price")}" data-quick="price">${esc(F.pmin || F.pmax !== Infinity ? rangeLabel(F) : "가격대")} ▾</button>
-        <a class="qchip ${F.save === "0" ? "on" : ""}" href="${esc(url({ save: F.save === "0" ? "" : "0" }))}">한국보다 싼 것만</a>
-        ${lock.at ? `<span class="qchip on" title="가격을 이 나라 기준으로 보여 줘요">${flag(lock.at)}${esc(C[lock.at].n)} 기준</span>` : `<button type="button" class="qchip ${S.trip.length ? "on" : ""}" data-trip-open>✈ ${S.trip.length ? S.trip.map(c => esc(C[c].n)).join("·") : "내 여행지"}</button>`}
-        <button type="button" class="qchip more" data-fpanel>필터 더 보기${moreN ? ` (${moreN})` : ""}</button>
+        <a class="qchip qsave ${F.save === "0" ? "on" : ""}" href="${esc(url({ save: F.save === "0" ? "" : "0" }))}">한국보다 싼 것만</a>
+        ${lock.brand && isM() ? "" : lock.at ? `<span class="qchip on" title="가격을 이 나라 기준으로 보여 줘요">${flag(lock.at)}${esc(C[lock.at].n)} 기준</span>` : `<button type="button" class="qchip qtrip ${S.trip.length ? "on" : ""}" data-trip-open>✈ ${!S.trip.length ? "내 여행지" : isM() && S.trip.length > 1 ? `${esc(C[S.trip[0]].n)} 외 ${S.trip.length - 1}` : S.trip.map(c => esc(C[c].n)).join("·")}</button>`}
+        <button type="button" class="qchip more" data-fpanel>${isM() ? "필터" : "필터 더 보기"}${moreN ? ` (${moreN})` : ""}</button>
       </div>${quickRow}
     </div>
     <div class="fl ${panelOpen ? "open" : ""}">
@@ -1327,7 +1327,7 @@
     for (const it of its) { const p = head(it), kr = rows(p).find(r => r.cc === "KR" && r.v);
       for (const r of rows(p)) if (r.cc !== "KR" && r.t > 0 && r.v) { n[r.cc] = (n[r.cc] || 0) + 1; if (kr && r.net < kr.net) cheap[r.cc] = (cheap[r.cc] || 0) + 1; } }
     const cs = TRIP_CODES.filter(c => n[c]).sort((a, x) => (cheap[x] || 0) - (cheap[a] || 0) || n[x] - n[a]);  // 칩 숫자: 한국보다 싼 제품 수 (한국에 없는 브랜드는 그 나라에서 파는 제품 수)
-    const cut = isM() && !atAll ? cs.filter((c, i) => i < 5 || c === cur) : cs, rest = cs.length - cut.length;
+    const cut = isM() && !atAll ? cs.filter((c, i) => i < 2 || c === cur) : cs, rest = cs.length - cut.length;
     return `<div class="atrow"><span class="atl">기준 나라</span><div class="chiprow ${isM() ? "wrapm" : "scroll"}">
       <a class="tchip ${!cur ? "on" : ""}" href="${esc(href(""))}">${S.trip.length ? "✈ 내 여행지" : "가장 싼 나라"}</a>
       ${cut.map(c => `<a class="tchip ${c === cur ? "on" : ""}" href="${esc(href(c))}">${flag(c)}${esc(C[c].n)} <small>${NOKR.has(b) ? n[c] : (cheap[c] || 0)}</small></a>`).join("")}
@@ -1344,8 +1344,8 @@
   function colChips(cols, col, qc) {
     const ent = Object.entries(cols).sort((x, y) => y[1] - x[1]);
     if (ent.length < 2) return "";
-    // 모바일: 가로 밀기 대신 줄바꿈, 처음엔 5개(고른 컬렉션은 늘 보임) + [+N개 더]
-    const cut = isM() && !colAll ? ent.filter(([c], i) => i < 5 || c === col) : ent, rest = ent.length - cut.length;
+    // 모바일: 가로 밀기 대신 줄바꿈, 처음엔 3개(고른 컬렉션은 늘 보임) + [+N개 더] — 기준 나라·컬렉션 각 2줄 안쪽 (11-01 사용자)
+    const cut = isM() && !colAll ? ent.filter(([c], i) => i < 3 || c === col) : ent, rest = ent.length - cut.length;
     return `<div class="chiprow ${isM() ? "wrapm" : "scroll"}"><a class="tchip ${!col ? "on" : ""}" href="${qc("")}">전체</a>${cut.map(([c, n]) => `<a class="tchip ${c === col ? "on" : ""}" href="${qc(c)}">${esc(colName(c))} <small>${n}</small></a>`).join("")}${rest > 0 ? `<button type="button" class="tchip more" data-colall>+${rest}개 더</button>` : isM() && colAll ? `<button type="button" class="tchip more" data-colall>접기</button>` : ""}</div>`;
   }
   function brand(b, q) {

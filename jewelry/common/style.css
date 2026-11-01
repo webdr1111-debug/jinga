@@ -1094,6 +1094,11 @@ body::before { content: ""; position: fixed; left: 0; right: 0; top: 0; height: 
   .qchips { gap: 6px; align-items: center; -webkit-mask-image: none; mask-image: none; }  /* 줄바꿈되므로 오른쪽 흐림 없앰 */
   .qchips .qchip.more { margin-top: 0; }  /* '.more' 의 위 여백(20px)이 붙어 같은 줄 단추가 늘어나던 것 */
   .qchip, .fbar.stick .qchip { min-height: 34px; padding: 2px 12px; font-size: 13px; }
+  /* 찾기 단추 1~2줄 (11-01 사용자: 3줄이라 잘 안 보임): 첫 줄 브랜드·종류·가격대·필터, 둘째 줄 한국보다 싼 것만·여행지 */
+  .qchip, .fbar.stick .qchip { padding: 2px 10px; }
+  .qchips .qchip.more { order: 1; }
+  .qchips .qsave, .qchips .qtrip { order: 2; }
+  .chiprow.wrapm .tchip { min-height: 34px; padding: 2px 10px; gap: 4px; font-size: 13px; }  /* 브랜드 화면 기준 나라·컬렉션: 찾기 단추와 같은 크기 */
   .fl.open .fpanel .fsec { padding: 10px 0; }
   .fl.open .fpanel .fsec h4 { margin-bottom: 6px; }
   .fl.open .fpanel .fopts { gap: 4px; }
