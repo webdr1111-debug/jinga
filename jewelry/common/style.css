@@ -1227,3 +1227,49 @@ body::before { content: ""; position: fixed; left: 0; right: 0; top: 0; height: 
   .gccs, .gpicks { grid-template-columns: 1fr; gap: 12px; }
   .gban .fbin h2 br { display: inline; }
 }
+/* 매장 찾기 (#/stores, 2026-11-02) */
+.stsec { max-width: 1100px; margin: 28px auto 0; }
+.stsec h2 { font-size: 20px; font-weight: 500; margin: 0 0 12px; }
+.stcont { border-top: 1px solid var(--line); padding-top: 14px; }
+.stcont summary { display: flex; align-items: baseline; gap: 10px; cursor: pointer; list-style: none; }
+.stcont summary::-webkit-details-marker { display: none; }
+.stcont summary::after { content: "▾"; margin-left: auto; color: var(--sub); }
+.stcont[open] summary::after { content: "▴"; }
+.stcont summary h2 { margin: 0; }
+.stcont summary small { color: var(--sub); font-size: 13px; }
+.stcont .sttiles { margin-top: 12px; }
+.sttiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.sttile { display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: 8px; padding: 12px 14px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); }
+.sttile:hover, .sttile.mine { border-color: var(--gold); }
+.sttile .flag { grid-row: 1 / 3; }
+.sttile b { font-weight: 500; font-size: 15px; }
+.sttile small { grid-column: 2; color: var(--sub); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sttile small:empty { display: none; }
+.sttile em { grid-row: 1 / 3; grid-column: 3; font-style: normal; color: var(--gold); font-size: 13px; }
+.stcount { max-width: 900px; margin: 4px auto 8px; color: var(--sub); font-size: 13px; }
+.stcount b { color: var(--ink); font-size: 16px; font-weight: 500; margin-right: 6px; }
+.stcity { max-width: 900px; margin: 24px auto 0; }
+.stcity h2 { font-size: 20px; font-weight: 500; padding-bottom: 8px; border-bottom: 1px solid var(--ink); }
+.stcity h2 small { color: var(--sub); font-size: 13px; margin-left: 6px; }
+.stbr { font: 600 12.5px/1.4 var(--sans); letter-spacing: .1em; color: var(--sub); margin: 18px 0 8px; }
+.stcard { border: 1px solid var(--line); background: var(--paper); padding: 14px 16px; margin-bottom: 10px; }
+.sthd { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.sthd b { font-weight: 500; font-size: 15.5px; margin-right: 2px; }
+.sttag { font-size: 11.5px; padding: 2px 7px; border: 1px solid var(--line); color: var(--sub); white-space: nowrap; }
+.sttag.warn { border-color: var(--warn); color: var(--warn); background: var(--warn-bg); }
+.stsub { margin: 8px 0 0; font-size: 12.5px; color: var(--sub); }
+.stflags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+.stflags span { font-size: 11.5px; color: var(--sub); }
+.stflags span + span::before { content: "· "; }
+.stflags span.warn { color: var(--warn); }
+.stdl { display: grid; grid-template-columns: 40px 1fr; gap: 4px 10px; margin: 10px 0 0; font-size: 13.5px; line-height: 1.5; }
+.stdl dt { color: var(--sub); font-size: 12.5px; }
+.stdl dd { margin: 0; word-break: break-word; }
+.stlinks { display: flex; flex-wrap: wrap; gap: 16px; margin: 10px 0 0; font-size: 13px; }
+@media (max-width: 1023px) {
+  .sttiles { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .sttile { padding: 10px 12px; }
+  .stfilter .chiprow { flex-wrap: nowrap; overflow-x: auto; margin-right: -16px; padding-right: 16px; scrollbar-width: none; }
+  .stfilter .chiprow::-webkit-scrollbar { display: none; }
+  .stfilter .tchip, .stfilter .evlab { flex: none; }
+}

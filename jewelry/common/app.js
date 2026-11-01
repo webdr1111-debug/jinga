@@ -1299,7 +1299,7 @@
     const here = o => `<div class="here">${cc(c)} ${man(o.net)} · 한국 대비 ${pct(o.s)}</div>`;
     const cLim = countryShow || PAGE();
     const cards = listA.slice(0, cLim).map(o => viewMode(q) === "list" ? rowItem(o.it, here(o)) : card(o.it, here(o))).join("");
-    return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/country">여행지</a> › ${esc(k.n)}</nav>${evStrip(liveEvents().filter(e => e.countries.includes(c)), "#/events?cc=" + c)}${gCountry(c) ? `<a class="evstrip" href="#/guide/${c}"><span class="evcat">쇼핑</span><span class="evt">${esc(k.n)} 쇼핑 리스트 — 꼭 사 오는 것 ${gCountry(c).items.length}가지</span><span class="evgo">›</span></a>` : ""}
+    return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/country">여행지</a> › ${esc(k.n)}</nav>${evStrip(liveEvents().filter(e => e.countries.includes(c)), "#/events?cc=" + c)}${gCountry(c) ? `<a class="evstrip" href="#/guide/${c}"><span class="evcat">쇼핑</span><span class="evt">${esc(k.n)} 쇼핑 리스트 — 꼭 사 오는 것 ${gCountry(c).items.length}가지</span><span class="evgo">›</span></a>` : ""}${M.stores ? `<a class="evstrip" href="#/stores/${c}"><span class="evcat">매장</span><span class="evt">${esc(k.n)} 브랜드 매장 — 주소·영업시간·전화</span><span class="evgo">›</span></a>` : ""}
       <div class="pagehead row"><div><h1>${nationF(c)}</h1><p class="lead">통화 ${esc(k.cur)} · 환율 ₩${fxFmt(D.fx[c])} (${esc(fxLabel())}) · 데이터 ${esc(D.generated)}</p>${stockNote(true)}</div>
         <button type="button" class="btn ${inTrip ? "ghost" : ""}" data-trip="${c}">${inTrip ? "✈ 내 여행지에서 빼기" : "✈ 내 여행지에 넣기"}</button></div>
       <div class="kpis"><div><b>${st.cheapest}</b><span>${esc(k.n)}이(가) 가장 싼 제품</span></div><div><b>${st.cheaper}</b><span>한국보다 싼 제품 (${st.total}개 중)</span></div><div><b>${pct(st.med)}</b><span>중간 절약률</span></div></div>
@@ -1356,7 +1356,7 @@
     for (const it of its) { const p = head(it); if (p.c && (!AT || soldAt(p, AT))) cols[p.c] = (cols[p.c] || 0) + 1; }
     const base = "#/brand/" + encodeURIComponent(b);
     const withQ = set => { const u = new URLSearchParams(q); for (const [k, v] of Object.entries(set)) v ? u.set(k, v) : u.delete(k); const s = u.toString(); return base + (s ? "?" + s : ""); };
-    return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/brand">브랜드</a> › ${esc(bk(b))}</nav>
+    return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/brand">브랜드</a> › ${esc(bk(b))}</nav>${M.stores ? `<a class="evstrip" href="#/stores?b=${encodeURIComponent(b)}"><span class="evcat">매장</span><span class="evt">${esc(bk(b))} 매장 찾기 — 나라·도시별 주소·영업시간</span><span class="evgo">›</span></a>` : ""}
       <div class="pagehead"><h1>${esc(b.toUpperCase())}</h1><p class="lead">${esc(bk(b))} · ${kind === "bag" ? `모델 ${its.length}개 (제품 ${its.reduce((n, it) => n + it.ps.length, 0)}개)` : `제품 ${its.length}개`}${AT ? ` · <b>${flag(AT)}${esc(C[AT].n)} 기준</b> <a class="link" href="#/country/${AT}?brand=${encodeURIComponent(b)}">${esc(C[AT].n)} 여행지 화면 ›</a>` : ""}</p>
         <p class="note">럭스캐너는 ${esc(bk(b))}와(과) 관계없는 개인 가격 비교 서비스예요. 가격은 각 나라 공식 홈페이지 기준이에요.</p></div>
       ${atChips(b, its, c => withQ({ at: c }), AT)}
@@ -1755,7 +1755,7 @@
   let lastRoute = "";
   // 설정에 들어오기 전 화면과 스크롤 위치 — 돌아가면 그 자리로
   let backTo = "", backY = 0, restoreY = null;
-  const routeName = r => { const s = r.split("?")[0].split("/")[1] || ""; return ({ "": "첫 화면", p: "제품", search: "찾기", brand: "브랜드", country: "여행지", picks: "담은 목록", changes: "가격 변동", events: "이벤트", guide: "쇼핑 리스트" })[s] || ""; };
+  const routeName = r => { const s = r.split("?")[0].split("/")[1] || ""; return ({ "": "첫 화면", p: "제품", search: "찾기", brand: "브랜드", country: "여행지", picks: "담은 목록", changes: "가격 변동", events: "이벤트", guide: "쇼핑 리스트", stores: "매장 찾기" })[s] || ""; };
   // ── 이벤트 (2026-10-29): 종류·지역으로 골라 보기. YYYY-MM-DD 는 휴대폰 날짜로 그날 0시~끝날 24시 ──
   const evTime = (s, end) => {
     if (!s) return end ? Infinity : -Infinity;
@@ -1950,6 +1950,87 @@
       <p class="fbt">${its.filter(it => it.pick).slice(0, 3).map(it => esc(it.name)).join(" · ")}</p><span class="fbcta">리스트 보기 ›</span></div></a>`;
   };
 
+  // ── 매장 찾기 (2026-11-02, 수집 세션 stores.json → web/pack.py → data/stores.json + data/stores/{나라}.json) ──
+  //  목록 #/stores?b= (대륙 → 나라) → 나라 #/stores/FR?city=&b=&k= (도시 → 브랜드 → 매장 종류, 위 단계를 고르면 아래 단계 수가 그 안에서 다시 셈)
+  //  '확인필요' 매장은 숨기지 않고 표시 · 공식 판매점은 직영 다음 · 전화는 번호만(걸기 링크 없음) — 11-01·11-02 사용자 결정
+  const STO = { idx: null, idxSt: "", cc: {}, ccSt: {} };
+  const stGet = n => window.LUXDATA ? LUXDATA.get(n) : fetch("data/" + n, { credentials: "omit" }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+  const stHere = () => location.hash.startsWith("#/stores");
+  function stIdx() {
+    if (STO.idx || STO.idxSt) return STO.idx;
+    if (!(M && M.stores)) { STO.idxSt = "none"; return null; }
+    STO.idxSt = "loading";
+    stGet(M.stores).then(d => { STO.idx = d; STO.idxSt = "ok"; }).catch(() => { STO.idxSt = "fail"; }).then(() => { if (stHere()) render(); });
+    return null;
+  }
+  function stRows(cc) {
+    if (STO.cc[cc] || STO.ccSt[cc]) return STO.cc[cc] || null;
+    STO.ccSt[cc] = "loading";
+    stGet(`stores/${cc}.json`).then(d => { STO.cc[cc] = d.rows; STO.ccSt[cc] = "ok"; }).catch(() => { STO.ccSt[cc] = "fail"; }).then(() => { if (stHere()) render(); });
+    return null;
+  }
+  const stWait = st => st === "none" ? `<p class="empty">매장 정보는 앱·웹앱에서 볼 수 있어요.</p>`
+    : st === "fail" ? `<p class="empty">매장 정보를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 열어 주세요.</p>` : `<p class="empty">매장 정보를 불러오는 중…</p>`;
+  const stNote = I => `<p class="note center evnote">${esc(I.checked)} 브랜드 공식 매장 찾기 자료로 정리했어요. 영업시간·매장은 바뀔 수 있으니 가기 전에 공식 페이지를 확인하세요. 럭스캐너는 매장과 관계없어요.</p>`;
+  const stHref = (base, q, k, v) => { const p = new URLSearchParams(q); v ? p.set(k, v) : p.delete(k); if (k === "city") p.delete("k"); const s = p.toString(); return base + (s ? "?" + s : ""); };
+  const stChip = (on, h, label, n) => `<a class="tchip sm ${on ? "on" : ""}" href="${h}">${label}${n !== undefined ? ` <small>${n}</small>` : ""}</a>`;
+  function storesHome(q) {
+    const I = stIdx();
+    const head = `<div class="pagehead center"><p class="eyebrow">Boutiques</p><h1>매장 찾기</h1><p class="lead">브랜드 공식 매장의 주소·영업시간·전화번호를 나라·도시별로 모았어요</p></div>`;
+    if (!I) return head + stWait(STO.idxSt);
+    const b = I.brands[q.get("b")] ? q.get("b") : "", CS = I.countries;
+    const tile = cc => { const c = CS[cc], mine = S.trip.includes(cc);
+      return `<a class="sttile${mine ? " mine" : ""}" href="#/stores/${cc}${b ? "?b=" + encodeURIComponent(b) : ""}">${c.fl ? flag(cc) : ""}<b>${esc(c.ko)}</b><small>${c.main ? "" : esc(c.cities.slice(0, 2).map(x => x.ko).join("·"))}</small><em>${b ? (c.nb || {})[b] || 0 : c.n}</em></a>`; };
+    const has = cc => !b || !!(CS[cc].nb || {})[b];  // 브랜드를 고르면 그 브랜드 매장이 있는 나라만, 수도 그 브랜드 것
+    const trip = S.trip.filter(cc => CS[cc] && has(cc)), main = I.main.filter(cc => !trip.includes(cc) && has(cc));
+    const rest = Object.keys(CS).filter(cc => !CS[cc].main && !trip.includes(cc) && has(cc));
+    return head + `<div class="evfilter stfilter"><div class="chiprow"><span class="evlab">브랜드</span>${stChip(!b, stHref("#/stores", q, "b", ""), "전체")}${Object.keys(I.brands).map(x => stChip(b === x, stHref("#/stores", q, "b", x), esc(I.brands[x]))).join("")}</div></div>
+      ${trip.length ? `<section class="stsec"><h2>내 여행지</h2><div class="sttiles">${trip.map(tile).join("")}</div></section>` : ""}
+      <section class="stsec"><h2>가격 비교 나라</h2><div class="sttiles">${main.map(tile).join("")}</div></section>
+      ${I.continents.map(ct => { const cs = rest.filter(cc => CS[cc].cont === ct);
+        return cs.length ? `<details class="stsec stcont"><summary><h2>${esc(ct)}</h2><small>${cs.length}개 나라 · ${cs.reduce((n, cc) => n + (b ? CS[cc].nb[b] || 0 : CS[cc].n), 0)}곳</small></summary><div class="sttiles">${cs.map(tile).join("")}</div></details>` : ""; }).join("")}
+      ${stNote(I)}`;
+  }
+  function storeCountry(cc, q) {
+    const I = stIdx();
+    if (!I) return stWait(STO.idxSt);
+    const c = I.countries[cc];
+    if (!c) return notFound();
+    const crumb = `<nav class="crumb"><a href="#/">홈</a> › <a href="#/stores${q.get("b") ? "?b=" + encodeURIComponent(q.get("b")) : ""}">매장 찾기</a> › ${esc(c.ko)}</nav>`;
+    const head = `<div class="pagehead"><h1>${c.fl ? flag(cc) : ""}${esc(c.ko)} 매장</h1><p class="lead">${esc(c.cont)} · ${c.n}곳${C[cc] ? ` · <a class="link" href="#/country/${cc}">${esc(C[cc].n)} 가격 보기 ›</a>` : ""}</p></div>`;
+    const rows = stRows(cc);
+    if (!rows) return crumb + head + stWait(STO.ccSt[cc]);
+    const base = `#/stores/${cc}`, cityOk = c.cities.some(x => x.id === q.get("city")), city = cityOk ? q.get("city") : "";
+    const L1 = rows.filter(r => !city || r[1] === city);
+    const bs = Object.keys(I.brands).filter(b => L1.some(r => r[0] === b)), b = bs.includes(q.get("b")) ? q.get("b") : "";
+    const L2 = L1.filter(r => !b || r[0] === b);
+    const ks = I.kinds.map((k, i) => i).filter(i => L2.some(r => r[6] === i)), k = ks.includes(+q.get("k")) && q.get("k") !== "" && q.get("k") !== null ? +q.get("k") : -1;
+    const L3 = L2.filter(r => k < 0 || r[6] === k);
+    const cnt = (L, f) => L.filter(f).length;
+    const filters = `<div class="evfilter stfilter">
+      ${c.cities.length > 1 ? `<div class="chiprow"><span class="evlab">도시</span>${stChip(!city, stHref(base, q, "city", ""), "전체", rows.length)}${c.cities.map(x => stChip(city === x.id, stHref(base, q, "city", x.id), esc(x.ko), x.n)).join("")}</div>` : ""}
+      <div class="chiprow"><span class="evlab">브랜드</span>${stChip(!b, stHref(base, q, "b", ""), "전체", L1.length)}${bs.map(x => stChip(b === x, stHref(base, q, "b", x), esc(I.brands[x]), cnt(L1, r => r[0] === x))).join("")}</div>
+      ${ks.length > 1 ? `<div class="chiprow"><span class="evlab">종류</span>${stChip(k < 0, stHref(base, q, "k", ""), "전체", L2.length)}${ks.map(i => stChip(k === i, stHref(base, q, "k", String(i)), esc(I.kinds[i]), cnt(L2, r => r[6] === i))).join("")}</div>` : ""}</div>`;
+    const cityName = id => (c.cities.find(x => x.id === id) || {}).ko || id;
+    const groups = [];
+    for (const r of L3) { let g = groups.find(x => x.city === r[1]); if (!g) groups.push(g = { city: r[1], rs: [] }); g.rs.push(r); }
+    if (!city) groups.sort((a, b2) => b2.rs.length - a.rs.length);
+    const list = groups.map(g => `<section class="stcity">${city ? "" : `<h2>${esc(cityName(g.city))} <small>${g.rs.length}곳</small></h2>`}
+      ${Object.keys(I.brands).filter(x => g.rs.some(r => r[0] === x)).map(x => `<h3 class="stbr">${esc(I.brands[x])}</h3>${g.rs.filter(r => r[0] === x).map(r => stCard(r, I)).join("")}`).join("")}</section>`).join("");
+    return crumb + head + filters + `<p class="stcount"><b>${L3.length}곳</b> ${kind === "bag" ? "가방을 파는 매장" : "주얼리를 파는 매장"}</p>` + (L3.length ? list : `<p class="empty">조건에 맞는 매장이 없어요.</p>`) + stNote(I);
+  }
+  const ST_QUIET = ["공식 판매점", "확인필요", "매장별 품목 정보 없음", "이름은 사이트 일본어 표기"];  // 따로 보여 주거나(종류·확인필요) 수집 메모라 카드에는 안 씀
+  function stCard(r, I) {
+    const [, , name, addr, tel, hours, k, flags, map, src] = r;
+    const warn = f => /확인 ?필요/.test(f), other = flags.filter(f => !ST_QUIET.includes(f));
+    return `<div class="stcard">
+      <div class="sthd"><b>${esc(name)}</b><span class="sttag">${esc(I.kinds[k])}</span>${flags.includes("확인필요") ? `<span class="sttag warn">확인필요</span>` : ""}</div>
+      ${I.kinds[k] === "공식 판매점" ? `<p class="stsub">브랜드 직영이 아닌 공식 판매점이에요 · 일부 제품만 있고 가격이 다를 수 있어요</p>` : ""}
+      ${other.length ? `<p class="stflags">${other.map(f => `<span class="${warn(f) ? "warn" : ""}">${esc(f)}</span>`).join("")}</p>` : ""}
+      <dl class="stdl"><dt>주소</dt><dd>${esc(addr) || "—"}</dd><dt>영업</dt><dd>${hours ? esc(hours) : `<span class="note">공식 페이지에서 확인</span>`}</dd>${tel ? `<dt>전화</dt><dd>${esc(tel)}</dd>` : ""}</dl>
+      <p class="stlinks">${safeUrl(map) ? `<a class="link" href="${esc(map)}" target="_blank" rel="noopener noreferrer">구글 지도 ↗</a>` : ""}${safeUrl(src) ? `<a class="link" href="${esc(src)}" target="_blank" rel="noopener noreferrer">공식 페이지 ↗</a>` : ""}</p></div>`;
+  }
+
   function render() {
     const back = !!(history.state && typeof history.state.d === "number");  // 새로 연 화면은 아직 d 가 없음 → 기록에 있는 화면으로 돌아온 것
     trackNav();
@@ -1975,6 +2056,7 @@
     else if (r === "changes") html = changesPage(q);
     else if (r === "events") html = seg[1] ? eventPage(seg[1]) : eventsPage(q);
     else if (r === "guide") html = seg[1] ? guideCountry(seg[1], q) : guides();
+    else if (r === "stores") html = seg[1] ? storeCountry(seg[1], q) : storesHome(q);
     else html = notFound();
     // 필터 판이 열린 채 조건을 바꾸면 판이 다시 그려진다 — 보던 위치를 지켜서 아래쪽 필터를 이어서 고를 수 있게
     AT = null;
@@ -1994,6 +2076,7 @@
     document.querySelectorAll("[data-r]").forEach(a => a.classList.toggle("on", a.dataset.r === r));
     document.body.classList.toggle("hasfix", !fixbar.hidden);
     if (onbSheet && !SET.onboarded && isM()) openOnbSheet();
+    app.querySelectorAll(".stfilter .chiprow").forEach(row => { const on = row.querySelector(".tchip.on"); if (on && on.offsetLeft + on.offsetWidth > row.clientWidth) row.scrollLeft = on.offsetLeft - 60; });  // 휴대폰 매장 필터: 고른 칩이 보이게
     frame();
     if (restoreY !== null) { window.scrollTo(0, restoreY); restoreY = null; }
     else if (raw !== lastRoute && raw.split("?")[0] !== lastRoute.split("?")[0]) window.scrollTo(0, 0);
