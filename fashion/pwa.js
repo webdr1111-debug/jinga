@@ -12,15 +12,15 @@
   function bar(w) {
     if (document.getElementById("swbar")) return;
     const d = document.createElement("div");
-    d.id = "swbar"; d.className = "setbar newbar"; d.setAttribute("role", "status");
-    d.innerHTML = '새 가격·화면이 준비됐어요 <button type="button" class="link" data-sw="go">지금 반영</button> <button type="button" class="link" data-sw="later">나중에</button>';
+    // 화면 아래 떠 있는 띠 (11-01 사용자: 맨 위 글자 링크라 화면을 내리면 안 보임) — 모양은 style.css .upbar
+    d.id = "swbar"; d.className = "upbar"; d.setAttribute("role", "status");
+    d.innerHTML = '<span class="ubt">새 가격·화면이 준비됐어요</span><button type="button" class="ubgo" data-sw="go">지금 반영</button><button type="button" class="ubx" data-sw="later">나중에</button>';
     d.addEventListener("click", e => {
       const a = e.target.getAttribute("data-sw");
       if (a === "go") { applying = true; w.postMessage("skip"); }
-      if (a) d.remove();
+      if (a) { d.remove(); document.body.classList.remove("upon"); }
     });
-    const nb = document.getElementById("newbar");
-    nb && nb.parentNode ? nb.parentNode.insertBefore(d, nb) : document.body.prepend(d);
+    document.body.appendChild(d); document.body.classList.add("upon");
   }
   sw.addEventListener("controllerchange", () => { if (applying) location.reload(); });
 
