@@ -1274,3 +1274,15 @@ body::before { content: ""; position: fixed; left: 0; right: 0; top: 0; height: 
   .stfilter .tchip, .stfilter .evlab { flex: none; }
 }
 .verdict .stbest { display: inline-block; margin-top: 6px; font-size: 13px; }
+/* 계산 기준 줄 (찾기·브랜드 화면, 11-02) */
+.calcbar { border: 1px solid var(--line); margin: 0 0 20px; background: var(--bg); }
+.calcbar > summary { display: flex; align-items: center; gap: 10px; padding: 12px 16px; cursor: pointer; list-style: none; font-size: 13px; }
+.calcbar > summary::-webkit-details-marker { display: none; }
+.calcbar .cbl { font-weight: 600; white-space: nowrap; }
+.calcbar .cbs { flex: 1; min-width: 0; color: var(--sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.calcbar[open] .car { transform: rotate(180deg); }
+.calcbar .cbbody { padding: 4px 16px 16px; display: grid; gap: 10px; }
+.calcbar .cbrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.calcbar .cbk { width: 72px; font-size: 13px; }
+.calcbar .seg button { min-height: 36px; padding: 6px 12px; }
+@media (max-width: 640px) { .calcbar .cbk { width: 64px; } .calcbar .cbs { white-space: normal; word-break: keep-all; } .calcbar > summary { padding: 10px 12px; } .calcbar .cbbody { padding: 4px 12px 14px; } }

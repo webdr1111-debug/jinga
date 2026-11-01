@@ -119,6 +119,16 @@
         && !(["euThr", "euUp"].includes(k) && !SET.euHigh) && !(k === "self" && !SET.customs) && !(k === "fxCustom" && SET.fxMode !== "custom"));
   }
   const payLabel = () => SET.pay === "travel" ? "트래블카드 0%" : SET.pay === "custom" ? `수수료 ${SET.fee}%` : "신용카드 1.2%";
+  // 찾기·브랜드 화면의 '계산 기준' 줄 (11-02): 결제·환급·관세를 그 자리에서 바꿈. 값은 설정 화면과 같은 SET — 펼침 상태는 다시 그려도 유지
+  let calcOpen = false;
+  document.addEventListener("toggle", e => { if (e.target.classList && e.target.classList.contains("calcbar")) calcOpen = e.target.open; }, true);
+  const calcBar = () => `<details class="calcbar" ${calcOpen ? "open" : ""}><summary><span class="cbl">계산 기준</span><span class="cbs">${esc([payLabel(), SET.refund ? "세금 환급 받음" : "환급 없음", SET.customs ? "관세 포함" : "관세 제외"].join(" · "))}</span><span class="car">▾</span></summary>
+      <div class="cbbody">
+        <div class="cbrow"><span class="cbk">카드</span>${segBtns("pay", [["card", "신용카드 1.2%"], ["travel", "트래블카드 0%"]].concat(SET.pay === "custom" ? [["custom", `직접 ${SET.fee}%`]] : []))}</div>
+        <div class="cbrow"><span class="cbk">세금 환급</span>${segBtns("refund", [[true, "받아요"], [false, "안 받아요"]])}</div>
+        <div class="cbrow"><span class="cbk">관세</span>${segBtns("customs", [[true, "포함"], [false, "빼고 보기"]])}</div>
+        <p class="note"><a class="link" href="#/settings">자세한 설정 ›</a> 수수료 직접 입력 · 자진신고 · 한국 할인 · 일본 백화점 할인</p>
+      </div></details>`;
   const setSummary = () => [payLabel(), SET.refund ? "세금 환급 받음" : "환급 없음", SET.customs ? (SET.self ? "자진신고 관세 포함" : "관세 포함") : "관세 제외"]
     .concat(SET.krDisc ? [`한국 할인 ${SET.krDisc}%`] : [], SET.jpDept ? [`일본 백화점 ${SET.jpRate}%`] : [], cpOn().map(cp => `${cp.short} 쿠폰 ${cp.rate}%`), [fxLabel()]).join(" · ");
   const jpExcluded = b => CALC.jpExcluded(b);
@@ -1183,6 +1193,7 @@
     const recent = store.get(KEY("recent"), []);
     const popular = POPULAR[kind];
     return `<div class="pagehead center inl"><h1>찾기</h1><p class="eyebrow">Search</p></div>
+      ${calcBar()}
       ${filterView("#/search", q, noCond ? { noResults: true } : {})}
       ${noCond ? `<div class="sec">
         ${recent.length ? `<div class="sh"><p class="eyebrow">Recent</p><h3>최근 검색어</h3><button type="button" class="link" data-recent-clear>지우기</button></div><div class="chiprow center">${recent.map(r => `<a class="tchip" href="#/search?q=${encodeURIComponent(r)}">${esc(r)}</a>`).join("")}</div>` : ""}
@@ -1362,6 +1373,7 @@
       ${atChips(b, its, c => withQ({ at: c }), AT)}
       ${AT ? atStats(its, AT) : ""}
       ${colChips(cols, col, c => withQ({ c }))}
+      ${calcBar()}
       ${filterView(base, q, { brand: b, at: AT })}`;
   }
   // 여행지 화면에서 브랜드를 고르면: 브랜드 상세와 같은 화면, 가격은 그 나라 기준 (2026-10-27)
@@ -1379,6 +1391,7 @@
         <button type="button" class="btn ${inTrip ? "ghost" : ""}" data-trip="${c}">${inTrip ? "✈ 내 여행지에서 빼기" : "✈ 내 여행지에 넣기"}</button></div>
       ${atStats(its, c)}
       ${colChips(cols, col, cc2 => withQ({ c: cc2 }))}
+      ${calcBar()}
       ${filterView(base, q, { brand: b, at: c, reset: `${base}?brand=${encodeURIComponent(b)}` })}`;
   }
 
