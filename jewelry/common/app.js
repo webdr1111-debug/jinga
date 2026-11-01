@@ -2008,7 +2008,7 @@
     const L3 = L2.filter(r => k < 0 || r[6] === k);
     const cnt = (L, f) => L.filter(f).length;
     const filters = `<div class="evfilter stfilter">
-      ${c.cities.length > 1 ? `<div class="chiprow"><span class="evlab">도시</span>${stChip(!city, stHref(base, q, "city", ""), "전체", rows.length)}${c.cities.map(x => stChip(city === x.id, stHref(base, q, "city", x.id), esc(x.ko), x.n)).join("")}</div>` : ""}
+      ${c.cities.length > 1 ? `<div class="chiprow"><span class="evlab">도시</span>${stChip(!city, stHref(base, q, "city", ""), "전체", rows.length)}${c.cities.map(x => stChip(city === x.id, stHref(base, q, "city", x.id), esc(x.ko.replace(/\s*\([^)]*밖\)$/, "")), x.n)).join("")}</div>` : ""}
       <div class="chiprow"><span class="evlab">브랜드</span>${stChip(!b, stHref(base, q, "b", ""), "전체", L1.length)}${bs.map(x => stChip(b === x, stHref(base, q, "b", x), esc(I.brands[x]), cnt(L1, r => r[0] === x))).join("")}</div>
       ${ks.length > 1 ? `<div class="chiprow"><span class="evlab">종류</span>${stChip(k < 0, stHref(base, q, "k", ""), "전체", L2.length)}${ks.map(i => stChip(k === i, stHref(base, q, "k", String(i)), esc(I.kinds[i]), cnt(L2, r => r[6] === i))).join("")}</div>` : ""}</div>`;
     const cityName = id => (c.cities.find(x => x.id === id) || {}).ko || id;
