@@ -1267,7 +1267,7 @@
   }
   function countries() {
     const st = TRIP_CODES.map(c => ({ c, ...countryStats(c) })).filter(o => o.total).sort((a, b) => b.cheapest - a.cheapest);
-    return `<div class="pagehead"><h1>여행지</h1><p class="lead">어느 나라가 유리한지 비교하고 내 여행지를 고르세요. (최대 3개)</p></div>
+    return `<div class="pagehead"><h1>여행지</h1><p class="lead">어느 나라가 유리한지 비교하고 내 여행지를 고르세요. (최대 3개)</p></div>${stStrip("#/stores", "나라별 브랜드 매장 찾기 — 주소·영업시간·전화")}
       <div class="clist">${st.map(o => `<article class="ccard ${S.trip.includes(o.c) ? "mine" : ""}">
         <a class="hit" href="#/country/${o.c}" aria-label="${esc(C[o.c].n)}"></a>
         <div class="ctop"><span class="cname">${nationF(o.c)}</span>
@@ -1319,7 +1319,7 @@
   // ── S-03 브랜드 (가방 모델 카드 화면) ──
   let brandShow = 24;
   function brands() {
-    return `<div class="pagehead"><h1>브랜드</h1></div><div class="brands">${brandTiles()}</div>`;
+    return `<div class="pagehead"><h1>브랜드</h1></div>${stStrip("#/stores", "브랜드 매장 찾기 — 나라·도시별 주소·영업시간")}<div class="brands">${brandTiles()}</div>`;
   }
   // 기준 나라 칩 (브랜드 화면): [가장 싼 나라 / 내 여행지] + 이 브랜드를 파는 나라(한국보다 싼 제품이 많은 순)
   function atChips(b, its, href, cur) {
@@ -1512,7 +1512,7 @@
           <div class="br">${esc(p.b.toUpperCase())}${p.c ? " · " + esc(colName(p.c).toUpperCase()) : ""}</div>
           <h1 class="${isM() ? "clamp2" : ""}" data-expand>${esc(p.n)}</h1>
           <div class="sku">제품번호 ${esc(p.s)}${p.ne ? " · " + esc(p.ne) : ""}</div>
-          <div class="verdict">${R.best ? `<div>${conclusion}</div><div class="vnum">${won(R.best.net)} ${R.save !== null ? (R.save > 0 ? `<span class="save">${krLab(R)}보다 ${pct(R.save)} (${won(R.kr.net - R.best.net)})</span>` : `<span class="kr">한국이 더 싸거나 같아요</span>`) : `<span class="kr">한국 미판매</span>`}</div>${R.outlier ? `<div class="warnline">가격 확인 필요 — ${esc(p.ck)}</div>` : ""}` : conclusion}</div>
+          <div class="verdict">${R.best ? `<div>${conclusion}</div><div class="vnum">${won(R.best.net)} ${R.save !== null ? (R.save > 0 ? `<span class="save">${krLab(R)}보다 ${pct(R.save)} (${won(R.kr.net - R.best.net)})</span>` : `<span class="kr">한국이 더 싸거나 같아요</span>`) : `<span class="kr">한국 미판매</span>`}</div>${stBestLink(R.best.cc, p.b)}${R.outlier ? `<div class="warnline">가격 확인 필요 — ${esc(p.ck)}</div>` : ""}` : conclusion}</div>
           ${!R.best ? "" : R.best.t === 2 && R.best.cc !== "KR"
             ? `<p class="stocknote sm" role="note"><b>⚠ ${esc(C[R.best.cc].n)} 공홈은 지금 온라인 품절·미판매예요</b> 매장에 재고가 있는지 꼭 확인하세요.</p>`
             : stockNote(true)}
@@ -1772,6 +1772,14 @@
   const catName = id => (EV.categories.find(c => c.id === id) || {}).name || id;
   const evDate = s => s ? s.slice(5, 10).replace("-", ".") : "";
   const dLeft = e => { const d = Math.ceil((evTime(e.until, true) - Date.now()) / 864e5); return d <= 1 ? "오늘 끝" : d <= 7 ? `D-${d - 1}` : ""; };
+  const stStrip = (h, t) => M.stores ? `<a class="evstrip" href="${h}"><span class="evcat">매장</span><span class="evt">${esc(t)}</span><span class="evgo">›</span></a>` : "";
+  // 제품 화면 '가장 싼 곳' 아래: 그 나라 매장 찾기(이 브랜드 고른 상태). 매장 목록을 받았으면 그 나라에 이 브랜드 매장이 있을 때만
+  const stBestLink = (cc, b) => {
+    if (!M.stores) return "";
+    const I = stIdx(), c = I && I.countries[cc];
+    if (I && !(c && (c.nb || {})[b])) return "";
+    return `<a class="link stbest" href="#/stores/${cc}?b=${encodeURIComponent(b)}">${esc(C[cc] ? C[cc].n : cc)} ${esc(bk(b))} 매장 찾기 ›</a>`;
+  };
   const evStrip = (l, h) => l.length ? `<a class="evstrip" href="${h}"><span class="evcat">이벤트</span><span class="evt">${esc(l[0].title)}${l.length > 1 ? ` 외 ${l.length - 1}개` : ""}</span><span class="evgo">›</span></a>` : "";
   const evCard = e => {
     const links = (e.links || []).filter(l => safeUrl(l.url));

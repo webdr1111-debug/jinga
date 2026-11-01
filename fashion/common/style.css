@@ -1273,3 +1273,4 @@ body::before { content: ""; position: fixed; left: 0; right: 0; top: 0; height: 
   .stfilter .chiprow::-webkit-scrollbar { display: none; }
   .stfilter .tchip, .stfilter .evlab { flex: none; }
 }
+.verdict .stbest { display: inline-block; margin-top: 6px; font-size: 13px; }
