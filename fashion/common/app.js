@@ -79,8 +79,9 @@
   const isM = () => matchMedia("(max-width: 1023px)").matches;
   const bk = b => (RU.brandName || {})[b] || b;  // 브랜드 한글 이름: 빌더 BR_NAME_KO(엑셀과 같은 표)를 내보낸 것 — 새 브랜드는 빌더 표 한 곳만 고침 (2026-10-27)
   const link = p => "#/p/" + encodeURIComponent(p.b) + "/" + encodeURIComponent(p.s);
-  // 공유 링크 (2026-10-29, 임시): web/pack.py 가 만든 제품 공유 페이지(카톡 미리보기 사진·이름) — 파일 이름 규칙은 pack.py share_slug 와 같음
-  const SHARE_BASE = "https://webdr1111-debug.github.io/jinga/" + (kind === "bag" ? "fashion" : "jewelry") + "/p/";
+  // 공유 링크 (2026-10-29, 11-02 luxcanner.com): Cloudflare 공유 함수가 만드는 제품 페이지(카톡 미리보기 사진·이름) — 이름 규칙은 pack.py share_slug 와 같음
+  // 앱이 깔린 안드로이드에서는 이 주소가 앱으로 바로 열림(앱 링크, 아래 appUrlOpen)
+  const SHARE_BASE = "https://luxcanner.com/" + (kind === "bag" ? "fashion" : "jewelry") + "/p/";
   const slugPart = t => Array.from(t).map(c => /^[A-Za-z0-9-]$/.test(c) ? c : Array.from(new TextEncoder().encode(c), x => "_" + x.toString(16).toUpperCase().padStart(2, "0")).join("")).join("");
   const shareUrl = p => SHARE_BASE + slugPart(p.b) + "--" + slugPart(p.s) + ".html";
   function copyLink(btn) {
@@ -2297,6 +2298,18 @@
   const Cap = window.Capacitor;
   const CapApp = Cap && Cap.isNativePlatform && Cap.isNativePlatform() && ((Cap.Plugins && Cap.Plugins.App) || (Cap.registerPlugin && Cap.registerPlugin("App")));
   if (CapApp) CapApp.addListener("backButton", () => { if (!goBack()) CapApp.exitApp(); });
+  // 공유 주소로 앱이 열릴 때 (앱 링크, 11-02): https://luxcanner.com/{앱}/p/{브랜드}--{제품번호}.html → #/p/브랜드/제품번호
+  const openShared = u => {
+    const m = /^https:\/\/luxcanner\.com\/(?:jewelry|fashion)\/p\/([A-Za-z0-9_-]{1,400})\.html(?:[?#].*)?$/.exec(u || "");
+    if (!m) return;
+    const unslug = t => { try { return decodeURIComponent(t.replace(/_([0-9A-F]{2})/g, "%$1")); } catch (e) { return ""; } };
+    const i = m[1].indexOf("--"), b = i > 0 ? unslug(m[1].slice(0, i)) : "", s = i > 0 ? unslug(m[1].slice(i + 2)) : "";
+    if (b && s) location.hash = link({ b, s });
+  };
+  if (CapApp) {
+    CapApp.addListener("appUrlOpen", e => openShared(e && e.url));
+    if (CapApp.getLaunchUrl) CapApp.getLaunchUrl().then(r => openShared(r && r.url)).catch(() => {});
+  }
   window.addEventListener("hashchange", () => { saveSpot(); if (!keepConv) lastConverted = []; keepConv = false; acOpen = false; showN = 0; document.body.classList.remove("noscroll"); render(); });
   let wasM = isM();
   window.addEventListener("resize", () => { if (isM() !== wasM) { wasM = isM(); render(); } });
