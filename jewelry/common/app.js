@@ -1511,6 +1511,8 @@
     const info = isBag ? [["색상", colKo(p)], ["모델 번호", p.md], ["제품번호", p.s]] : [["소재", /[가-힣]/.test(p.m || "") || !p.mt || p.mt === "기타" ? p.m : (p.m.length > 30 ? matLabel(p.mt) : `${matLabel(p.mt)} (${p.m})`)]  /* 원문이 길면(구찌는 소재 칸에 제품 이름) 한글 분류만 */, ["스톤", p.g], ["종류", TYPE_ALL[p.t] || p.t], ...spec.map(([k, v]) => [k, v === true ? "예" : v])];
     const same = isBag ? [] : D.jewelry.filter(q => q.b === p.b && q.c === p.c && q.v !== p.v).map(q => ({ q, R: rep(q) })).sort((a, b2) => (b2.R.save ?? -9) - (a.R.save ?? -9)).slice(0, 6).map(o => itemOf(o.q));
     const kurl = safeUrl((p.p.KR || [])[2]) || safeUrl(Object.values(p.p).map(x => x[2]).find(Boolean));
+    // 이 제품의 가격 변동 이력 (11-03 사용자): 최근 수집일 먼저, 같은 날은 한국 먼저 → 변동 큰 순
+    const hist = D.changes.filter(c => c.b === p.b && c.s === p.s && C[c.cc]).sort((a, b2) => (b2.d || "").localeCompare(a.d || "") || (a.cc === "KR" ? -1 : b2.cc === "KR" ? 1 : Math.abs(b2.r) - Math.abs(a.r)));
     if (isM() && R.best) {
       // 제품 화면 아래 띠 하나 (2026-10-28): 아래 메뉴 대신 '가장 싼 곳 · 진짜가격 · 아끼는 금액 + 담기'
       fixbar.innerHTML = `<div class="fxinfo"><span class="fxwhere">가장 싼 곳 ${cc(R.best.cc)} ${esc(C[R.best.cc].n)}</span><span><b>${won(R.best.net)}</b>${R.save > 0 && R.kr ? ` <span class="save">${esc(krLab(R))}보다 ${won(R.kr.net - R.best.net)} 아껴요</span>` : ""}</span></div><button type="button" class="btn" data-pick="${esc(p.b + "|" + p.s)}">${on ? "♥ 담음" : "♡ 담기"}</button>`;
@@ -1536,6 +1538,7 @@
           ${stockNote()}
         </div></section>
       <section class="sec"><div class="sh"><h3>나라별 ${JINGA}</h3><span class="note">내 여행지 먼저 · 행을 누르면 계산 과정</span><a class="link" href="#/settings">${esc(setSummary())} ✎</a></div>${table}</section>
+      ${hist.length ? `<section class="sec"><div class="sh"><h3>가격 변동 이력</h3><span class="note">수집할 때마다 공홈 가격이 바뀐 기록 · 최근 순</span><a class="link" href="#/changes">전체 변동</a></div><ul class="phist">${hist.map(c => `<li class="chg ${c.r < 0 ? "down" : "up"}"><span>${esc((c.d || "").slice(5).replace("-", "."))}</span> ${c.r < 0 ? "▼" : "▲"} ${nationF(c.cc)} ${local(c.cc, c.o)} → ${local(c.cc, c.nw)} (${c.r > 0 ? "+" : "−"}${Math.abs(c.r * 100).toFixed(1)}%)${Math.abs(c.r) >= 0.5 ? ` · <span class="warn">값 확인 필요</span>` : ""}</li>`).join("")}</ul></section>` : ""}
       <div class="two">
         ${isM() ? "" : `<section class="sec"><div class="sh"><h3>나라별 막대</h3></div><ol class="rank wide">${bars.map(r => `<li class="${S.trip.includes(r.cc) ? "mine" : ""} ${r.net === minNet ? "best" : ""}">${nationF(r.cc)}<span class="bar"><i style="width:${r.net / mx * 100}%" class="${r.cc === "KR" ? "krbar" : ""}"></i></span><b>${man(r.net)}</b></li>`).join("")}</ol></section>`}
         <section class="sec"><div class="sh"><h3>제품 정보</h3></div><dl class="spec">${info.filter(([, v]) => v).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(String(v).slice(0, 300))}</dd>`).join("")}</dl>
@@ -1739,15 +1742,23 @@
   }
   // ── S-07 가격 변동 (5.13절): 한국 변동 먼저, 오른·내린 ──
   function changesPage(q) {
-    const all = D.changes.map(c => ({ c, p: findP(c.b, c.s) })).filter(o => o.p);
+    const every = D.changes.map(c => ({ c, p: findP(c.b, c.s) })).filter(o => o.p);
+    // 기간 고르기 (11-03 사용자): 수집일 칸은 수집마다 늘어나서 정해진 기간 4칸으로 — 기준은 마지막 수집일(데이터가 오래돼도 빈 칸이 안 되게)
+    const last = every.reduce((m, o) => (o.c.d || "") > m ? o.c.d : m, ""), first = every.reduce((m, o) => o.c.d && o.c.d < m ? o.c.d : m, last);
+    const ago = n => new Date(Date.parse(last + "T00:00:00Z") - n * 864e5).toISOString().slice(0, 10);
+    const PER = { recent: ["최근 수집", d => d === last], m1: ["1개월", d => d > ago(30)], m3: ["3개월", d => d > ago(91)], all: ["전체", () => true] };
+    const per = PER[q.get("per")] ? q.get("per") : "recent";
+    const all = every.filter(o => PER[per][1](o.c.d || ""));
     const tab = q.get("tab") || (all.some(o => o.c.cc === "KR") || !all.length ? "kr" : "abroad");  // 한국 변동이 없으면 해외 칸부터 (2026-10-28)
     const pick = { kr: o => o.c.cc === "KR", abroad: o => o.c.cc !== "KR", up: o => o.c.r > 0, down: o => o.c.r < 0 }[tab] || (() => true);
     const rowsC = all.filter(pick).sort((a, b) => (b.c.d || "").localeCompare(a.c.d || "") || Math.abs(b.c.r) - Math.abs(a.c.r));
     const n = f => all.filter(f).length;
     const tabs = [["kr", "한국", n(o => o.c.cc === "KR")], ["abroad", "해외", n(o => o.c.cc !== "KR")], ["up", "오름", n(o => o.c.r > 0)], ["down", "내림", n(o => o.c.r < 0)]];
     const big = o => Math.abs(o.c.r) >= 0.5;  // 절반 넘게 바뀐 값은 수집 오류일 수 있음
-    return `<div class="pagehead center"><p class="eyebrow">Price Watch</p><h1>가격 변동</h1><p class="lead">지난 수집과 비교해 공홈 가격이 바뀐 제품 · 데이터 ${esc(D.generated)}</p></div>
-      <div class="tabs">${tabs.map(([k, l, c]) => `<button type="button" class="tab ${k === tab ? "on" : ""}" data-chtab="${k}">${l} <small>${c}</small></button>`).join("")}</div>
+    const perChips = last ? `<div class="chdays" role="group" aria-label="기간">${Object.entries(PER).map(([k, [l]]) => `<a class="tchip sm ${k === per ? "on" : ""}" href="#/changes?tab=${tab}&per=${k}">${k === "recent" ? `최근 ${esc(last.slice(5).replace("-", "."))}` : l}</a>`).join("")}</div>` : "";  // 건수는 아래 탭에 (패션은 네 자리라 휴대폰에서 칸이 넘침)
+    return `<div class="pagehead center"><p class="eyebrow">Price Watch</p><h1>가격 변동</h1><p class="lead">수집할 때마다 지난 수집과 비교해 공홈 가격이 바뀐 제품 (${first ? esc(first.slice(5).replace("-", ".")) + "부터 누적" : "기록 없음"}) · 데이터 ${esc(D.generated)}</p></div>
+      ${perChips}
+      <div class="tabs">${tabs.map(([k, l, c]) => `<button type="button" class="tab ${k === tab ? "on" : ""}" data-chtab="${k}" data-chper="${per}">${l} <small>${c}</small></button>`).join("")}</div>
       ${rowsC.length ? `<div class="lrows">${rowsC.map(o => rowItem(itemOf(o.p), `<div class="chg ${o.c.r < 0 ? "down" : "up"}">${o.c.r < 0 ? "▼" : "▲"} ${cc(o.c.cc)} ${esc(C[o.c.cc].n)} ${local(o.c.cc, o.c.o)} → ${local(o.c.cc, o.c.nw)} (${o.c.r > 0 ? "+" : "−"}${Math.abs(o.c.r * 100).toFixed(1)}%) · ${esc((o.c.d || "").slice(5))}${big(o) ? ` · <span class="warn">값 확인 필요</span>` : ""}</div>`)).join("")}</div>`
         : `<p class="empty">이 구분에는 바뀐 제품이 없어요.</p>`}`;
   }
@@ -2121,7 +2132,7 @@
     if (t.id === "otherApp") { if (M.other) location.href = M.other; return; }
     if (t.hasAttribute("data-fx-fetch")) { fetchFx(); render(); return; }
     if (t.hasAttribute("data-newbar-close")) { document.getElementById("newbar").hidden = true; return; }
-    if (t.dataset.chtab) { location.hash = "#/changes?tab=" + t.dataset.chtab; return; }
+    if (t.dataset.chtab) { location.hash = "#/changes?tab=" + t.dataset.chtab + "&per=" + t.dataset.chper; return; }
     if (t.dataset.pimg !== undefined) { pImg = +t.dataset.pimg; render(); return; }
     if (t.dataset.trip) {
       e.preventDefault(); const inPanel = !!t.closest("#trippanel");
