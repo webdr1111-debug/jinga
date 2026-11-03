@@ -93,16 +93,17 @@
   }
 
   // ── 설정 (웹앱계획.md 5.15절). 앱마다 따로 저장 ──
-  const DEF = { pay: "card", fee: 1.2, refund: true, customs: true, self: true, krDisc: 0, jpDept: false, jpRate: 5, jpFeeOn: true, jpFee: 1.55, cp: {},
+  const DEF = { pay: "card", fee: 1.2, refund: true, customs: true, self: true, krDisc: 0, jpDept: false, jpRate: 5, jpRefFee: 2.3, cp: {},
     us: "ny", usTax: 6, euHigh: false, euThr: 5000, euUp: { FR: 1, IT: 1.5, ES: 1 }, off: [], hide: [], tripOnly: false, num: "man", theme: "auto", stale: 30, onboarded: false,
     fxMode: "live", fxCustom: {} };  // 환율: live = 페이지를 열 때마다 받은 최신 환율(못 받으면 마지막 값 → 빌드 값), build = 빌드 환율, custom = 직접 입력
   // 숫자 칸의 범위 (5.15절 '입력 지키기')
-  const RANGE = { fee: [0, 10], krDisc: [0, 30], jpRate: [0, 15], jpFee: [0, 3], usTax: [0, 15], euThr: [1000, 50000], "euUp.FR": [0, 3], "euUp.IT": [0, 3], "euUp.ES": [0, 3], stale: [7, 90] };
+  const RANGE = { fee: [0, 10], krDisc: [0, 30], jpRate: [0, 15], jpRefFee: [0, 5], usTax: [0, 15], euThr: [1000, 50000], "euUp.FR": [0, 3], "euUp.IT": [0, 3], "euUp.ES": [0, 3], stale: [7, 90] };
   const setKey = () => KEY("settings");
   let SET = { ...DEF };
   function loadSet() {
     const s = store.get(setKey(), {});
     SET = { ...DEF, ...s, euUp: { ...DEF.euUp, ...(s.euUp || {}) }, fxCustom: { ...(s.fxCustom || {}) } };
+    delete SET.jpFee; delete SET.jpFeeOn;  // 예전 일본 수수료(1.55%·반영/없이) — 11-03 리펀드 방식 jpRefFee 로 바꾸며 버림
     // 끝난·없어진 쿠폰은 켠 기록도 지움(강제로 끔)
     const cp = Object.fromEntries(Object.entries(s.cp || {}).filter(([id, on]) => on && CALC.coupons.some(c => c.id === id && cpLive(c))));
     SET.cp = cp;
@@ -113,7 +114,7 @@
   function saveSet(patch) { SET = { ...SET, ...patch }; store.set(setKey(), SET); cache.clear(); applyTheme(); applyFx(); }
   function applyTheme() { const r = document.documentElement; SET.theme === "auto" ? r.removeAttribute("data-theme") : r.setAttribute("data-theme", SET.theme); }
   // 기본값과 다른 계산 설정 (띠에 개수로 보여 줌)
-  const CALC_KEYS = ["pay", "fee", "refund", "customs", "self", "krDisc", "jpDept", "jpRate", "jpFeeOn", "jpFee", "cp", "us", "usTax", "euHigh", "euThr", "euUp", "off", "tripOnly", "fxMode", "fxCustom"];
+  const CALC_KEYS = ["pay", "fee", "refund", "customs", "self", "krDisc", "jpDept", "jpRate", "jpRefFee", "cp", "us", "usTax", "euHigh", "euThr", "euUp", "off", "tripOnly", "fxMode", "fxCustom"];
   function diffs() {
     return CALC_KEYS.filter(k => JSON.stringify(SET[k]) !== JSON.stringify(DEF[k]))
       .filter(k => !(k === "fee" && SET.pay !== "custom") && !(k === "usTax" && SET.us !== "custom") && !(k === "jpRate" && !SET.jpDept)
@@ -1571,13 +1572,16 @@
       <p class="note">설정을 바꾸면 바로 바뀌어요. 줄 그은 값은 기본 설정일 때.</p></div></div>`;
   }
   function settings(q2) {
-    const d = diffs(), jpRate = ((0.10 - (SET.jpFeeOn ? SET.jpFee / 100 : 0)) / 1.1 * 100).toFixed(1);
+    const d = diffs(), jpRate = ((0.10 - SET.jpRefFee / 100) / 1.1 * 100).toFixed(1);  // 일본 환급률 (calc.js 와 같은 식)
     const sampleJp = (() => { const p = sampleProduct(); return p.p.JP ? !jpExcluded(p.b) : false; })();
     // 나라별 옵션: 내 여행지에 있는 나라를 위로
     const country = [
       { cs: ["JP"], html: q("일본 백화점에서 사요?", segBtns("jpDept", [[false, "아니요"], [true, "네"]]),
         `켜면 외국인 할인 ${SET.jpRate}%를 빼요. 이세탄·미쓰코시 앱 쿠폰, 이와타야 게스트 카드, 한큐 게스트 쿠폰(모두 여권)이 있어야 해요. <b class="stk">할인 대상 브랜드는 백화점·지점마다 달라 꼭 확인하세요.</b> 이세탄·미쓰코시 기준 할인 제외 브랜드(${Object.entries(D.jpExcl).filter(([, v]) => v[0]).map(([b]) => bk(b)).slice(0, 6).join("·")} 등)는 자동으로 빠져요.`,
         SET.jpDept ? `<div class="sub">할인율 ${numIn("jpRate", "%", "0.5")}</div>` : "") },
+      // 2026.11.1 리펀드 방식 (11-03 사용자): 세금 포함 결제 → 출국 때 세관 확인 → 매장·환급 회사가 수수료를 빼고 돌려줌. 백화점·부티크 같은 값
+      { cs: ["JP"], html: q("일본 세금 환급 수수료", `<div class="sub">${numIn("jpRefFee", "%", "0.05")}</div>`,
+        `2026년 11월부터 일본은 세금까지 내고 산 뒤 출국할 때 환급받아요. 매장이나 환급 회사가 수수료를 빼고 돌려주는데 곳마다 달라요(예: 다카시마야·다이마루 약 2.3%, 돈키호테 0%). 백화점·부티크 모두 이 값으로 계산해요 → 환급 약 ${jpRate}%. 사기 전에 그 매장 면세 카운터에 확인하세요.`) },
       { cs: ["US"], html: q("미국 어디서 사요?", segBtns("us", [["ny", "뉴욕 8.875%"], ["hawaii", "하와이 4.712%"], ["guam", "괌 0%"], ["custom", "직접 입력"]]),
         "하와이·괌 세율은 그 지역에 매장이 있는 브랜드에만 써요(없으면 뉴욕 세율).", SET.us === "custom" ? `<div class="sub">판매세 ${numIn("usTax", "%", "0.1")}</div>` : "") },
       ...CALC.coupons.map(cp => ({ cs: [cp.country], html: cpLive(cp)
@@ -1611,7 +1615,7 @@
             ${q("어디로 가세요?", `<button type="button" class="tchip" data-trip-open>✈ ${S.trip.length ? S.trip.map(c => esc(C[c].n)).join(" · ") : "여행지 고르기"}</button>`,
               "고르면 그 나라 옵션이 아래 '나라별 옵션' 맨 위로 올라와요.")}
           </section>
-          <details class="setsec" ${isM() ? "" : "open"}><summary class="sth"><span class="stt"><h3>나라별 옵션</h3><span class="sdesc">일본 백화점 할인 · 미국 판매세 지역 · 기간 쿠폰 · 유럽 고액 환급</span></span></summary><div class="right"><button type="button" class="link" data-reset="jpDept,jpRate,cp,us,usTax,euHigh">이 묶음 기본값으로</button></div>
+          <details class="setsec" ${isM() ? "" : "open"}><summary class="sth"><span class="stt"><h3>나라별 옵션</h3><span class="sdesc">일본 백화점 할인·환급 수수료 · 미국 판매세 지역 · 기간 쿠폰 · 유럽 고액 환급</span></span></summary><div class="right"><button type="button" class="link" data-reset="jpDept,jpRate,jpRefFee,cp,us,usTax,euHigh">이 묶음 기본값으로</button></div>
             ${mine.length ? `<p class="plabel">내 여행지</p>${mine.map(x => x.html).join("")}` : ""}
             ${rest.length ? `<details class="more2" ${mine.length ? "" : "open"}><summary>${mine.length ? "다른 나라 옵션 보기" : "나라별 옵션"}</summary>${rest.map(x => x.html).join("")}</details>` : ""}
           </details>
@@ -1635,8 +1639,7 @@
             <p class="note" data-err="fx"></p>
             <p class="note">통화 1단위의 원화 값이에요. 시장 환율이라 카드 청구 환율과 1% 안팎 다를 수 있어요. 최신 환율은 <a class="link" href="https://www.exchangerate-api.com" target="_blank" rel="noopener noreferrer">Rates By Exchange Rate API</a>에서 받아요(이 기기 주소 외에는 아무것도 보내지 않아요).</p>
           </details>
-          <details class="setsec adv"><summary><span class="stt"><h3>고급 설정</h3><span class="sdesc">일본 환급 수수료 · 유럽 고액 기준 · 오래된 가격 경고</span></span></summary>
-            ${q("일본 택스리펀드 수수료", segBtns("jpFeeOn", [[true, "반영"], [false, "없이(최대 9.09%)"]]), `일본 환급률 = (10% − 수수료) ÷ 1.1 → 지금 약 ${jpRate}%`, SET.jpFeeOn ? `<div class="sub">수수료율 ${numIn("jpFee", "%", "0.05")}</div>` : "")}
+          <details class="setsec adv"><summary><span class="stt"><h3>고급 설정</h3><span class="sdesc">유럽 고액 기준 · 오래된 가격 경고</span></span></summary>
             ${q("유럽 고액 기준 금액·상향 폭", `<div class="sub">기준 ${numIn("euThr", "€", "100")}</div><div class="sub">프랑스 ${numIn("euUp.FR", "%p", "0.1")} 이탈리아 ${numIn("euUp.IT", "%p", "0.1")} 스페인 ${numIn("euUp.ES", "%p", "0.1")}</div>`, "'유럽 한 매장에서 €5,000 넘게 사요?'를 켰을 때만 써요.")}
             ${q("오래된 가격 경고", numIn("stale", "일", "1"), "수집한 지 이 일수가 지난 나라 가격에 '오래된 가격'을 표시해요(엑셀과 같은 30일 기본).")}
           </details>

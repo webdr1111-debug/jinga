@@ -51,7 +51,8 @@
       const price = v * (1 - dept), paid = price * mult, krw = paid * FX[c];
       let rate = 0;
       if (set.refund && paid >= (k.min || 0)) {
-        if (c === "JP") rate = (0.10 - (set.jpFeeOn ? set.jpFee / 100 : 0)) / 1.1;  // (소비세 10% − 수수료) ÷ 1.1
+        // (소비세 10% − 환급 수수료) ÷ 1.1 — 2026.11 리펀드 방식: 수수료는 매장·환급 회사마다 다름, 백화점·부티크 상관없이 기본 2.3% (11-03 사용자)
+        if (c === "JP") rate = (0.10 - (set.jpRefFee || 0) / 100) / 1.1;
         else if (c === "TH") { for (const [a, r] of rules.thTiers) if (paid >= a) rate = r; }  // 태국 구간
         else {
           rate = (k.refund || 0) / 100;
