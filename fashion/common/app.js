@@ -538,7 +538,7 @@
     (window.LUXDATA && LUXDATA.img ? LUXDATA.img(n) : Promise.resolve("data/" + n)).then(u => { im.src = u; }).catch(() => im.remove());
   });
   const bannerHTML = pg => `<a class="feat fban${pg.banner.image ? " hasimg" : ""}" href="#/events/${esc(pg.id)}">${evImg(pg.banner, "fbimg")}<div class="fbin">
-      ${pg.banner.eyebrow ? `<p class="eyebrow">${esc(pg.banner.eyebrow)}</p>` : ""}<h2>${esc(pg.banner.title)}</h2>
+      ${pg.sponsor ? `<span class="evad fbad">광고 · ${esc(pg.sponsor)}</span>` : ""}${pg.banner.eyebrow ? `<p class="eyebrow">${esc(pg.banner.eyebrow)}</p>` : ""}<h2>${esc(pg.banner.title)}</h2>
       ${pg.banner.text ? `<p class="fbt">${esc(pg.banner.text)}</p>` : ""}<span class="fbcta">${esc(pg.banner.cta || "자세히 보기")} ›</span>
       <p class="fbwhen">${evDate(pg.until)}까지</p></div></a>`;
   function heroHTML() {
@@ -1819,6 +1819,7 @@
       ${e.brands.length ? `<p class="evbr">${e.brands.map(b => esc(bk(b))).join(" · ")}</p>` : ""}
       <p class="evwhen">${e.period ? `행사 ${esc(e.period)}` : `${e.from ? evDate(e.from) + " ~ " : "~ "}${evDate(e.until)}`}${!e.period && dLeft(e) ? ` <b>${dLeft(e)}</b>` : ""}</p>
       ${links.length ? `<p class="evlinks">${links.map(l => `<a class="link" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer${e.sponsor ? " sponsored" : ""}">${esc(l.label)} ↗</a>`).join(" · ")}</p>` : ""}
+      ${e.disclosure ? `<p class="evdisc">${esc(e.disclosure)}</p>` : ""}
     </article>`;
   };
   // 묶음 페이지 (2026-10-29): 노출 기간 안의 것만. 미리보기(?preview=1)는 샘플·시작 전도
@@ -1833,6 +1834,7 @@
       ${pg.banner && pg.banner.image ? `<div class="evhero">${evImg(pg.banner, "evheroimg")}</div>` : ""}
       <div class="pagehead center evphead">${pg.banner && pg.banner.eyebrow ? `<p class="eyebrow">${esc(pg.banner.eyebrow)}</p>` : ""}<h1>${esc(pg.title)}</h1>${pg.sub ? `<p class="lead">${esc(pg.sub)}</p>` : ""}
         <p class="evwhen">이 페이지는 ${evDate(pg.until)}까지 보여요</p></div>
+      ${pg.sponsor ? `<div class="evdbox" role="note"><span class="evad">광고 · ${esc(pg.sponsor)}</span><p>${esc(pg.disclosure)}</p></div>` : ""}
       <div class="evlist">${evs.map(evCard).join("")}</div>
       <p class="note center evnote">행사·카드 조건은 바뀔 수 있어요. 사러 가기 전에 공식 안내와 매장에서 꼭 확인하세요. 럭스캐너는 각 매장·카드사와 관계없는 정보 모음이에요.</p>`;
   }
@@ -1846,7 +1848,7 @@
     const chip = (on, h, label, n) => `<a class="tchip ${on ? "on" : ""}" href="${h}">${label}${n !== undefined ? ` <small>${n}</small>` : ""}</a>`;
     return `<div class="pagehead center"><p class="eyebrow">Events</p><h1>이벤트</h1><p class="lead">해외 매장 프로모션·세일·면세 행사 — 기간 안에만 보여요</p></div>
       ${evPreview() ? `<p class="evpvbar">미리보기 — 샘플과 시작 전 이벤트도 보여요. 일반 화면·앱에는 보이지 않아요. <a class="link" href="#/events">미리보기 끄기</a></p>` : ""}
-      ${livePages().length ? `<div class="evpages">${livePages().map(pg => `<a class="evpage" href="#/events/${esc(pg.id)}${evPreview() ? "?preview=1" : ""}"><b>${esc(pg.title)}</b><small>${esc(pg.sub)}</small><span class="evgo">›</span></a>`).join("")}</div>` : ""}
+      ${livePages().length ? `<div class="evpages">${livePages().map(pg => `<a class="evpage" href="#/events/${esc(pg.id)}${evPreview() ? "?preview=1" : ""}"><b>${pg.sponsor ? `<span class="evad">광고</span> ` : ""}${esc(pg.title)}</b><small>${esc(pg.sub)}</small><span class="evgo">›</span></a>`).join("")}</div>` : ""}
       <div class="evfilter"><div class="chiprow"><span class="evlab">종류</span>${chip(!cat, href("cat", ""), "전체", all.filter(inCc).length)}${cats.map(c => chip(cat === c.id, href("cat", c.id), esc(c.name), all.filter(e => e.category === c.id && inCc(e)).length)).join("")}</div>
         <div class="chiprow"><span class="evlab">지역</span>${chip(!cc, href("cc", ""), "전체")}${ccs.map(c => chip(cc === c, href("cc", c), nationF(c))).join("")}</div></div>
       ${shown.length ? `<div class="evlist">${shown.map(evCard).join("")}</div>` : `<p class="empty">${all.length ? "이 조건에 맞는 이벤트가 없어요." : "지금 진행 중인 이벤트가 없어요."}</p>`}

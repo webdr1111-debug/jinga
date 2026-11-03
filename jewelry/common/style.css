@@ -962,6 +962,12 @@ body.hasfix .totop { bottom: calc(144px + env(safe-area-inset-bottom)); }
 .evcard .evwhen { font-size: 13px; color: var(--sub); }
 .evcard .evwhen b { color: var(--up); font-weight: 600; margin-left: 4px; }
 .evnote { margin-top: 24px; }
+/* 광고 표시 (9.1-1, 11-03): 제휴 묶음 페이지 위 안내 상자 · 배너 · 카드 수수료 문구 */
+.evdbox { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; max-width: 720px; margin: 0 auto 20px; padding: 12px 16px; border: 1px solid var(--line); font-size: 13px; color: var(--sub); }
+.evdbox p { margin: 0; }
+.evdisc { font-size: 12px; color: var(--sub); margin-top: 8px; }
+.fban .fbad { align-self: flex-start; color: #D2B07A; border-color: #D2B07A; }
+.evpage .evad { font: 400 11px var(--sans, sans-serif); color: #D2B07A; border-color: #D2B07A; padding: 1px 5px; vertical-align: 2px; }
 @media (max-width: 1023px) { .evlist { grid-template-columns: 1fr; } .evstrip { margin: 10px 0 4px; } }
 .evpv { font-size: 12.5px; color: var(--warn); background: var(--warn-bg); padding: 4px 8px; align-self: flex-start; }
 .evpvbar { max-width: 900px; margin: 0 auto 16px; padding: 10px 14px; background: var(--warn-bg); color: var(--warn); font-size: 13.5px; text-align: center; }
