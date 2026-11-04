@@ -1405,8 +1405,9 @@
   // 나라별 표만 환급·관세를 다르게 보기 (11-04 사용자): 설정(SET)은 그대로, 다른 제품으로 가면 설정대로
   let pv = null;
   // 브랜드 상세 파일 (data/brands/*.js) — 제품 화면을 열 때만 읽는다 (3.5절)
-  const brandState = {}, aliasOf = {};  // aliasOf: 색상이 한 줄로 합쳐져 대표가 아니게 된 제품번호 → 대표 번호 (브랜드 파일 alias, 11-01)
-  LUX.addBrand = (b, data) => { LuxData.applyBrand(D[kind].filter(p => p.b === b), data); aliasOf[b] = data.alias || {}; brandState[b] = "ok"; cache.clear(); };
+  const brandState = {}, aliasOf = {}, endedOf = {};  // aliasOf: 색상이 한 줄로 합쳐져 대표가 아니게 된 제품번호 → 대표 번호 (브랜드 파일 alias, 11-01)
+  // endedOf: 어느 나라에서도 안 파는 제품 → {n 이름, img 사진, d 마지막 확인 날짜} (브랜드 파일 ended, 11-04)
+  LUX.addBrand = (b, data) => { LuxData.applyBrand(D[kind].filter(p => p.b === b), data); aliasOf[b] = data.alias || {}; endedOf[b] = data.ended || {}; brandState[b] = "ok"; cache.clear(); };
   function loadBrand(b) {
     if (brandState[b]) return;
     // 한 파일본(휴대폰용, build_single.py): 브랜드 상세가 페이지 안에 JSON 으로 들어 있음
@@ -1439,6 +1440,11 @@
       const to = (aliasOf[b] || {})[s], q = to && findP(b, to);
       if (q) { location.replace(link(q)); return ""; }
       if (brandState[b] === "loading") return `<div class="pagehead"><p class="lead">불러오는 중…</p></div>`;
+      const e = (endedOf[b] || {})[s];
+      if (e) return `<div class="pagehead ended">${e.img ? `<img class="endimg" src="${esc(e.img)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ""}
+        <p class="eyebrow">${esc(bk(b))} · 판매 종료</p><h1>${esc(e.n || s)}</h1>
+        <p class="lead">지금은 어느 나라 공식 사이트에서도 팔지 않는 제품이에요${/^\d{4}-\d\d-\d\d$/.test(e.d || "") ? ` (${mdd(e.d)} 마지막 확인)` : ""}. 같은 브랜드의 다른 제품을 비교해 보세요.</p>
+        <a class="btn" href="#/brand/${encodeURIComponent(b)}">${esc(bk(b))} 제품 보기</a></div>`;
     }
     if (p && pImgKey !== p.b + "|" + p.s) { pImg = 0; pImgKey = p.b + "|" + p.s; }
     if (!p) return `<div class="pagehead"><h1>이 제품은 이번 데이터에 없어요</h1><p class="lead">판매가 끝났거나 제품번호가 바뀌었을 수 있어요.</p><a class="btn" href="#/search">찾기</a></div>`;
