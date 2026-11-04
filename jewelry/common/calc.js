@@ -9,6 +9,7 @@
     const C = rules.countries, FX = rules.fx, CUS = rules.customs;
     const down10 = n => Math.floor(n / 10 + 1e-9) * 10;  // 엑셀 ROUNDDOWN처럼 부동소수 오차(…9.9999)는 올려 봄
     const jpExcluded = b => (rules.jpExcl[b] || [true])[0];  // 표에 없는 브랜드는 할인 제외로 본다(엑셀과 같음)
+    const JP_FEE = [[5000, 2.3], [1000000, 2.1], [3000000, 1.8], [10000000, 1.6]];  // 일본 글로벌블루 시스템 수수료: 처리 건별 세금 뺀 가격(엔) 이상 → % (11-04 사용자 안내문 사진: 100만·300만·1,000만 엔)
     const feeRate = set => set.pay === "travel" ? 0 : set.pay === "custom" ? set.fee / 100 : 0.012;
     // 기간 쿠폰 (sheets/config/coupons.json → rules.coupons, 2026-10-28): 기간 안(기기 날짜)이고 켰고 입점 브랜드일 때만
     const pad = n => String(n).padStart(2, "0");
@@ -41,6 +42,13 @@
       if (set.us === "custom") return set.usTax;
       return C.US.tax;
     }
+    // 일본 환급 수수료 % — 기본은 글로벌블루 구간(세금 뺀 가격 기준, 2026-11-02 한큐 우메다 안내문 · 11-04 사용자), custom 이면 직접 입력 값
+    function jpFee(net, set) {
+      if (set.jpFeeMode === "custom") return set.jpRefFee || 0;
+      let f = 0;
+      for (const [a, r] of JP_FEE) if (net + 1e-6 >= a) f = r;  // 1,100,000엔 ÷ 1.1 = 999,999.99… 오차
+      return f;
+    }
     // 나라 c 에서 현지가 v 인 제품 한 개
     function calc(c, v, grp, brand, set) {
       const k = C[c];
@@ -52,7 +60,7 @@
       let rate = 0;
       if (set.refund && paid >= (k.min || 0)) {
         // (소비세 10% − 환급 수수료) ÷ 1.1 — 2026.11 리펀드 방식: 수수료는 매장·환급 회사마다 다름, 백화점·부티크 상관없이 기본 2.3% (11-03 사용자)
-        if (c === "JP") rate = (0.10 - (set.jpRefFee || 0) / 100) / 1.1;
+        if (c === "JP") rate = (0.10 - jpFee(price / 1.1, set) / 100) / 1.1;
         else if (c === "TH") { for (const [a, r] of rules.thTiers) if (paid >= a) rate = r; }  // 태국 구간
         else {
           rate = (k.refund || 0) / 100;
@@ -63,7 +71,7 @@
       const refund = krw * rate, fee = krw * feeRate(set), duty = customs(krw - refund, grp, set);
       return { krw, refund, fee, duty, net: krw - refund + fee + duty, rate, disc: v * dept * mult * FX[c], tax, cp: cp && cp.id };
     }
-    return { calc, customs, usTax, feeRate, jpExcluded, coupons, cpActive, today };
+    return { calc, customs, usTax, feeRate, jpExcluded, jpFee, coupons, cpActive, today };
   }
   // 한시 세율 (rules.countries[c].until·after, 2026-10-29 베트남 가방 부가세 8%): 기기 날짜가 until 을 지나면 after 값으로 (빌드를 다시 안 해도)
   LuxCalc.dated = (countries, day) => {
