@@ -969,6 +969,21 @@ body.hasfix .totop { bottom: calc(144px + env(safe-area-inset-bottom)); }
 .fban .fbad { align-self: flex-start; color: #D2B07A; border-color: #D2B07A; }
 .evpage .evad { font: 400 11px var(--sans, sans-serif); color: #D2B07A; border-color: #D2B07A; padding: 1px 5px; vertical-align: 2px; }
 @media (max-width: 1023px) { .evlist { grid-template-columns: 1fr; } .evstrip { margin: 10px 0 4px; } }
+/* 공지사항 (11-04): 브랜드×나라 가격 인상 */
+.ntlist { display: grid; gap: 14px; max-width: 760px; margin: 0 auto; }
+.ntcard { border: 1px solid var(--line); background: var(--bg); padding: 18px 20px; }
+.ntcard .nthd { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--sub); }
+.ntcard h3 { font-size: 17px; line-height: 1.4; margin: 8px 0 6px; }
+.ntcard p { font-size: 14px; margin: 6px 0; }
+.ntcs { list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 6px; }
+.ntcs li { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: baseline; font-size: 14px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.ntcs li b { color: var(--up); }
+.ntcard.down .ntcs li b { color: var(--down); }
+.ntcs li small { grid-column: 1 / -1; color: var(--sub); font-size: 12px; }
+.ntgo { font-size: 13px; }
+.ntnote { display: block; margin: -12px 0 16px; padding: 10px 12px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); font-size: 13px; text-align: left; }
+.ntnote:hover { border-color: var(--gold); }
+@media (max-width: 1023px) { .ntcard { padding: 14px 14px; } .ntnote { margin-top: -4px; } }
 .evpv { font-size: 12.5px; color: var(--warn); background: var(--warn-bg); padding: 4px 8px; align-self: flex-start; }
 .evpvbar { max-width: 900px; margin: 0 auto 16px; padding: 10px 14px; background: var(--warn-bg); color: var(--warn); font-size: 13.5px; text-align: center; }
 /* 이벤트 묶음 페이지 · 첫 화면 배너 (2026-10-29) */
@@ -1295,6 +1310,12 @@ body::before { content: ""; position: fixed; left: 0; right: 0; top: 0; height: 
 .calcbar[open] .car { transform: rotate(180deg); }
 .calcbar .cbbody { padding: 4px 16px 16px; display: grid; gap: 10px; }
 .calcbar .cbrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* 제품 화면 '이 표만' 필터 (11-04): 나라별 표만 환급·관세를 바꿔 봄 */
+.pvbar { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; margin: -16px 0 16px; font-size: 13px; }
+.pvbar .pvk { color: var(--sub); }
+.pvbar .seg button { padding: 8px 14px; min-height: 40px; }
+.pvnote { text-align: center; font-size: 12px; color: var(--sub); margin: 0 0 16px; }
+@media (max-width: 1023px) { .pvbar { margin-top: -8px; gap: 6px; flex-wrap: nowrap; font-size: 12px; } .pvbar .pvk { white-space: nowrap; } .pvbar .seg { flex-wrap: nowrap; } .pvbar .seg button { padding: 6px 7px; min-height: 34px; font-size: 12px; white-space: nowrap; } .pvbar .link { font-size: 12px; white-space: nowrap; } }
 .calcbar .cbk { width: 72px; font-size: 13px; }
 .calcbar .seg button { min-height: 36px; padding: 6px 12px; }
 @media (max-width: 640px) { .calcbar .cbk { width: 64px; } .calcbar .cbs { white-space: normal; word-break: keep-all; } .calcbar > summary { padding: 10px 12px; } .calcbar .cbbody { padding: 4px 12px 14px; } }

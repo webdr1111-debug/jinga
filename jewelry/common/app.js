@@ -199,13 +199,14 @@
   const calc = (c, v, grp, brand) => CALC.calc(c, v, grp, brand, SET);
   const cache = new Map();
   loadKind();  // 설정(SET)을 정의한 뒤에 불러옴
-  function rows(p) {
-    if (cache.has(p)) return cache.get(p);
+  // set: 설정과 다른 기준으로 한 번만 계산(제품 화면 '이 표만' 필터) — 캐시에 넣지 않음
+  function rows(p, set) {
+    if (!set && cache.has(p)) return cache.get(p);
     const g = grpOf(p);
     // 설정 '비교할 나라'·'내 여행지 나라만 비교'로 뺀 나라는 계산에서 뺌 (한국은 늘 포함)
     const use = c => c === "KR" || (!SET.off.includes(c) && (!SET.tripOnly || !S.trip.length || S.trip.includes(c)));
-    const r = Object.entries(p.p).filter(([c]) => use(c)).map(([c, [v, t, url, opt]]) => ({ cc: c, v, t, url, opt, ...(v ? calc(c, v, g, p.b) : { net: Infinity }) }));
-    cache.set(p, r);
+    const r = Object.entries(p.p).filter(([c]) => use(c)).map(([c, [v, t, url, opt]]) => ({ cc: c, v, t, url, opt, ...(v ? CALC.calc(c, v, g, p.b, set || SET) : { net: Infinity }) }));
+    if (!set) cache.set(p, r);
     return r;
   }
   // 기준 나라 (브랜드 화면 '기준 나라' 칩, 여행지 화면에서 브랜드를 고를 때): 그 화면을 그리는 동안만 대표 가격을 이 나라로.
@@ -827,6 +828,7 @@
     // ①a 믿음 띠: 어디서 · 몇 개 · 언제 · 무엇을 넣었는지 (5.7절)
     html += `<div class="trust"><span>${TRIP_CODES.length + 1}개국 공식 홈페이지</span><span>${kind === "bag" ? "패션" : "주얼리"} ${list().length.toLocaleString("ko-KR")}개</span><span>${esc(D.generated.slice(5).replace("-", "."))} 수집</span><span>환급 · 카드 수수료 · 관세 포함</span><a class="link" href="#/settings">계산 방법</a></div>`;
     html += evStrip(liveEvents(), "#/events");  // 진행 중인 이벤트 (2026-10-29)
+    html += ntStrip(notices());  // 공지사항 (11-04)
     // 모바일: 구역 바로 가기 칩 (5M.12절)
     if (isM()) html += `<nav class="jump" aria-label="바로 가기">${[["h-calc", "내 쇼핑"], ["h-icons", "아이콘"], ["h-where", S.trip.length ? "내 여행지" : "나라 순위"], ["h-flight", "비행기값"], ["h-price", "가격 변동"], ["h-gift", "선물"], ...(kind === "jewelry" ? [["h-bridal", "예물"]] : []), ["h-good", "알아 두면"], ["h-bq", "브랜드"]]
       .map(([id, l]) => `<button type="button" class="tchip sm" data-jump="${id}">${l}</button>`).join("")}</nav>`;
@@ -1312,7 +1314,7 @@
     const here = o => `<div class="here">${cc(c)} ${man(o.net)} · 한국 대비 ${pct(o.s)}</div>`;
     const cLim = countryShow || PAGE();
     const cards = listA.slice(0, cLim).map(o => viewMode(q) === "list" ? rowItem(o.it, here(o)) : card(o.it, here(o))).join("");
-    return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/country">여행지</a> › ${esc(k.n)}</nav>${evStrip(liveEvents().filter(e => e.countries.includes(c)), "#/events?cc=" + c)}${gCountry(c) ? `<a class="evstrip" href="#/guide/${c}"><span class="evcat">쇼핑</span><span class="evt">${esc(k.n)} 쇼핑 리스트 — 꼭 사 오는 것 ${gCountry(c).items.length}가지</span><span class="evgo">›</span></a>` : ""}${M.stores ? `<a class="evstrip" href="#/stores/${c}"><span class="evcat">매장</span><span class="evt">${esc(k.n)} 브랜드 매장 — 주소·영업시간·전화</span><span class="evgo">›</span></a>` : ""}
+    return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/country">여행지</a> › ${esc(k.n)}</nav>${evStrip(liveEvents().filter(e => e.countries.includes(c)), "#/events?cc=" + c)}${ntStrip(ntFor(null, c), c)}${gCountry(c) ? `<a class="evstrip" href="#/guide/${c}"><span class="evcat">쇼핑</span><span class="evt">${esc(k.n)} 쇼핑 리스트 — 꼭 사 오는 것 ${gCountry(c).items.length}가지</span><span class="evgo">›</span></a>` : ""}${M.stores ? `<a class="evstrip" href="#/stores/${c}"><span class="evcat">매장</span><span class="evt">${esc(k.n)} 브랜드 매장 — 주소·영업시간·전화</span><span class="evgo">›</span></a>` : ""}
       <div class="pagehead row"><div><h1>${nationF(c)}</h1><p class="lead">통화 ${esc(k.cur)} · 환율 ₩${fxFmt(D.fx[c])} (${esc(fxLabel())}) · 데이터 ${esc(D.generated)}</p>${stockNote(true)}</div>
         <button type="button" class="btn ${inTrip ? "ghost" : ""}" data-trip="${c}">${inTrip ? "✈ 내 여행지에서 빼기" : "✈ 내 여행지에 넣기"}</button></div>
       <div class="kpis"><div><b>${st.cheapest}</b><span>${esc(k.n)}이(가) 가장 싼 제품</span></div><div><b>${st.cheaper}</b><span>한국보다 싼 제품 (${st.total}개 중)</span></div><div><b>${pct(st.med)}</b><span>중간 절약률</span></div></div>
@@ -1369,7 +1371,7 @@
     for (const it of its) { const p = head(it); if (p.c && (!AT || soldAt(p, AT))) cols[p.c] = (cols[p.c] || 0) + 1; }
     const base = "#/brand/" + encodeURIComponent(b);
     const withQ = set => { const u = new URLSearchParams(q); for (const [k, v] of Object.entries(set)) v ? u.set(k, v) : u.delete(k); const s = u.toString(); return base + (s ? "?" + s : ""); };
-    return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/brand">브랜드</a> › ${esc(bk(b))}</nav>${M.stores ? `<a class="evstrip" href="#/stores?b=${encodeURIComponent(b)}"><span class="evcat">매장</span><span class="evt">${esc(bk(b))} 매장 찾기 — 나라·도시별 주소·영업시간</span><span class="evgo">›</span></a>` : ""}
+    return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/brand">브랜드</a> › ${esc(bk(b))}</nav>${ntStrip(ntFor(b))}${M.stores ? `<a class="evstrip" href="#/stores?b=${encodeURIComponent(b)}"><span class="evcat">매장</span><span class="evt">${esc(bk(b))} 매장 찾기 — 나라·도시별 주소·영업시간</span><span class="evgo">›</span></a>` : ""}
       <div class="pagehead"><h1>${esc(b.toUpperCase())}</h1><p class="lead">${esc(bk(b))} · ${kind === "bag" ? `모델 ${its.length}개 (제품 ${its.reduce((n, it) => n + it.ps.length, 0)}개)` : `제품 ${its.length}개`}${AT ? ` · <b>${flag(AT)}${esc(C[AT].n)} 기준</b> <a class="link" href="#/country/${AT}?brand=${encodeURIComponent(b)}">${esc(C[AT].n)} 여행지 화면 ›</a>` : ""}</p>
         <p class="note">럭스캐너는 ${esc(bk(b))}와(과) 관계없는 개인 가격 비교 서비스예요. 가격은 각 나라 공식 홈페이지 기준이에요.</p></div>
       ${atChips(b, its, c => withQ({ at: c }), AT)}
@@ -1400,6 +1402,8 @@
   // ── S-05 제품 (5.11절) ──
   const openRow = new Set();
   let allNations = false, barsAll = false;  // 모바일 제품 화면: 접힌 나라까지 보기
+  // 나라별 표만 환급·관세를 다르게 보기 (11-04 사용자): 설정(SET)은 그대로, 다른 제품으로 가면 설정대로
+  let pv = null;
   // 브랜드 상세 파일 (data/brands/*.js) — 제품 화면을 열 때만 읽는다 (3.5절)
   const brandState = {}, aliasOf = {};  // aliasOf: 색상이 한 줄로 합쳐져 대표가 아니게 된 제품번호 → 대표 번호 (브랜드 파일 alias, 11-01)
   LUX.addBrand = (b, data) => { LuxData.applyBrand(D[kind].filter(p => p.b === b), data); aliasOf[b] = data.alias || {}; brandState[b] = "ok"; cache.clear(); };
@@ -1438,7 +1442,7 @@
     }
     if (p && pImgKey !== p.b + "|" + p.s) { pImg = 0; pImgKey = p.b + "|" + p.s; }
     if (!p) return `<div class="pagehead"><h1>이 제품은 이번 데이터에 없어요</h1><p class="lead">판매가 끝났거나 제품번호가 바뀌었을 수 있어요.</p><a class="btn" href="#/search">찾기</a></div>`;
-    const R = rep(p), rs = rows(p), on = S.picks.includes(p.b + "|" + p.s);
+    const PV = pv ? { ...SET, ...pv } : SET, R = rep(p), rs = rows(p, pv && PV), on = S.picks.includes(p.b + "|" + p.s);
     const isBag = kind === "bag";
     // ② 변형: 주얼리 = 같은 모델의 다른 소재·폭(시안 규칙: 이름 끝 괄호를 뺀 이름이 같음), 가방 = 같은 모델의 다른 색
     const vars = isBag ? D.bag.filter(q => q.md === p.md) : D.jewelry.filter(q => q.v === p.v);
@@ -1473,11 +1477,11 @@
     // 계산 과정 + 그 자리에서 켜는 설정 (5.15절 '보는 화면에서 바로 바꾸기')
     // 켜기 안내 금액은 할인액이 아니라 실제 진가 차이(할인으로 환급·수수료·관세도 함께 바뀜)
     const jpTip = r => r.cc !== "JP" || !r.v ? "" : SET.jpDept ? (r.disc ? "" : " · 이 브랜드는 일본 백화점 할인 제외")
-      : jpExcluded(p.b) ? "" : `<br><button type="button" class="link" data-set="jpDept" data-val="true">일본 백화점 할인을 켜면 ${JINGA} −${won(r.net - CALC.calc("JP", r.v, grpOf(p), p.b, { ...SET, jpDept: true }).net)} · 켜기</button>`;
+      : jpExcluded(p.b) ? "" : `<br><button type="button" class="link" data-set="jpDept" data-val="true">일본 백화점 할인을 켜면 ${JINGA} −${won(r.net - CALC.calc("JP", r.v, grpOf(p), p.b, { ...PV, jpDept: true }).net)} · 켜기</button>`;
     const cpTip = r => !r.v || r.cp ? "" : CALC.coupons.filter(cp => cp.country === r.cc && cpLive(cp)).map(cp => !cp.brands.includes(p.b)
         ? (SET.cp[cp.id] ? ` · ${esc(cp.short)}에 이 브랜드가 없어 쿠폰 할인 제외` : "")
         : (cp.exclude || {})[p.b] ? (SET.cp[cp.id] ? ` · ${esc(cp.short)}에서 이 브랜드는 쿠폰 할인 제외(${esc(cp.exclude[p.b])})` : "")
-        : `<br><button type="button" class="link" data-cp="${esc(cp.id)}">${esc(cp.name)}에서 사면(쿠폰 ${cp.rate}%, ${ymd(cp.until)}까지) ${JINGA} −${won(r.net - CALC.calc(r.cc, r.v, grpOf(p), p.b, { ...SET, cp: { ...SET.cp, [cp.id]: true } }).net)} · 켜기</button>${offLinks(cp.links) ? " · " + offLinks(cp.links) : ""}`).join("");
+        : `<br><button type="button" class="link" data-cp="${esc(cp.id)}">${esc(cp.name)}에서 사면(쿠폰 ${cp.rate}%, ${ymd(cp.until)}까지) ${JINGA} −${won(r.net - CALC.calc(r.cc, r.v, grpOf(p), p.b, { ...PV, cp: { ...SET.cp, [cp.id]: true } }).net)} · 켜기</button>${offLinks(cp.links) ? " · " + offLinks(cp.links) : ""}`).join("");
     const esTip = r => !r.v ? "" : NOTICES.filter(n => n.country === r.cc && n.tip).map(n => `<br><span class="note">${esc(n.tip)}</span>${offLinks(n.links) ? " " + offLinks(n.links) : ""}`).join("");
     // 할인은 원화로 바꾸기 전에 (판매가 − 할인 = 결제액 → 원화) — 할인을 끝에 따로 적으면 '판매가 → 원화' 숫자가 안 맞아 보였다(2026-10-27)
     const discPart = r => !r.disc ? "" : r.cc === "JP"
@@ -1485,9 +1489,16 @@
       : r.cp ? (cp => ` − ${esc(cp.short)} 쿠폰 ${cp.rate}% ${local(r.cc, Math.round(r.v * cp.rate / 100))} = ${local(r.cc, Math.round(r.v * (1 - cp.rate / 100)))}`)(CALC.coupons.find(c => c.id === r.cp))
       : r.cc === "KR" ? ` − 한국 할인 ${SET.krDisc}% ${won(r.disc)}` : "";
     const brk = r => `<div class="brk">${r.v ? `${localP(p, r.cc, r.v)}${discPart(r)}${C[r.cc].incl ? "" : ` + 판매세 ${r.tax ?? C[r.cc].tax}%`} → 원화 ${won(r.krw)}
-      · 환급 ${r.rate ? `−${won(r.refund)} (${(r.rate * 100).toFixed(2)}%, 최소 ${local(r.cc, C[r.cc].min)} ${r.v >= C[r.cc].min ? "충족" : "미달"})` : "없음"}
-      · 카드 수수료 +${won(r.fee)} (${payLabel()}) · 관세 ${r.duty ? "+" + won(r.duty) : r.cc === "KR" ? "없음" : !SET.customs ? "설정에서 뺌" : "0 (면세 한도 $800 이내)"}${r.duty ? ` (면세 $800 공제${SET.self ? ", 자진신고 감면" : ""})` : ""}${jpTip(r)}${cpTip(r)}${esTip(r)}${r.cc !== "KR" ? `<br><span class="stk">⚠ ${esc(C[r.cc].n)} 매장 재고는 공홈 재고 확인·매장 문의로 꼭 확인하세요${r.t === 2 ? " — 지금 공홈 온라인 품절·미판매" : ""}</span>` : ""}` : "가격 정보 없음"}</div>`;
+      · 환급 ${r.rate ? `−${won(r.refund)} (${(r.rate * 100).toFixed(2)}%, 최소 ${local(r.cc, C[r.cc].min)} ${r.v >= C[r.cc].min ? "충족" : "미달"})` : pv && !PV.refund ? "이 표에서 뺌" : "없음"}
+      · 카드 수수료 +${won(r.fee)} (${payLabel()}) · 관세 ${r.duty ? "+" + won(r.duty) : r.cc === "KR" ? "없음" : !PV.customs ? (pv ? "이 표에서 뺌" : "설정에서 뺌") : "0 (면세 한도 $800 이내)"}${r.duty ? ` (면세 $800 공제${SET.self ? ", 자진신고 감면" : ""})` : ""}${jpTip(r)}${cpTip(r)}${esTip(r)}${r.cc !== "KR" ? `<br><span class="stk">⚠ ${esc(C[r.cc].n)} 매장 재고는 공홈 재고 확인·매장 문의로 꼭 확인하세요${r.t === 2 ? " — 지금 공홈 온라인 품절·미판매" : ""}</span>` : ""}` : "가격 정보 없음"}</div>`;
     const conclusion = R.best ? (R.save !== null && R.save <= 0 ? `<b>한국에서 사는 게 가장 싸요</b> · ${R.mode === "trip" ? "내 여행지" : "해외"} 최저는 ${nationF(R.best.cc)}` : R.mode === "trip" ? `내 여행지 중 <b>${nationF(R.best.cc)}</b>이(가) 가장 싸요` : R.mode === "notrip" ? `내 여행지에서는 안 팔아요 · 전체 최저는 <b>${nationF(R.best.cc)}</b>` : `가장 싼 곳은 <b>${nationF(R.best.cc)}</b>`) : "가격을 비교할 수 있는 나라가 없어요";
+    // '이 표만' 필터: 고른 값이 설정과 같으면 칩만 켜지고, 다르면 안내 줄과 '설정대로'
+    const pvSeg = (key, opts) => `<div class="seg" role="radiogroup">${opts.map(([v, l]) => `<button type="button" class="${PV[key] === v ? "on" : ""}" role="radio" aria-checked="${PV[key] === v}" data-pv="${key}" data-val="${v}">${l}</button>`).join("")}</div>`;
+    const pvBar = `<div class="pvbar"><span class="pvk">이 표만</span>${pvSeg("refund", [[true, "환급 받음"], [false, "안 받음"]])}${pvSeg("customs", [[true, "관세 포함"], [false, "빼고"]])}${pv ? `<button type="button" class="link" data-pv="">설정대로</button>` : ""}</div>
+      ${pv ? `<p class="pvnote">이 표만 <b>${PV.refund ? "환급 받음" : "환급 없음"} · ${PV.customs ? "관세 포함" : "관세 제외"}</b> 기준이에요. 가장 싼 곳 안내·아래 띠·다른 화면은 설정 그대로예요.</p>` : ""}`;
+    // 이 브랜드의 가격 인상·인하 공지 (11-04): 표에 나오는 나라 것만, 가장 최근 하나
+    const ntP = ntFor(p.b).find(n => ntAuto(n) && n.countries.some(c => rs.some(r => r.cc === c && r.v)));
+    const ntNote = ntP ? `<a class="ntnote" href="#/notices"><span class="evcat">공지</span> ${esc(mdd(ntP.d))} ${esc(bk(p.b))} 가격 ${NTW[ntP.type]} · ${esc(ntP.cs.slice(0, 3).map(x => `${C[x.cc].n} ${sgn(x.m)}`).join(" · "))}${ntP.cs.length > 3 ? ` 외 ${ntP.cs.length - 3}개 나라` : ""} ›</a>` : "";
     let table;
     if (isM()) {
       // 모바일 (5M.12절): 한 줄 카드, 현지 가격·공홈은 펼쳤을 때. 내 여행지 + 싼 나라 5개만 보이고 나머지는 접음
@@ -1537,7 +1548,7 @@
           <div class="acts"><button type="button" class="btn" data-pick="${esc(p.b + "|" + p.s)}">${on ? "♥ 담음" : "♡ 담기"}</button>${kurl ? `<a class="btn ghost" href="${esc(kurl)}" target="_blank" rel="noopener noreferrer">공홈에서 보기 ↗</a>` : ""}<button type="button" class="btn ghost" data-copylink="${esc(shareUrl(p))}">링크 복사</button></div>
           ${stockNote()}
         </div></section>
-      <section class="sec"><div class="sh"><h3>나라별 ${JINGA}</h3><span class="note">내 여행지 먼저 · 행을 누르면 계산 과정</span><a class="link" href="#/settings">${esc(setSummary())} ✎</a></div>${table}</section>
+      <section class="sec"><div class="sh"><h3>나라별 ${JINGA}</h3><span class="note">내 여행지 먼저 · 행을 누르면 계산 과정</span><a class="link" href="#/settings">${esc(setSummary())} ✎</a></div>${ntNote}${pvBar}${table}</section>
       ${hist.length ? `<section class="sec"><div class="sh"><h3>가격 변동 이력</h3><span class="note">수집할 때마다 공홈 가격이 바뀐 기록 · 최근 순</span><a class="link" href="#/changes">전체 변동</a></div><ul class="phist">${hist.map(c => `<li class="chg ${c.r < 0 ? "down" : "up"}"><span>${esc((c.d || "").slice(5).replace("-", "."))}</span> ${c.r < 0 ? "▼" : "▲"} ${nationF(c.cc)} ${local(c.cc, c.o)} → ${local(c.cc, c.nw)} (${c.r > 0 ? "+" : "−"}${Math.abs(c.r * 100).toFixed(1)}%)${Math.abs(c.r) >= 0.5 ? ` · <span class="warn">값 확인 필요</span>` : ""}</li>`).join("")}</ul></section>` : ""}
       <div class="two">
         ${isM() ? "" : `<section class="sec"><div class="sh"><h3>나라별 막대</h3></div><ol class="rank wide">${bars.map(r => `<li class="${S.trip.includes(r.cc) ? "mine" : ""} ${r.net === minNet ? "best" : ""}">${nationF(r.cc)}<span class="bar"><i style="width:${r.net / mx * 100}%" class="${r.cc === "KR" ? "krbar" : ""}"></i></span><b>${man(r.net)}</b></li>`).join("")}</ol></section>`}
@@ -1665,6 +1676,7 @@
           </details>
           <details class="setsec" ${isM() ? "" : "open"}><summary class="sth"><span class="stt"><h3>데이터·백업</h3><span class="sdesc">데이터 버전·상태 · 담은 목록·설정 파일로 내보내기·가져오기</span></span></summary>
             ${q("데이터", `<p class="note">버전 ${esc(M.version)} · 데이터 ${esc(D.generated)} · ${esc(fxLabel())} · 제품 ${list().length.toLocaleString("ko-KR")}개</p><a class="link" href="#/settings/status">데이터 상태 보기</a>`)}
+            ${q("공지사항", `<p class="note">${notices().length ? `최근 ${esc(mdd(notices()[0].d))} · ${notices().length}개` : "지금은 공지가 없어요"}</p><a class="link" href="#/notices">공지사항 보기</a>`, "브랜드가 한 나라에서 가격을 전체적으로 올리거나 내리면 남겨요.")}
             ${q("담은 목록·설정 백업", `<button type="button" class="btn ghost" data-export>파일로 내보내기</button> <label class="btn ghost">파일에서 가져오기<input type="file" accept="application/json,.json" data-import hidden></label><p class="note" id="impMsg"></p>`, "이 기기에만 저장돼요. 브라우저를 바꾸기 전에 내보내 두세요.")}
           </details>
           <div class="center setend">${backTo ? `<a class="btn" href="#${esc(backTo)}">설정 끝 · 보던 화면으로</a>` : ""}<button type="button" class="btn ghost" data-reset="all">모든 설정 기본값으로</button></div>
@@ -1756,7 +1768,7 @@
     const tabs = [["kr", "한국", n(o => o.c.cc === "KR")], ["abroad", "해외", n(o => o.c.cc !== "KR")], ["up", "오름", n(o => o.c.r > 0)], ["down", "내림", n(o => o.c.r < 0)]];
     const big = o => Math.abs(o.c.r) >= 0.5;  // 절반 넘게 바뀐 값은 수집 오류일 수 있음
     const perChips = last ? `<div class="chdays" role="group" aria-label="기간">${Object.entries(PER).map(([k, [l]]) => `<a class="tchip sm ${k === per ? "on" : ""}" href="#/changes?tab=${tab}&per=${k}">${k === "recent" ? `최근 ${esc(last.slice(5).replace("-", "."))}` : l}</a>`).join("")}</div>` : "";  // 건수는 아래 탭에 (패션은 네 자리라 휴대폰에서 칸이 넘침)
-    return `<div class="pagehead center"><p class="eyebrow">Price Watch</p><h1>가격 변동</h1><p class="lead">수집할 때마다 지난 수집과 비교해 공홈 가격이 바뀐 제품 (${first ? esc(first.slice(5).replace("-", ".")) + "부터 누적" : "기록 없음"}) · 데이터 ${esc(D.generated)}</p></div>
+    return `<div class="pagehead center"><p class="eyebrow">Price Watch</p><h1>가격 변동</h1><p class="lead">수집할 때마다 지난 수집과 비교해 공홈 가격이 바뀐 제품 (${first ? esc(first.slice(5).replace("-", ".")) + "부터 누적" : "기록 없음"}) · 데이터 ${esc(D.generated)}</p></div>${ntStrip(notices().filter(ntAuto))}
       ${perChips}
       <div class="tabs">${tabs.map(([k, l, c]) => `<button type="button" class="tab ${k === tab ? "on" : ""}" data-chtab="${k}" data-chper="${per}">${l} <small>${c}</small></button>`).join("")}</div>
       ${rowsC.length ? `<div class="lrows">${rowsC.map(o => rowItem(itemOf(o.p), `<div class="chg ${o.c.r < 0 ? "down" : "up"}">${o.c.r < 0 ? "▼" : "▲"} ${cc(o.c.cc)} ${esc(C[o.c.cc].n)} ${local(o.c.cc, o.c.o)} → ${local(o.c.cc, o.c.nw)} (${o.c.r > 0 ? "+" : "−"}${Math.abs(o.c.r * 100).toFixed(1)}%) · ${esc((o.c.d || "").slice(5))}${big(o) ? ` · <span class="warn">값 확인 필요</span>` : ""}</div>`)).join("")}</div>`
@@ -1783,7 +1795,7 @@
   let lastRoute = "";
   // 설정에 들어오기 전 화면과 스크롤 위치 — 돌아가면 그 자리로
   let backTo = "", backY = 0, restoreY = null;
-  const routeName = r => { const s = r.split("?")[0].split("/")[1] || ""; return ({ "": "첫 화면", p: "제품", search: "찾기", brand: "브랜드", country: "여행지", picks: "담은 목록", changes: "가격 변동", events: "이벤트", guide: "쇼핑 리스트", stores: "매장 찾기" })[s] || ""; };
+  const routeName = r => { const s = r.split("?")[0].split("/")[1] || ""; return ({ "": "첫 화면", p: "제품", search: "찾기", brand: "브랜드", country: "여행지", picks: "담은 목록", changes: "가격 변동", events: "이벤트", guide: "쇼핑 리스트", stores: "매장 찾기", notices: "공지사항" })[s] || ""; };
   // ── 이벤트 (2026-10-29): 종류·지역으로 골라 보기. YYYY-MM-DD 는 휴대폰 날짜로 그날 0시~끝날 24시 ──
   const evTime = (s, end) => {
     if (!s) return end ? Infinity : -Infinity;
@@ -1808,6 +1820,58 @@
     if (I && !(c && (c.nb || {})[b])) return "";
     return `<a class="link stbest" href="#/stores/${cc}?b=${encodeURIComponent(b)}">${esc(C[cc] ? C[cc].n : cc)} ${esc(bk(b))} 매장 찾기 ›</a>`;
   };
+  // ── 공지사항 #/notices (11-04 사용자): 브랜드×나라 전체 가격 인상·인하(가격 변동 기록에서 자동) + 직접 쓴 공지(config/events.json notices) ──
+  // 자동 판정: 같은 수집일에 한 브랜드·한 나라에서 바뀐 제품이 20개 이상 · 바뀐 것의 90% 이상이 같은 방향 · 중간 변동 ±2% 이상
+  // (바뀐 제품 비율은 낮게 3%만 봄 — 신상·단종이 많아 두 번 다 있는 제품이 적음. 10-28 보테가 베네타 유럽은 15%, 몽클레르 이탈리아는 4%였지만 100% 오름)
+  // 마지막 수집일에서 60일 지난 자동 공지는 내림. 알림(Firebase 푸시)은 웹앱계획.md 12장 계획
+  const NT = { min: 20, cover: 0.03, share: 0.9, med: 0.02, days: 60 };
+  const NTW = { up: "인상", down: "인하" };
+  const mdd = d => (d || "").slice(5).replace("-", ".");
+  const sgn = m => (m > 0 ? "+" : "−") + Math.abs(m * 100).toFixed(1) + "%";
+  let ntList = null;
+  function notices() {
+    if (ntList) return ntList;
+    const sold = {}, grp = {}, by = {};  // 브랜드\t나라 → 그 나라 가격이 있는 제품 수
+    for (const p of list()) for (const c in p.p) if (p.p[c] && p.p[c][0]) sold[p.b + "\t" + c] = (sold[p.b + "\t" + c] || 0) + 1;
+    for (const c of D.changes) if (C[c.cc] && c.d) (grp[c.b + "\t" + c.cc + "\t" + c.d] = grp[c.b + "\t" + c.cc + "\t" + c.d] || []).push(c.r);
+    const med = a => { const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+    const last = D.changes.reduce((m, c) => (c.d || "") > m ? c.d : m, ""), cut = last ? new Date(Date.parse(last + "T00:00:00Z") - NT.days * 864e5).toISOString().slice(0, 10) : "";
+    for (const [key, rs] of Object.entries(grp)) {
+      const [br, cc, d] = key.split("\t"), n = sold[br + "\t" + cc] || 0, m = med(rs), t = m > 0 ? "up" : "down";
+      if (d < cut || rs.length < NT.min || rs.length < n * NT.cover || Math.abs(m) < NT.med || rs.filter(r => t === "up" ? r > 0 : r < 0).length < rs.length * NT.share) continue;
+      const k = t + "\t" + br + "\t" + d;  // 같은 날 한 브랜드가 어떤 나라는 올리고 어떤 나라는 내리면 공지 두 개
+      (by[k] = by[k] || { t, b: br, d, cs: [] }).cs.push({ cc, m, k: rs.length, n });
+    }
+    const auto = Object.values(by).map(o => {
+      o.cs.sort((x, y) => (x.cc === "KR" ? -1 : y.cc === "KR" ? 1 : Math.abs(y.m) - Math.abs(x.m)));  // 한국 먼저, 나머지는 많이 바뀐 순
+      const nm = o.cs.map(x => `${C[x.cc].n} ${sgn(x.m)}`);
+      return { id: o.t + "_" + o.d + "_" + o.b, type: o.t, d: o.d, b: o.b, brands: [o.b], countries: o.cs.map(x => x.cc), cs: o.cs,
+        title: `${bk(o.b)} 가격 ${NTW[o.t]} · ${nm.slice(0, 2).join(" · ")}${nm.length > 2 ? ` 외 ${nm.length - 2}개 나라` : ""}` };
+    });
+    const day = CALC.today();
+    const own = (EV.notices || []).filter(n => n.date <= day && (!n.until || day <= n.until))
+      .map(n => ({ id: n.id, type: "info", d: n.date, b: "", brands: n.brands || [], countries: n.countries || [], title: n.title, text: n.text || "", links: n.links || [] }));
+    return (ntList = [...auto, ...own].sort((x, y) => y.d.localeCompare(x.d) || (y.cs ? y.cs.length : 0) - (x.cs ? x.cs.length : 0)));
+  }
+  const ntAuto = n => n.type === "up" || n.type === "down";
+  const ntFor = (b, cc) => notices().filter(n => (!b || n.brands.includes(b)) && (!cc || n.countries.includes(cc)));
+  // 띠: 나라 화면이면 그 나라 숫자만 ('보테가 베네타 일본 가격 +3.3% 인상')
+  const ntLabel = (n, cc) => ntAuto(n) && cc ? (x => `${bk(n.b)} ${C[cc].n} 가격 ${sgn(x.m)} ${NTW[n.type]}`)(n.cs.find(x => x.cc === cc)) : n.title;
+  const ntStrip = (l, cc) => l.length ? `<a class="evstrip ntstrip" href="#/notices"><span class="evcat">공지</span><span class="evt">${esc(ntLabel(l[0], cc))} · ${esc(mdd(l[0].d))}${l.length > 1 ? ` 외 ${l.length - 1}개` : ""}</span><span class="evgo">›</span></a>` : "";
+  // 한국이 바뀌면 '해외에서 아끼는 금액'이, 해외가 바뀌면 그 나라 진짜가격이 함께 움직임
+  const ntWhy = n => (n.countries.includes("KR") ? (n.type === "up" ? "한국 가격이 오르면 해외에서 살 때 아끼는 금액이 커져요. " : "한국 가격이 내리면 해외에서 살 때 아끼는 금액이 줄어요. ") : "") +
+    (n.countries.some(c => c !== "KR") ? `해외 나라 가격이 ${n.type === "up" ? "오르면" : "내리면"} 그 나라 ${JINGA}도 함께 ${n.type === "up" ? "올라요" : "내려요"}. ` : "");
+  function noticesPage() {
+    const l = notices();
+    const card = n => `<article class="ntcard ${ntAuto(n) ? n.type : ""}"><div class="nthd"><span class="evcat">${ntAuto(n) ? "가격 " + NTW[n.type] : "공지"}</span><time>${esc(mdd(n.d))}</time></div><h3>${esc(n.title)}</h3>
+      ${ntAuto(n) ? `<p>${esc(mdd(n.d))} 수집에서 ${esc(bk(n.b))} 공식 홈페이지 가격이 아래 나라에서 전체적으로 ${n.type === "up" ? "올랐어요" : "내렸어요"}. 숫자는 바뀐 제품들의 중간 변동이에요.</p>
+        <ul class="ntcs">${n.cs.map(x => `<li><span>${nationF(x.cc)}</span><b>${sgn(x.m)}</b><small>판매 ${x.n.toLocaleString("ko-KR")}개 중 ${x.k.toLocaleString("ko-KR")}개 바뀜</small></li>`).join("")}</ul>
+        <p class="note">${ntWhy(n)}${JINGA}은 이미 새 가격으로 계산돼 있어요.</p>
+        <p class="ntgo"><a class="link" href="#/brand/${encodeURIComponent(n.b)}">${esc(bk(n.b))} 제품 보기</a> · <a class="link" href="#/changes?tab=${n.type}&per=all">가격 변동 보기</a></p>`
+      : `${n.text ? `<p>${esc(n.text)}</p>` : ""}${offLinks(n.links) ? `<p class="ntgo">${offLinks(n.links)}</p>` : ""}`}</article>`;
+    return `<div class="pagehead center"><p class="eyebrow">Notice</p><h1>공지사항</h1><p class="lead">브랜드가 한 나라에서 가격을 전체적으로 올리거나 내리면 여기에 남겨요 · 최근 ${NT.days}일</p></div>
+      ${l.length ? `<div class="ntlist">${l.map(card).join("")}</div>` : `<p class="empty">지금은 공지가 없어요.</p>`}`;
+  }
   const evStrip = (l, h) => l.length ? `<a class="evstrip" href="${h}"><span class="evcat">이벤트</span><span class="evt">${esc(l[0].title)}${l.length > 1 ? ` 외 ${l.length - 1}개` : ""}</span><span class="evgo">›</span></a>` : "";
   const evCard = e => {
     const links = (e.links || []).filter(l => safeUrl(l.url));
@@ -2080,7 +2144,7 @@
     const inSet = path === "/settings", wasSet = lastRoute.split("?")[0] === "/settings";
     if (inSet && !wasSet && lastRoute) { backTo = lastRoute; backY = window.scrollY; }
     if (!inSet && wasSet) { if (raw === backTo) restoreY = backY; backTo = ""; }
-    if (raw !== lastRoute) { openRow.clear(); if (lastRoute.split("?")[0] !== path) { countryShow = 0; brandShow = 24; panelOpen = false; quickOpen = ""; allNations = false; barsAll = false; } }
+    if (raw !== lastRoute) { openRow.clear(); if (lastRoute.split("?")[0] !== path) { countryShow = 0; brandShow = 24; panelOpen = false; quickOpen = ""; allNations = false; barsAll = false; pv = null; } }
     const spot = back && raw !== lastRoute && memo.get(raw);
     if (spot) { showN = spot.showN; countryShow = spot.countryShow; brandShow = spot.brandShow; homeMore = spot.homeMore; restoreY = spot.y; }
     fixbar.hidden = true; panel.hidden = true;
@@ -2095,6 +2159,7 @@
     else if (r === "settings") html = seg[1] === "status" ? status() : settings(q);
     else if (r === "picks") html = picks();
     else if (r === "changes") html = changesPage(q);
+    else if (r === "notices") html = noticesPage();
     else if (r === "events") html = seg[1] ? eventPage(seg[1]) : eventsPage(q);
     else if (r === "guide") html = seg[1] ? guideCountry(seg[1], q) : guides();
     else if (r === "stores") html = seg[1] ? storeCountry(seg[1], q) : storesHome(q);
@@ -2147,6 +2212,11 @@
     if (t.dataset.quick) { quickOpen = quickOpen === t.dataset.quick ? "" : t.dataset.quick; render(); return; }
     if (t.hasAttribute("data-fpanel")) { panelOpen = !panelOpen; render(); if (panelOpen && isM()) document.body.classList.add("noscroll"); else document.body.classList.remove("noscroll"); return; }
     if (t.hasAttribute("data-moreF")) { showN = (showN || PAGE()) + PAGE(); render(); return; }
+    if (t.hasAttribute("data-pv")) {
+      const k = t.dataset.pv, cur = pv || SET, n = k ? { refund: cur.refund, customs: cur.customs, [k]: t.dataset.val === "true" } : null;
+      pv = n && (n.refund !== SET.refund || n.customs !== SET.customs) ? n : null;  // 설정과 같아지면 필터 끔
+      render(); return;
+    }
     if (t.hasAttribute("data-allnations")) { allNations = !allNations; render(); return; }
     if (t.hasAttribute("data-barsall")) { barsAll = !barsAll; render(); return; }
     if (t.hasAttribute("data-recent-clear")) { store.set(KEY("recent"), []); render(); return; }
