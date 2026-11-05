@@ -1321,3 +1321,12 @@ body::before { content: ""; position: fixed; left: 0; right: 0; top: 0; height: 
 .calcbar .cbk { width: 72px; font-size: 13px; }
 .calcbar .seg button { min-height: 36px; padding: 6px 12px; }
 @media (max-width: 640px) { .calcbar .cbk { width: 64px; } .calcbar .cbs { white-space: normal; word-break: keep-all; } .calcbar > summary { padding: 10px 12px; } .calcbar .cbbody { padding: 4px 12px 14px; } }
+
+/* 화면 중간 광고 칸 (2026-11-04, 앱만 — app.js adSlot): AdMob 광고는 앱이 칸 위에 따로 띄움. 칸은 자리와 '광고' 글자만, 광고를 못 쓰거나 못 받으면 접음 */
+capacitor-admob-native.adslot { display: none; }
+.adnative capacitor-admob-native.adslot { display: block; position: relative; height: 120px; margin: 14px 0; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+.adnative capacitor-admob-native.adslot[data-capacitor-admob-template="medium"] { height: 320px; }
+.adnative capacitor-admob-native.adslot[data-adfail] { display: none; }
+.adslot .adtag { position: absolute; left: 12px; top: 8px; font-size: 11px; color: var(--faint); }
+.grid > .adslot, .grid > .adhouse, .evlist > .adhouse, .evlist > .adslot { grid-column: 1 / -1; }
+.adhouse { margin: 14px 0; }

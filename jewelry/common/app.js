@@ -347,6 +347,27 @@
   const rail = its => `<div class="rail">${its.map(it => card(it)).join("")}</div>`;
   // 모바일은 가로 밀기 대신 세로 목록 줄 (5M.12절, 2026-10-26)
   const lrows = rowsHtml => `<div class="lrows">${rowsHtml.join("")}</div>`;
+  // ── 화면 중간 광고 칸 (2026-11-04 사용자): 앱에서만, 서명 데이터 adlayout.json(LUX.adlayout)이 정한 화면·간격대로 — APK 없이 JSON 만 올려 바꿈.
+  // AdMob 칸 = <capacitor-admob-native> (광고는 appboot.js 가 칸 위에 띄움, html.adnative 일 때만 보임). house = 우리 광고 카드(광고주·수수료 문구가 있는 이벤트, 돌아가며)
+  // 가격표·나라 순위 사이에는 넣지 않음 (웹앱계획.md 9장 '계산은 중립')
+  const adCfg = pg => { const L = window.LUX_APP && LUX.adlayout; return (L && L.enabled && L.pages[pg]) || null; };
+  function adSlot(pg, n) {
+    const c = adCfg(pg), hs = (c.house || []).map(id => EV.events.find(e => e.id === id && e.sponsor && evLive(e) && !e.sample)).filter(Boolean);
+    // 칸 순서 무늬 slots (11-04): 예 ["admob","house"] → 1번째 AdMob, 2번째 우리 카드, 3번째 AdMob … 없으면 house 가 있으면 모두 우리 카드
+    const kinds = c.slots || [c.house ? "house" : "admob"], kindOf = i => kinds[(i - 1) % kinds.length];
+    if (kindOf(n) === "house" && hs.length) {  // 기간이 끝나 카드가 없으면 AdMob 으로
+      let h = 0; for (let i = 1; i < n; i++) if (kindOf(i) === "house") h++;  // 이 화면에서 몇 번째 우리 카드인지 → 겹치지 않게 돌아가며
+      return `<div class="adhouse">${evCard(hs[(h + new Date().getDate()) % hs.length])}</div>`;
+    }
+    return `<capacitor-admob-native class="adslot" feed-id="lux" slot-key="${esc(pg + "-" + n)}"><span class="adtag">광고</span></capacitor-admob-native>`;
+  }
+  // 목록 조각 사이에 광고 칸: every 개마다(맨 끝 뒤는 빼고) 최대 max 개
+  const withAds = (pg, parts) => { const c = adCfg(pg); if (!c) return parts.join(""); let n = 0;
+    return parts.map((h, i) => (i + 1) % c.every === 0 && i + 1 < parts.length && n < c.max ? h + adSlot(pg, ++n) : h).join(""); };
+  // 정해진 자리 n번째 칸 (제품 상세: 1 = 제품 정보 아래, 2 = 맨 아래 — 11-05 사용자) — max 보다 크면 없음
+  const adAt = (pg, n) => { const c = adCfg(pg); return c && n <= c.max ? adSlot(pg, n) : ""; };
+  const adOne = pg => adAt(pg, 1);
+  const adPg = () => location.hash.replace(/^#\/?/, "").split("?")[0].split("/")[0];  // search·brand·country (filterView 를 같이 씀)
   const listOrGrid = its => grid(its);  // 첫 화면은 모바일도 사진 카드 2열 (2026-10-26)
 
   // 로고 '스캔 X' (2026-10-28, 웹앱계획.md '이름·로고 방향') — 머리글은 index.html, 바닥글은 여기서. 색은 style.css --lx-x·--lx-beam
@@ -1166,8 +1187,8 @@
         <div class="ftool"><b class="cnt2">${res.length}개</b>${hidChk ? `<span class="hidnote">가격 확인 필요 ${hidChk}개 뺌 <a class="link" href="${esc(url({ chk: "0" }))}">포함</a></span>` : ""}${act.map(([l, h]) => `<a class="achip" href="${esc(h)}">${esc(l)} ✕</a>`).join("")}${act.length ? `<a class="link" href="${esc(lock.reset || (lock.brand ? base : "#/search"))}">모두 지우기</a>` : ""}
           <span class="sp"></span><span class="vtog" role="group" aria-label="보기"><a class="${viewMode(q) === "list" ? "on" : ""}" href="${esc(url({ view: "list" }))}">목록</a><a class="${viewMode(q) === "card" ? "on" : ""}" href="${esc(url({ view: "" }))}">카드</a></span><select data-sort aria-label="정렬">${SORTS.map(([k, l]) => `<option value="${esc(url({ sort: k }))}" ${k === F.sort ? "selected" : ""}>${l}</option>`).join("")}</select></div>
         ${!lock.noResults && res.length ? stockNote(true) : ""}
-        ${lock.noResults ? "" : res.length ? (viewMode(q) === "list" ? `<div class="lrows">${shown.map(o => rowItem(o.it)).join("")}</div>`
-          : `<div class="grid ${panelOpen && !isM() ? "g3" : ""}">${shown.map(o => card(o.it)).join("")}</div>`) : empty}
+        ${lock.noResults ? "" : res.length ? (viewMode(q) === "list" ? `<div class="lrows">${withAds(adPg(), shown.map(o => rowItem(o.it)))}</div>`
+          : `<div class="grid ${panelOpen && !isM() ? "g3" : ""}">${withAds(adPg(), shown.map(o => card(o.it)))}</div>`) : empty}
         ${!lock.noResults && res.length > lim ? `<button type="button" class="btn ghost wide" data-moreF>${PAGE()}개 더 보기 (${res.length - lim}개 남음)</button>` : ""}
       </div></div>`;
   }
@@ -1313,7 +1334,7 @@
     const base = `#/country/${c}`, qp = (o) => { const u = new URLSearchParams(q); for (const [kk, v] of Object.entries(o)) v ? u.set(kk, v) : u.delete(kk); const s = u.toString(); return base + (s ? "?" + s : ""); };
     const here = o => `<div class="here">${cc(c)} ${man(o.net)} · 한국 대비 ${pct(o.s)}</div>`;
     const cLim = countryShow || PAGE();
-    const cards = listA.slice(0, cLim).map(o => viewMode(q) === "list" ? rowItem(o.it, here(o)) : card(o.it, here(o))).join("");
+    const cards = withAds("country", listA.slice(0, cLim).map(o => viewMode(q) === "list" ? rowItem(o.it, here(o)) : card(o.it, here(o))));
     return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/country">여행지</a> › ${esc(k.n)}</nav>${evStrip(liveEvents().filter(e => e.countries.includes(c)), "#/events?cc=" + c)}${ntStrip(ntFor(null, c), c)}${gCountry(c) ? `<a class="evstrip" href="#/guide/${c}"><span class="evcat">쇼핑</span><span class="evt">${esc(k.n)} 쇼핑 리스트 — 꼭 사 오는 것 ${gCountry(c).items.length}가지</span><span class="evgo">›</span></a>` : ""}${M.stores ? `<a class="evstrip" href="#/stores/${c}"><span class="evcat">매장</span><span class="evt">${esc(k.n)} 브랜드 매장 — 주소·영업시간·전화</span><span class="evgo">›</span></a>` : ""}
       <div class="pagehead row"><div><h1>${nationF(c)}</h1><p class="lead">통화 ${esc(k.cur)} · 환율 ₩${fxFmt(D.fx[c])} (${esc(fxLabel())}) · 데이터 ${esc(D.generated)}</p>${stockNote(true)}</div>
         <button type="button" class="btn ${inTrip ? "ghost" : ""}" data-trip="${c}">${inTrip ? "✈ 내 여행지에서 빼기" : "✈ 내 여행지에 넣기"}</button></div>
@@ -1560,8 +1581,8 @@
         ${isM() ? "" : `<section class="sec"><div class="sh"><h3>나라별 막대</h3></div><ol class="rank wide">${bars.map(r => `<li class="${S.trip.includes(r.cc) ? "mine" : ""} ${r.net === minNet ? "best" : ""}">${nationF(r.cc)}<span class="bar"><i style="width:${r.net / mx * 100}%" class="${r.cc === "KR" ? "krbar" : ""}"></i></span><b>${man(r.net)}</b></li>`).join("")}</ol></section>`}
         <section class="sec"><div class="sh"><h3>제품 정보</h3></div><dl class="spec">${info.filter(([, v]) => v).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(String(v).slice(0, 300))}</dd>`).join("")}</dl>
           </section>
-      </div>
-      ${same.length ? `<section class="sec"><div class="sh"><h3>같은 컬렉션</h3></div>${isM() ? lrows(same.slice(0, 4).map(it => rowItem(it))) : grid(same, "g6")}</section>` : ""}`;
+      </div>${adAt("p", 1)}
+      ${same.length ? `<section class="sec"><div class="sh"><h3>같은 컬렉션</h3></div>${isM() ? lrows(same.slice(0, 4).map(it => rowItem(it))) : grid(same, "g6")}</section>` : ""}${adAt("p", 2)}`;
   }
 
   // ── S-09 설정 (5.15절): 질문으로 묻고, 바꾸는 즉시 미리보기 제품의 진가가 바뀜 ──
@@ -1781,7 +1802,7 @@
     return `<div class="pagehead center"><p class="eyebrow">Price Watch</p><h1>가격 변동</h1><p class="lead">수집할 때마다 지난 수집과 비교해 공홈 가격이 바뀐 제품 (${first ? esc(first.slice(5).replace("-", ".")) + "부터 누적" : "기록 없음"}) · 데이터 ${esc(D.generated)}</p></div>${ntStrip(notices().filter(ntAuto))}
       ${perChips}
       <div class="tabs">${tabs.map(([k, l, c]) => `<button type="button" class="tab ${k === tab ? "on" : ""}" data-chtab="${k}" data-chper="${per}">${l} <small>${c}</small></button>`).join("")}</div>
-      ${rowsC.length ? `<div class="lrows">${rowsC.map(o => rowItem(itemOf(o.p), `<div class="chg ${o.c.r < 0 ? "down" : "up"}">${o.c.r < 0 ? "▼" : "▲"} ${cc(o.c.cc)} ${esc(C[o.c.cc].n)} ${local(o.c.cc, o.c.o)} → ${local(o.c.cc, o.c.nw)} (${o.c.r > 0 ? "+" : "−"}${Math.abs(o.c.r * 100).toFixed(1)}%) · ${esc((o.c.d || "").slice(5))}${big(o) ? ` · <span class="warn">값 확인 필요</span>` : ""}</div>`)).join("")}</div>`
+      ${rowsC.length ? `<div class="lrows">${withAds("changes", rowsC.map(o => rowItem(itemOf(o.p), `<div class="chg ${o.c.r < 0 ? "down" : "up"}">${o.c.r < 0 ? "▼" : "▲"} ${cc(o.c.cc)} ${esc(C[o.c.cc].n)} ${local(o.c.cc, o.c.o)} → ${local(o.c.cc, o.c.nw)} (${o.c.r > 0 ? "+" : "−"}${Math.abs(o.c.r * 100).toFixed(1)}%) · ${esc((o.c.d || "").slice(5))}${big(o) ? ` · <span class="warn">값 확인 필요</span>` : ""}</div>`)))}</div>`
         : `<p class="empty">이 구분에는 바뀐 제품이 없어요.</p>`}`;
   }
   // ── S-09a 데이터 상태 (5.15절): 브랜드 × 나라, 가격이 있는 제품 비율 ──
@@ -1909,7 +1930,7 @@
       <div class="pagehead center evphead">${pg.banner && pg.banner.eyebrow ? `<p class="eyebrow">${esc(pg.banner.eyebrow)}</p>` : ""}<h1>${esc(pg.title)}</h1>${pg.sub ? `<p class="lead">${esc(pg.sub)}</p>` : ""}
         <p class="evwhen">이 페이지는 ${evDate(pg.until)}까지 보여요</p></div>
       ${pg.sponsor ? `<div class="evdbox" role="note"><span class="evad">광고 · ${esc(pg.sponsor)}</span><p>${esc(pg.disclosure)}</p></div>` : ""}
-      <div class="evlist">${evs.map(evCard).join("")}</div>
+      <div class="evlist">${evs.map(evCard).join("")}</div>${pg.sponsor ? "" : adOne("evpage")}
       <p class="note center evnote">행사·카드 조건은 바뀔 수 있어요. 사러 가기 전에 공식 안내와 매장에서 꼭 확인하세요. 럭스캐너는 각 매장·카드사와 관계없는 정보 모음이에요.</p>`;
   }
   function eventsPage(q) {
@@ -1925,7 +1946,7 @@
       ${livePages().length ? `<div class="evpages">${livePages().map(pg => `<a class="evpage" href="#/events/${esc(pg.id)}${evPreview() ? "?preview=1" : ""}"><b>${pg.sponsor ? `<span class="evad">광고</span> ` : ""}${esc(pg.title)}</b><small>${esc(pg.sub)}</small><span class="evgo">›</span></a>`).join("")}</div>` : ""}
       <div class="evfilter"><div class="chiprow"><span class="evlab">종류</span>${chip(!cat, href("cat", ""), "전체", all.filter(inCc).length)}${cats.map(c => chip(cat === c.id, href("cat", c.id), esc(c.name), all.filter(e => e.category === c.id && inCc(e)).length)).join("")}</div>
         <div class="chiprow"><span class="evlab">지역</span>${chip(!cc, href("cc", ""), "전체")}${ccs.map(c => chip(cc === c, href("cc", c), nationF(c))).join("")}</div></div>
-      ${shown.length ? `<div class="evlist">${shown.map(evCard).join("")}</div>` : `<p class="empty">${all.length ? "이 조건에 맞는 이벤트가 없어요." : "지금 진행 중인 이벤트가 없어요."}</p>`}
+      ${shown.length ? `<div class="evlist">${withAds("events", shown.map(evCard))}</div>` : `<p class="empty">${all.length ? "이 조건에 맞는 이벤트가 없어요." : "지금 진행 중인 이벤트가 없어요."}</p>`}
       <p class="note center evnote">이벤트 조건은 매장·브랜드마다 달라요. 사러 가기 전에 공식 안내를 꼭 확인하세요.${all.some(e => e.sponsor) ? " '광고' 표시는 광고주가 낸 안내예요." : ""}</p>`;
   }
   // 뒤로 가기 (앱, 2026-10-29): 화면 위 ‹ 버튼 + 안드로이드 뒤로 키. 열린 판을 먼저 닫고, 앱 안에서 옮겨 온 화면이면 이전 화면, 아니면 첫 화면.
@@ -2034,7 +2055,7 @@
       <div class="evfilter">${g.cities.length > 1 ? `<div class="chiprow"><span class="evlab">도시</span>${chip(!city, href("city", ""), "전체")}${g.cities.map(x => chip(city === x.id, href("city", x.id), esc(x.name))).join("")}</div>` : ""}
         <div class="chiprow"><span class="evlab">종류</span>${chip(!cat, href("cat", ""), "전체", g.items.filter(it => gIn(it, city)).length)}${cats.map(x => chip(cat === x.id, href("cat", x.id), esc(x.name), g.items.filter(it => it.cat === x.id && gIn(it, city)).length)).join("")}</div></div>
       ${picks.length ? `<section class="sec"><div class="sh"><h2>${city ? esc(gCity(g, city)) + "에서 " : ""}꼭 사 오는 것</h2></div><div class="gpicks">${picks.map(it => gItem(it, g)).join("")}</div></section>` : ""}
-      ${rest.length ? `<section class="sec"><div class="sh"><h2>${picks.length ? "이것도 많이 사요" : "쇼핑 리스트"}</h2><span class="note">누르면 자세히</span></div><div class="glist">${rest.map(it => gItem(it, g)).join("")}</div></section>` : ""}
+      ${rest.length ? `<section class="sec"><div class="sh"><h2>${picks.length ? "이것도 많이 사요" : "쇼핑 리스트"}</h2><span class="note">누르면 자세히</span></div><div class="glist">${withAds("guide", rest.map(it => gItem(it, g)))}</div></section>` : ""}
       ${its.length ? "" : `<p class="empty">이 조건에 맞는 아이템이 없어요.</p>`}
       ${st.cheaper ? `<a class="evstrip" href="#/country/${c}"><span class="evcat">명품</span><span class="evt">${esc(C[c].n)}에서 한국보다 싼 명품 ${st.cheaper}개 보기</span><span class="evgo">›</span></a>` : ""}
       ${rules.length ? `<section class="sec gcustoms"><div class="sh"><h2>한국에 가져올 때</h2></div><ul>${rules.map(r => `<li><b>${esc(r.title)}</b> ${esc(r.text)}${safeUrl(r.src) ? ` <a class="link" href="${esc(r.src)}" target="_blank" rel="noopener noreferrer">${esc(host(r.src))} ↗</a>` : ""}</li>`).join("")}</ul>
@@ -2130,8 +2151,8 @@
     const groups = [];
     for (const r of L3) { let g = groups.find(x => x.city === r[1]); if (!g) groups.push(g = { city: r[1], rs: [] }); g.rs.push(r); }
     if (!city) groups.sort((a, b2) => b2.rs.length - a.rs.length);
-    const list = groups.map(g => `<section class="stcity">${city ? "" : `<h2>${esc(cityName(g.city))} <small>${g.rs.length}곳</small></h2>`}
-      ${Object.keys(I.brands).filter(x => g.rs.some(r => r[0] === x)).map(x => `<h3 class="stbr">${esc(I.brands[x])}</h3>${g.rs.filter(r => r[0] === x).map(r => stCard(r, I)).join("")}`).join("")}</section>`).join("");
+    const list = withAds("stores", groups.map(g => `<section class="stcity">${city ? "" : `<h2>${esc(cityName(g.city))} <small>${g.rs.length}곳</small></h2>`}
+      ${Object.keys(I.brands).filter(x => g.rs.some(r => r[0] === x)).map(x => `<h3 class="stbr">${esc(I.brands[x])}</h3>${g.rs.filter(r => r[0] === x).map(r => stCard(r, I)).join("")}`).join("")}</section>`));
     return crumb + head + filters + `<p class="stcount"><b>${L3.length}곳</b> ${kind === "bag" ? "가방을 파는 매장" : "주얼리를 파는 매장"}</p>` + (L3.length ? list : `<p class="empty">조건에 맞는 매장이 없어요.</p>`) + stNote(I);
   }
   const ST_QUIET = ["공식 판매점", "확인필요", "매장별 품목 정보 없음", "이름은 사이트 일본어 표기"];  // 따로 보여 주거나(종류·확인필요) 수집 메모라 카드에는 안 씀
