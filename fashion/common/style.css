@@ -1330,3 +1330,16 @@ capacitor-admob-native.adslot { display: none; }
 .adslot .adtag { position: absolute; left: 12px; top: 8px; font-size: 11px; color: var(--faint); }
 .grid > .adslot, .grid > .adhouse, .evlist > .adhouse, .evlist > .adslot { grid-column: 1 / -1; }
 .adhouse { margin: 14px 0; }
+
+/* 백화점 외국인 게스트 할인 (2026-11-07) — 설정·경고 창·제품 일본 줄의 '받는 곳·조건' */
+.jpgbox { margin-top: 10px; font-size: 13.5px; }
+.jpgbox > summary { cursor: pointer; color: var(--gold); min-height: 32px; display: flex; align-items: center; }
+.jpgcity { border-top: 1px solid var(--line); }
+.jpgcity > summary { cursor: pointer; min-height: 40px; display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--ink); }
+.jpgcity > summary small { font-weight: 400; color: var(--sub); }
+.jpgc { margin: 12px 0 4px; font-weight: 700; color: var(--ink); font-size: 13px; }
+.jpg { border-top: 1px solid var(--line); padding: 8px 0; }
+.jpg .jpgh { margin: 0 0 4px; }
+.jpg .stdl { margin: 0 0 4px; grid-template-columns: 48px 1fr; }
+.jpgdlg { max-height: 85vh; overflow-y: auto; }
+.jpgdlg .note { margin: 0 0 6px; }

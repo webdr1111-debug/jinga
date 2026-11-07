@@ -408,6 +408,31 @@
 
   // 일본 백화점 할인을 켤 때 경고 창 (5.15절, 2026-10-27): 외국인 할인 대상 브랜드는 백화점·지점마다 달라 꼭 확인하라고 알림. '켜기'를 눌러야 켜짐
   // 2026-10-30: 이세탄·미쓰코시 게스트 카드는 2025.03.25 발급 끝 → 받는 방법을 앱 쿠폰·한큐 게스트 쿠폰 기준으로
+  // 백화점 외국인 게스트 할인 (2026-11-07 사용자): 수집 세션 sheets/config/dept_guest.json(일본 백화점 전부, 매달 첫 주 점검) → guides.json jpGuest
+  //  받는 곳·조건·제외 브랜드·공식 안내 링크만 보여 줌 — 계산은 그대로(5%·이세탄·미쓰코시 제외 목록). 도시마다 접어 둠(72곳)
+  const JPG = () => LUX.guides && Array.isArray(LUX.guides.jpGuest) ? LUX.guides.jpGuest : [];
+  const jpgEx = b => JPG().filter(g => (g.excl || []).includes(b));
+  const JPG_TOP = ["도쿄", "오사카", "교토", "후쿠오카", "나고야", "삿포로"];  // 먼저 보일 도시 — 나머지는 '그 밖의 도시' 안에
+  function jpGuestList(b) {
+    const L = JPG(), cities = [...new Set(L.map(g => g.city))];
+    const card = g => { const ex = b && (g.excl || []).includes(b);
+      return `<div class="jpg"><p class="jpgh"><b>${esc(g.store)}</b> ${esc(g.name)}${String(g.name).includes("%") ? "" : ` ${esc(g.rate)}%`}${ex ? ` <span class="sttag warn">${esc(bk(b))} 제외</span>` : ""}</p>
+        <dl class="stdl"><dt>받는 곳</dt><dd>${esc(g.where)}${g.grp ? ` <span class="note">(계열 공통 안내 — 층·카운터는 지점에서 확인)</span>` : ""}</dd>${g.only ? `<dt>대상</dt><dd>${esc(g.only)}</dd>` : ""}${g.cond && !(g.only && g.cond.startsWith(g.only)) ? `<dt>조건</dt><dd>${esc(g.cond)}</dd>` : ""}
+        ${(g.excl || []).length || g.excl_note ? `<dt>제외</dt><dd>${esc((g.excl || []).map((x, i) => RU.brandName && RU.brandName[x] ? bk(x) : (g.excl_ko || [])[i] || x).join("·"))}${(g.excl || []).length && g.excl_note ? " — " : ""}${esc(g.excl_note || "")}</dd>` : ""}</dl>
+        <p class="note">${esc(g.checked)} 확인${safeUrl(g.url) ? ` · <a class="link" href="${esc(g.url)}" target="_blank" rel="noopener noreferrer">공식 안내 ↗</a>` : ""}</p></div>`; };
+    const sec = (title, gs) => `<details class="jpgcity"><summary>${esc(title)} <small>${gs.length}곳${b && gs.some(g => (g.excl || []).includes(b)) ? ` · ${esc(bk(b))} 제외 ${gs.filter(g => (g.excl || []).includes(b)).length}곳` : ""}</small></summary>${gs.map(card).join("")}</details>`;
+    const top = JPG_TOP.filter(c => cities.includes(c)), rest = cities.filter(c => !top.includes(c));
+    return top.map(c => sec(c, L.filter(g => g.city === c))).join("")
+      + (rest.length ? `<details class="jpgcity"><summary>그 밖의 도시 <small>${rest.length}곳 도시 · ${L.filter(g => rest.includes(g.city)).length}곳</small></summary>${rest.map(c => `<p class="jpgc">${esc(c)}</p>` + L.filter(g => g.city === c).map(card).join("")).join("")}</details>` : "");
+  }
+  function jpGuestDlg(b) {
+    let d = document.getElementById("jpguest");
+    if (!d) { d = document.createElement("dialog"); d.id = "jpguest"; d.className = "warndlg jpgdlg"; d.setAttribute("aria-labelledby", "jpguestT"); document.body.appendChild(d); }
+    d.innerHTML = `<h3 id="jpguestT">백화점 외국인 할인 받는 곳</h3><p class="note">여권을 보여 주고 쇼핑 전에 쿠폰·카드를 받아야 해요. 대상 브랜드는 백화점마다 달라요.</p>${jpGuestList(b)}
+      <form method="dialog" class="row"><button type="submit" class="btn">닫기</button></form>`;
+    if (d.showModal) d.showModal();
+  }
+  const jpgBtn = b => JPG().length ? `<button type="button" class="link" data-jpguest="${esc(b || "")}">받는 곳·조건 ›</button>` : "";
   function jpDeptWarn(onOk) {
     let d = document.getElementById("jpwarn");
     if (!d) { d = document.createElement("dialog"); d.id = "jpwarn"; d.className = "warndlg"; d.setAttribute("aria-labelledby", "jpwarnT"); document.body.appendChild(d); }
@@ -416,6 +441,7 @@
         <li>외국인 ${SET.jpRate}% 할인 대상 브랜드는 <b>백화점과 지점마다 다르고</b> 수시로 바뀌어요. 다카시마야처럼 시계·주얼리·명품 브랜드를 빼는 곳도 있어요.</li>
         <li>럭스캐너는 <b>이세탄·미쓰코시 공식 제외 목록</b>을 기준으로 계산해요. 한큐는 제외 브랜드를 공개하지 않아요. 예: ${kind === "bag" ? "셀린느는 이세탄·미쓰코시에서는 할인되지만 마쓰자카야 나고야·다이마루 삿포로에서는" : "타사키는 이세탄·미쓰코시에서는 할인되지만 다이마루 우메다에서는"} 빠져요.</li>
         <li>세일 상품 제외, 최소 금액, 다른 할인과 중복 안 됨 같은 조건도 있어요.</li></ul>
+      ${JPG().length ? `<details class="jpgbox"><summary>백화점별 받는 곳·조건·공식 안내 (${JPG().length}곳)</summary>${jpGuestList()}</details>` : ""}
       <p class="wmain">사러 가기 전에 그 백화점·지점의 면세 카운터나 안내 데스크에 <b>이 브랜드가 할인되는지 꼭 확인하세요.</b></p>
       <form method="dialog" class="row"><button type="submit" class="btn ghost" value="no">취소</button><button type="submit" class="btn" value="ok">확인했어요, 켜기</button></form>`;
     d.returnValue = "";
@@ -1503,7 +1529,8 @@
     const olink = r => safeUrl(r.url) ? `<a class="olink" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer" title="${esc(C[r.cc].n)} 공식 홈페이지에서 보기">공홈 ↗</a>` : "";
     // 계산 과정 + 그 자리에서 켜는 설정 (5.15절 '보는 화면에서 바로 바꾸기')
     // 켜기 안내 금액은 할인액이 아니라 실제 진가 차이(할인으로 환급·수수료·관세도 함께 바뀜)
-    const jpTip = r => r.cc !== "JP" || !r.v ? "" : SET.jpDept ? (r.disc ? "" : " · 이 브랜드는 일본 백화점 할인 제외")
+    const jpgNote = () => { const ex = jpgEx(p.b); return ex.length ? ` · 백화점 ${ex.length}곳은 이 브랜드 제외${ex.length <= 2 ? `(${esc(ex.map(g => g.store).join("·"))})` : ""}` : ""; };
+    const jpTip = r => r.cc !== "JP" || !r.v ? "" : SET.jpDept ? (r.disc ? `${jpgNote()}${JPG().length ? " · " + jpgBtn(p.b) : ""}` : ` · 이 브랜드는 일본 백화점 할인 제외${JPG().length ? " · " + jpgBtn(p.b) : ""}`)
       : jpExcluded(p.b) ? "" : `<br><button type="button" class="link" data-set="jpDept" data-val="true">일본 백화점 할인을 켜면 ${JINGA} −${won(r.net - CALC.calc("JP", r.v, grpOf(p), p.b, { ...PV, jpDept: true }).net)} · 켜기</button>`;
     const cpTip = r => !r.v || r.cp ? "" : CALC.coupons.filter(cp => cp.country === r.cc && cpLive(cp)).map(cp => !cp.brands.includes(p.b)
         ? (SET.cp[cp.id] ? ` · ${esc(cp.short)}에 이 브랜드가 없어 쿠폰 할인 제외` : "")
@@ -1619,7 +1646,7 @@
     const country = [
       { cs: ["JP"], html: q("일본 백화점에서 사요?", segBtns("jpDept", [[false, "아니요"], [true, "네"]]),
         `켜면 외국인 할인 ${SET.jpRate}%를 빼요. 이세탄·미쓰코시 앱 쿠폰, 이와타야 게스트 카드, 한큐 게스트 쿠폰(모두 여권)이 있어야 해요. <b class="stk">할인 대상 브랜드는 백화점·지점마다 달라 꼭 확인하세요.</b> 이세탄·미쓰코시 기준 할인 제외 브랜드(${Object.entries(D.jpExcl).filter(([, v]) => v[0]).map(([b]) => bk(b)).slice(0, 6).join("·")} 등)는 자동으로 빠져요.`,
-        SET.jpDept ? `<div class="sub">할인율 ${numIn("jpRate", "%", "0.5")}</div>` : "") },
+        (SET.jpDept ? `<div class="sub">할인율 ${numIn("jpRate", "%", "0.5")}</div>` : "") + (JPG().length ? `<details class="jpgbox"><summary>백화점별 게스트 할인 ${JPG().length}곳 — 받는 곳·조건·공식 안내</summary>${jpGuestList()}</details>` : "")) },
       // 2026.11.1 리펀드 방식 (11-03 사용자): 세금 포함 결제 → 출국 때 세관 확인 → 매장·환급 회사가 수수료를 빼고 돌려줌. 백화점·부티크 같은 값
       // 11-04 사용자: 기본은 글로벌블루 금액 구간 수수료(세금 뺀 가격 기준, 한큐 우메다 안내문)
       { cs: ["JP"], html: q("일본 세금 환급 수수료", segBtns("jpFeeMode", [["tier", "글로벌블루 구간"], ["custom", "직접 입력"]]),
@@ -2252,6 +2279,7 @@
     if (t.hasAttribute("data-barsall")) { barsAll = !barsAll; render(); return; }
     if (t.hasAttribute("data-recent-clear")) { store.set(KEY("recent"), []); render(); return; }
     // 설정 (5.15절)
+    if (t.hasAttribute("data-jpguest")) { jpGuestDlg(t.dataset.jpguest); return; }  // 백화점 외국인 할인 받는 곳 (2026-11-07)
     if (t.dataset.set === "jpDept" && t.dataset.val === "true" && !SET.jpDept) { jpDeptWarn(() => { saveSet({ jpDept: true }); render(); }); return; }  // 켜기 전에 경고
     if (t.dataset.cp) {  // 기간 쿠폰 켜기(경고 창 뒤)·끄기
       const cp = CALC.coupons.find(c => c.id === t.dataset.cp);
