@@ -74,6 +74,8 @@
   let JINGA = "진짜가격";  // 언어에 따라 applyLang 이 바꿈 (11-08)
   // ── 언어 (11-08, 웹앱계획.md 13장 기능 7 — 1차: 틀·첫 화면·카드·제품·찾기. 설정·이벤트·가이드·공지는 아직 한국어) ──
   const L = () => SET && (SET.lang === "en" || SET.lang === "ja") ? SET.lang : "ko";
+  // 제품 이름 (11-08 사용자): 영어 = 미국·영국 공홈 이름, 일본어 = 일본 공홈 이름(없으면 영어) — sheets/names_i18n.py → export_web extra.en·ja. 없으면 한국어
+  const pn = p => { const l = L(); return l === "en" ? (p.en || p.n) : l === "ja" ? (p.ja || p.en || p.n) : p.n; };
   const t = (ko, en, ja) => L() === "en" ? en : L() === "ja" ? (ja || en) : ko;
   const CN = {
     en: { KR: "Korea", US: "USA", FR: "France", IT: "Italy", ES: "Spain", GB: "UK", JP: "Japan", TW: "Taiwan", HK: "Hong Kong", SG: "Singapore", AU: "Australia", AE: "UAE", CH: "Switzerland", VN: "Vietnam", MO: "Macau", TH: "Thailand" },
@@ -344,7 +346,7 @@
     if (isBag && it.ps.length > 1) tags.push(`<span class="bdg gray">${t("색상", "Colors", "カラー")} ${it.ps.length}</span>`);
     const chips = isBag && it.ps.length > 1 ? `<div class="chips" role="group" aria-label="색상">${it.ps.slice(0, 4).map(q =>
       `<button type="button" class="sw ${q === p ? "on" : ""}" data-sel="${esc(it.key)}" data-sku="${esc(q.s)}" title="${esc(colKo(q))}" aria-label="${esc(colKo(q))}" style="background:${COLG[q.colg] || "#999"}"></button>`).join("")}${it.ps.length > 4 ? `<span class="more">+${it.ps.length - 4}</span>` : ""}</div>` : "";
-    const name = isBag ? p.n : p.n;
+    const name = pn(p);
     return `<article class="card" data-brand="${esc(bk(p.b))}">
       <a class="hit" href="${link(p)}" aria-label="${esc(name)}"></a>
       <div class="pw">${photo(p)}<div class="tags">${tags.join("")}</div>
@@ -366,9 +368,9 @@
     const price = !R.best ? t("가격 없음", "No price", "価格なし") : krBest ? `${cc("KR")} <b>${man(R.kr.net)}</b>`
       : `${R.mode === "notrip" ? `<span class="muted">${t("여행지 안 팜 · 최저", "Not on trip · lowest", "旅行先未販売・最安")}</span> ` : ""}${cc(R.best.cc)} <b>${man(R.best.net)}</b>`;
     const tail = amt ? ` <span class="saved">${t(`${man(amt)} 아낌`, `save ${man(amt)}`, `${man(amt)}お得`)}</span>` : krBest ? ` <span class="kr">${t("한국이 가장 쌈", "Korea is cheapest", "韓国が最安")}${R.best.cc !== "KR" ? ` · ${t("해외 최저", "abroad lowest", "海外最安")} ${cc(R.best.cc)} ${man(R.best.net)}` : ""}</span>` : R.kr && R.save !== null && R.save <= 0 ? ` <span class="kr">${t("평균 이하", "Below avg.", "平均以下")}</span>` : !R.kr ? ` <span class="kr">${t("한국 미판매", "Not sold in Korea", "韓国未販売")}</span>` : "";
-    return `<article class="lrow" data-brand="${esc(bk(p.b))}"><a class="hit" href="${link(p)}" aria-label="${esc(p.n)}"></a>
+    return `<article class="lrow" data-brand="${esc(bk(p.b))}"><a class="hit" href="${link(p)}" aria-label="${esc(pn(p))}"></a>
       <div class="lph">${photo(p)}</div>
-      <div class="ltx"><div class="br">${esc(p.b)}${kind === "bag" && it.ps.length > 1 ? ` · ${t("색상", "colors", "カラー")} ${it.ps.length}` : ""}</div><div class="lnm">${esc(p.n)}</div>
+      <div class="ltx"><div class="br">${esc(p.b)}${kind === "bag" && it.ps.length > 1 ? ` · ${t("색상", "colors", "カラー")} ${it.ps.length}` : ""}</div><div class="lnm">${esc(pn(p))}</div>
         <div class="lpr">${price}${tail}${R.best && R.best.t === 2 ? ` <span class="bdg stock">${t("재고 확인", "Check stock", "在庫確認")}</span>` : ""}</div>${extra || ""}</div>
       <button type="button" class="heart ${on ? "on" : ""}" data-pick="${esc(p.b + "|" + p.s)}" aria-label="${on ? "담기 취소" : "담기"}"><svg><use href="#i-heart"/></svg></button></article>`;
   }
@@ -616,7 +618,7 @@
     return `<a class="feat" href="${link(p)}" data-brand="${esc(bk(p.b))}"><div class="fimg">${isM() ? `<div class="htop">${heroTopHTML(i)}</div>` : ""}${photo(p, "big")}<span class="fpct">${cheaper ? Math.round(R.save * 100) + "%" : pct(R.save)}<small>${t(`${krLab(R)}보다${cheaper ? " 이득" : ""}`, `vs ${krLab(R)}`, `${krLab(R)}より${cheaper ? "お得" : ""}`)}</small></span>
       <span class="fcc">${flag(cc)}${esc(C[cc].n)}</span></div>
       <div class="ftx"><p class="eyebrow">${esc(o.lab || (R.mode === "trip" ? t("내 여행지에서 가장 싸게 사는 제품", "Cheapest on your trip", "旅行先で一番安い製品") : t("이번 주 가장 싸게 사는 제품", "Cheapest this week", "今週一番安い製品")))}</p>
-        <div class="br">${esc(p.b)}</div><div class="fname">${esc(p.n)}</div>
+        <div class="br">${esc(p.b)}</div><div class="fname">${esc(pn(p))}</div>
         <div class="fsave">${t(`${esc(C[R.best.cc].n)}에서 사면 ${krLab(R)}보다 <b>${man(savedAmt(R))}</b> 싸요`, `Buy in ${esc(C[R.best.cc].n)}: <b>${man(savedAmt(R))}</b> less than ${krLab(R)}`, `${esc(C[R.best.cc].n)}で買うと${krLab(R)}より<b>${man(savedAmt(R))}</b>安い`)}</div>
         <div class="fsub">${krLab(R)} ${won(R.kr.net)} → ${esc(C[R.best.cc].n)} ${JINGA} ${won(R.best.net)} · ${t("관세 포함", "incl. customs", "関税込み")}</div></div></a>`;
   }
@@ -789,10 +791,10 @@
   function iconCard(o) {
     const p = o.p, R = o.R;
     const col = colName(p.c);
-    return `<article class="icard" data-brand="${esc(bk(p.b))}"><a class="hit" href="${link(p)}" aria-label="${esc(p.n)}"></a>
+    return `<article class="icard" data-brand="${esc(bk(p.b))}"><a class="hit" href="${link(p)}" aria-label="${esc(pn(p))}"></a>
       <div class="pw">${photo(p)}</div>
       <div class="body"><div class="br">${esc(p.b)}${col && kind === "jewelry" ? ` · <a class="colink" href="#/brand/${encodeURIComponent(p.b)}?c=${encodeURIComponent(p.c)}">${esc(col)}</a>` : ""}</div>
-        <div class="nm">${esc(p.n)}</div>
+        <div class="nm">${esc(pn(p))}</div>
         ${ibars(o)}
         ${savedAmt(R) ? `<div class="saved" style="margin-top:12px">${man(savedAmt(R))} 아낌 (${pct(R.save)})</div>` : ""}</div></article>`;
   }
@@ -841,7 +843,7 @@
     const mx = Math.max(...lines.map(o => o.net));
     return `<section class="sec shop" id="h-calc">${section("Your Basket", "내 쇼핑 계산", "", sample ? `<a class="link" href="#/search">제품 찾아 담기</a>` : `<a class="link" href="#/picks">담은 목록</a>`)}
       <div class="shopbox">
-        <div class="shopits">${ps.slice(0, 5).map(p => `<a href="${link(p)}" title="${esc(p.n)}" data-brand="${esc(bk(p.b))}">${photo(p)}</a>`).join("")}${ps.length > 5 ? `<span class="more">+${ps.length - 5}</span>` : ""}</div>
+        <div class="shopits">${ps.slice(0, 5).map(p => `<a href="${link(p)}" title="${esc(pn(p))}" data-brand="${esc(bk(p.b))}">${photo(p)}</a>`).join("")}${ps.length > 5 ? `<span class="more">+${ps.length - 5}</span>` : ""}</div>
         <p class="shopnote">${sample ? "예시 · 많이 아끼는 제품 3개 — ♡로 담으면 내 제품으로 계산해요" : `담은 제품 ${ps.length}개`} · ${S.trip.length ? "내 여행지 기준" : "16개 나라 중"}</p>
         <div class="shophead">${head}</div>
         ${kr && best ? `<ul class="ibars shopbars">${lines.map(o => `<li class="${o.c === "KR" ? "kr" : o === best ? "top" : ""}"><span>${cc(o.c)} ${esc(C[o.c].n)}</span><span class="bar"><i style="width:${o.net / mx * 100}%"></i></span><b>${man(o.net)}</b></li>`).join("")}</ul>` : ""}
@@ -1044,14 +1046,15 @@
   const fMat = p => isBag() ? p.lt : p.mt;
   const fStone = p => isBag() ? p.colg : p.g;
   const matLabel = v => v === "골드(색상 미표기)" ? "골드(기타)" : v;
-  const colName = c => { const m = /^(.*?)\s*\(([^)]*)\)\s*$/.exec(c || ""); return m && /[가-힣]/.test(m[2]) ? m[2].trim() : (c || "").replace(/\s*\(.*\)/, "").trim(); };  // 컬렉션은 한글 이름 먼저 (2026-10-27)
+  const colName = c => { const m = /^(.*?)\s*\(([^)]*)\)\s*$/.exec(c || ""); if (L() !== "ko") return c === "기타" ? t("기타", "Other", "その他") : m && /[가-힣]/.test(m[2]) ? m[1].trim() : (c || "").replace(/\s*\(.*\)/, "").trim();  // 11-08: 영어·일본어 모드는 원래(로마자) 이름
+    return m && /[가-힣]/.test(m[2]) ? m[2].trim() : (c || "").replace(/\s*\(.*\)/, "").trim(); };  // 컬렉션은 한글 이름 먼저 (2026-10-27)
   const csv = (q, k) => (q.get(k) || "").split(",").filter(Boolean);
   const squash = s => (s || "").toLowerCase().replace(/[\s\-·]/g, "");
   const SYN = new Map(D.syn.map(([a, b]) => [squash(a), b.toLowerCase()]));
   const hayCache = new Map();
   function hay(p) {
     const k = p.b + "|" + p.s;
-    if (!hayCache.has(k)) hayCache.set(k, [p.n, p.ne, p.b, D.brandKo[p.b], p.c, p.s, TYPE_ALL[p.t], p.sb, fMat(p), fStone(p), p.col].join(" ").toLowerCase());
+    if (!hayCache.has(k)) hayCache.set(k, [p.n, p.ne, p.en, p.ja, p.b, D.brandKo[p.b], p.c, p.s, TYPE_ALL[p.t], p.sb, fMat(p), fStone(p), p.col].join(" ").toLowerCase());
     return hayCache.get(k);
   }
   // 단어 하나: 그대로 / 띄어쓰기·하이픈 무시 / 동의어(엑셀 '설정' 시트 표)로 찾는다
@@ -1233,7 +1236,7 @@
       brands.filter(b => (b + " " + (D.brandKo[b] || "")).toLowerCase().includes(w)).slice(0, 2).forEach(b => hits.push(["브랜드", bk(b), "#/brand/" + encodeURIComponent(b)]));
       [...new Set(all.map(o => o.p.b + "|" + (o.p.c || "")))].filter(x => squash(x.split("|")[1]).includes(sw)).slice(0, 3)
         .forEach(x => { const [b, c] = x.split("|"); hits.push([bk(b), colName(c), "#/brand/" + encodeURIComponent(b) + "?c=" + encodeURIComponent(c)]); });
-      res.slice(0, 8 - hits.length).forEach(o => hits.push([bk(o.p.b), o.p.n, link(o.p)]));
+      res.slice(0, 8 - hits.length).forEach(o => hits.push([bk(o.p.b), pn(o.p), link(o.p)]));
       if (hits.length) ac = `<ul class="ac" role="listbox">${hits.map(([k, v, h]) => `<li><a href="${esc(h)}"><small>${esc(k)}</small> ${esc(v)}</a></li>`).join("")}</ul>`;
     }
     const conv = lastConverted.length ? `<p class="conv">이렇게 찾았어요 — 조건 ${lastConverted.map(w => `<b>${esc(w)}</b>`).join(" · ")}${F.q ? ` · 검색어 <b>“${esc(F.q)}”</b>` : ""}</p>` : "";
@@ -1252,7 +1255,7 @@
         <button type="button" class="qchip ${F.type ? "on" : ""}${qo("type")}" data-quick="type">${F.type ? esc(TYPE_ALL[F.type]) : t("종류", "Type", "種類")} ▾</button>
         <button type="button" class="qchip ${F.pmin || F.pmax !== Infinity ? "on" : ""}${qo("price")}" data-quick="price">${esc(F.pmin || F.pmax !== Infinity ? rangeLabel(F) : t("가격대", "Price", "価格帯"))} ▾</button>
         <a class="qchip qsave ${F.save === "0" ? "on" : ""}" href="${esc(url({ save: F.save === "0" ? "" : "0" }))}">${t("한국보다 싼 것만", "Cheaper than Korea", "韓国より安いものだけ")}</a>
-        ${lock.brand && isM() ? "" : lock.at ? `<span class="qchip on" title="가격을 이 나라 기준으로 보여 줘요">${flag(lock.at)}${esc(C[lock.at].n)} 기준</span>` : `<button type="button" class="qchip qtrip ${S.trip.length ? "on" : ""}" data-trip-open>✈ ${!S.trip.length ? "내 여행지" : isM() && S.trip.length > 1 ? `${esc(C[S.trip[0]].n)} 외 ${S.trip.length - 1}` : S.trip.map(c => esc(C[c].n)).join("·")}</button>`}
+        ${lock.brand && isM() ? "" : lock.at ? `<span class="qchip on" title="${t("가격을 이 나라 기준으로 보여 줘요", "Prices shown for this country", "この国の価格で表示")}">${flag(lock.at)}${t(`${esc(C[lock.at].n)} 기준`, `${esc(C[lock.at].n)} prices`, `${esc(C[lock.at].n)}基準`)}</span>` : `<button type="button" class="qchip qtrip ${S.trip.length ? "on" : ""}" data-trip-open>✈ ${!S.trip.length ? t("내 여행지", "My trip", "旅行先") : isM() && S.trip.length > 1 ? t(`${esc(C[S.trip[0]].n)} 외 ${S.trip.length - 1}`, `${esc(C[S.trip[0]].n)} +${S.trip.length - 1}`, `${esc(C[S.trip[0]].n)} 他${S.trip.length - 1}`) : S.trip.map(c => esc(C[c].n)).join("·")}</button>`}
         <button type="button" class="qchip more" data-fpanel>${isM() ? t("필터", "Filters", "絞り込み") : t("필터 더 보기", "More filters", "絞り込みをもっと")}${moreN ? ` (${moreN})` : ""}</button>
       </div>${quickRow}
     </div>
@@ -1705,8 +1708,8 @@
           ${brandState[p.b] === "loading" ? `<p class="note">나라별 공홈 주소를 읽는 중…</p>` : brandState[p.b] === "fail" ? `<p class="note">공홈 주소 파일을 읽지 못했어요 (data/brands)</p>` : ""}</div>
         <div class="pdtx">
           <div class="br">${esc(p.b.toUpperCase())}${p.c ? " · " + esc(colName(p.c).toUpperCase()) : ""}</div>
-          <h1 class="${isM() ? "clamp2" : ""}" data-expand>${esc(p.n)}</h1>
-          <div class="sku">${t("제품번호", "Ref.", "品番")} ${esc(p.s)}${p.ne ? " · " + esc(p.ne) : ""}</div>
+          <h1 class="${isM() ? "clamp2" : ""}" data-expand>${esc(pn(p))}</h1>
+          <div class="sku">${t("제품번호", "Ref.", "品番")} ${esc(p.s)}${L() === "ko" && p.ne ? " · " + esc(p.ne) : ""}</div>
           <div class="verdict">${R.best ? `<div>${conclusion}</div><div class="vnum">${wonK(R.best.net)} ${R.save !== null ? (R.save > 0 ? `<span class="save">${t(`${krLab(R)}보다 ${pct(R.save)}`, `${pct(R.save)} vs ${krLab(R)}`, `${krLab(R)}より ${pct(R.save)}`)} (${wonK(R.kr.net - R.best.net)})</span>` : `<span class="kr">${t("한국이 더 싸거나 같아요", "Korea is cheaper or equal", "韓国の方が安いか同じ")}</span>`) : `<span class="kr">${t("한국 미판매", "Not sold in Korea", "韓国未販売")}</span>`}</div>${stBestLink(R.best.cc, p.b)}${R.outlier ? `<div class="warnline">${t("가격 확인 필요", "Check price", "要確認")} — ${esc(p.ck)}</div>` : ""}` : conclusion}</div>
           ${!R.best ? "" : R.best.t === 2 && R.best.cc !== "KR"
             ? `<p class="stocknote sm" role="note"><b>${t(`⚠ ${esc(C[R.best.cc].n)} 공홈은 지금 온라인 품절·미판매예요`, `⚠ Sold out or not sold online in ${esc(C[R.best.cc].n)}`, `⚠ ${esc(C[R.best.cc].n)}の公式サイトは現在品切れ・未販売`)}</b> ${t("매장에 재고가 있는지 꼭 확인하세요.", "Check the store's stock before you go.", "店舗に在庫があるか必ず確認してください。")}</p>`
@@ -1791,7 +1794,7 @@
       const ch = b && Math.round(b.net) !== Math.round(r.net);
       // 나라 이름은 한 줄로 두고, 칸이 좁으면 값 묶음이 다음 줄 오른쪽으로 내려감
       return `<li><span class="pvn">${nationF(c)}</span><span class="pvp">${ch ? `<s>${won(b.net)}</s> → ` : ""}<b>${won(r.net)}</b></span></li>`; };
-    return `<div class="pv" data-brand="${esc(bk(p.b))}">${photo(p)}<div class="pvtx"><p class="eyebrow">미리보기</p><div class="br">${esc(p.b)}</div><div class="nm">${esc(p.n)}</div>
+    return `<div class="pv" data-brand="${esc(bk(p.b))}">${photo(p)}<div class="pvtx"><p class="eyebrow">미리보기</p><div class="br">${esc(p.b)}</div><div class="nm">${esc(pn(p))}</div>
       <ul class="pvl">${["KR", ...show.filter(c => c !== "KR")].map(line).join("")}</ul>
       <p class="note">설정을 바꾸면 바로 바뀌어요. 줄 그은 값은 기본 설정일 때.</p></div></div>`;
   }
@@ -2003,7 +2006,7 @@
     const info = p => kind === "bag" ? [[t("색상", "Color", "カラー"), colKo(p)], [t("종류", "Type", "種類"), TYPE_ALL[p.t] || p.t]] : [[t("소재", "Material", "素材"), p.m], [t("스톤", "Stone", "ストーン"), p.g], [t("종류", "Type", "種類"), TYPE_ALL[p.t] || p.t]];
     const keys = info(ps[0]).map(x => x[0]);
     return `${head}<p class="lead">${t(`${ps.length}개 · ${JINGA} 기준`, `${ps.length} items · ${JINGA}`, `${ps.length}点 · ${JINGA}基準`)} · ${esc(setSummary())} <a class="link" href="#/settings">✎</a></p></div>
-      <div class="cmpwrap"><table class="cmptable"><thead><tr><th></th>${ps.map(p => `<th><a class="cph" href="${link(p)}" aria-label="${esc(p.n)}">${photo(p)}</a><div class="br">${esc(p.b.toUpperCase())}</div><a class="cnm" href="${link(p)}">${esc(p.n)}</a>
+      <div class="cmpwrap"><table class="cmptable"><thead><tr><th></th>${ps.map(p => `<th><a class="cph" href="${link(p)}" aria-label="${esc(pn(p))}">${photo(p)}</a><div class="br">${esc(p.b.toUpperCase())}</div><a class="cnm" href="${link(p)}">${esc(pn(p))}</a>
         <div class="cact"><button type="button" class="link" data-pick="${esc(p.b + "|" + p.s)}">${S.picks.includes(p.b + "|" + p.s) ? t("♥ 담음", "♥ Picked", "♥ 保存済み") : t("♡ 담기", "♡ Pick", "♡ 保存")}</button><button type="button" class="link" data-cmp="${esc(p.b + "|" + p.s)}">${t("✕ 빼기", "✕ Remove", "✕ 外す")}</button></div></th>`).join("")}</tr></thead><tbody>
         ${row(t("가장 싼 곳", "Cheapest", "最安"), Rs.map(R => R.best ? `<td class="best">${nationF(R.best.cc)}<b>${man(R.best.net)}</b>${savedAmt(R) ? `<small class="save">${t(`${krLab(R)}보다 ${man(savedAmt(R))} 아낌`, `save ${man(savedAmt(R))} vs ${krLab(R)}`, `${krLab(R)}より${man(savedAmt(R))}お得`)}</small>` : R.kr ? `<small>${t(`${krLab(R)}이 가장 쌈`, `${krLab(R)} is cheapest`, `${krLab(R)}が最安`)}</small>` : ""}</td>` : `<td class="dim">${t("가격 없음", "No price", "価格なし")}</td>`))}
         ${row(esc(C.KR.n), Rs.map(R => R.kr && !R.kr.ref ? `<td>${man(R.kr.net)}</td>` : `<td class="dim">${t("한국 미판매", "Not sold in Korea", "韓国未販売")}</td>`))}
@@ -2731,7 +2734,8 @@
   if (seen && seen !== M.version) {
     const nb = document.getElementById("newbar");
     // 휴대폰은 짧은 글(nbs)만 — 패션처럼 변동 수가 크면 '변동 보기'가 화면 밖으로 밀리던 것 (10-30 사용자)
-    nb.innerHTML = `<span class="sbt"><span class="nbl">새 가격이 반영됐어요 (${esc(M.fxDate.slice(5).replace("-", "."))}) · 오른 제품 ${M.changes.up} · 내린 제품 ${M.changes.down}</span><span class="nbs">새 가격 ${esc(M.fxDate.slice(5).replace("-", "."))} · 오름 ${M.changes.up} · 내림 ${M.changes.down}</span></span> <a class="link" href="#/changes">변동 보기</a> <button type="button" class="link" data-newbar-close>닫기</button>`;
+    nb.innerHTML = (() => { const d = esc(M.fxDate.slice(5).replace("-", ".")), u = M.changes.up, w = M.changes.down;
+      return `<span class="sbt"><span class="nbl">${t(`새 가격이 반영됐어요 (${d}) · 오른 제품 ${u} · 내린 제품 ${w}`, `New prices (${d}) · ${u} up · ${w} down`, `新価格を反映 (${d}) · 値上げ ${u} · 値下げ ${w}`)}</span><span class="nbs">${t(`새 가격 ${d} · 오름 ${u} · 내림 ${w}`, `New ${d} · ▲${u} · ▼${w}`, `新価格 ${d} · ▲${u} · ▼${w}`)}</span></span> <a class="link" href="#/changes">${t("변동 보기", "See changes", "変動を見る")}</a> <button type="button" class="link" data-newbar-close>${t("닫기", "Close", "閉じる")}</button>`; })();
     nb.hidden = false;
   }
   store.set(KEY("lastVersion"), M.version);
