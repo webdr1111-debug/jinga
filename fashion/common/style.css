@@ -1343,3 +1343,67 @@ capacitor-admob-native.adslot { display: none; }
 .jpg .stdl { margin: 0 0 4px; grid-template-columns: 48px 1fr; }
 .jpgdlg { max-height: 85vh; overflow-y: auto; }
 .jpgdlg .note { margin: 0 0 6px; }
+/* 제품 가격 추이 그래프 (11-08, 웹앱계획.md 13장 기능 1) */
+.pchart .pcsvg { display: block; width: 100%; height: 220px; }  /* 전역 svg 20px 규칙을 이김 */
+@media (max-width: 1023px) { .pchart .pcsvg { height: 180px; } }
+.pcgrid { stroke: var(--line); stroke-width: 1; }
+.pcgrid.v { stroke-dasharray: 2 4; }
+.pctick { font: 400 11px var(--sans); fill: var(--faint); }
+.pcline { fill: none; stroke-width: 2; stroke-linejoin: round; }
+.pcline.kr { stroke-width: 2.5; }
+.pclegs { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 18px; margin-top: 14px; font-size: 13px; }
+.pcleg { white-space: nowrap; }
+.pcleg i { display: inline-block; width: 10px; height: 10px; border-radius: 99px; margin-right: 6px; vertical-align: -1px; }
+.pcleg .up { color: var(--up); } .pcleg .down { color: var(--down); }
+/* 담은 제품 변동 알림 (11-08, 웹앱계획.md 13장 기능 2) */
+.alstrip .evcat { background: var(--up); color: #fff; }
+.bottombar i.alert::after, #pickCnt.alert::after { content: ""; position: absolute; top: -3px; right: -4px; width: 7px; height: 7px; border-radius: 99px; background: var(--up); border: 1.5px solid var(--bg); }
+#pickCnt.alert { position: relative; }
+.alerts .sh { margin-bottom: 16px; }
+.alerts .center { text-align: center; margin-top: 16px; }
+/* 공홈 주소 붙여넣기 (11-08, 웹앱계획.md 13장 기능 3) */
+.urlmiss { margin: 12px 0 16px; padding: 12px 14px; border: 1px solid var(--line); background: var(--paper); font-size: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.urlmiss .note { flex-basis: 100%; }
+.urlhint { margin: -8px 0 24px; }
+/* 나란히 비교 (11-08, 웹앱계획.md 13장 기능 4) */
+.ccmp { position: relative; z-index: 2; margin-top: 8px; }
+.ccmp .tchip.on, .acts .btn.on { border-color: var(--ink); background: var(--ink); color: var(--bg); }
+.cmpbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 29; display: flex; align-items: center; justify-content: center; gap: 14px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: var(--paper); border-top: 1px solid var(--line); font-size: 14px; }
+.cmpbar[hidden] { display: none; }
+.cmpbar .btn { padding: 8px 16px; }
+body.hascmp .foot { padding-bottom: 80px; }
+@media (max-width: 1023px) { .cmpbar { bottom: calc(60px + env(safe-area-inset-bottom)); } body.hasfix .cmpbar { display: none; } }
+.cmpwrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -16px; padding: 0 16px; }
+.cmptable { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 14px; }
+.cmptable th, .cmptable td { padding: 10px 10px; border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; }
+.cmptable thead th { vertical-align: bottom; }
+.cmptable tbody th { font-weight: 500; color: var(--sub); white-space: nowrap; width: 1%; position: sticky; left: 0; background: var(--bg); }
+.cmptable thead th:first-child { position: sticky; left: 0; background: var(--bg); }
+.cmptable td { font-variant-numeric: tabular-nums; }
+.cmptable td.best { background: var(--save-bg); color: var(--save); font-weight: 500; }
+.cmptable td.dim { color: var(--faint); }
+.cmptable td.tx { font-weight: 300; }
+.cmptable td small { display: block; font-size: 11.5px; color: var(--faint); font-weight: 300; }
+.cmptable td.best small.save { color: var(--save); }
+.cmptable td b { display: block; font-size: 17px; }
+.cmptable .cph .ph { width: 120px; height: 120px; }
+.cmptable .cnm { display: block; font-size: 13px; line-height: 1.35; margin-top: 4px; max-width: 180px; }
+.cmptable .cact { display: flex; gap: 12px; margin-top: 8px; font-size: 13px; }
+.cmpfoot { margin-top: 24px; }
+@media (max-width: 1023px) { .cmptable { min-width: 100%; } .cmptable th, .cmptable td { padding: 8px 6px; font-size: 13px; } .cmptable .cph .ph { width: 92px; height: 92px; } .cmptable .cnm { max-width: 130px; } .cmptable td b { font-size: 15px; } }
+.cmptable .cact button { white-space: nowrap; }
+/* 여행 날짜 (11-08, 웹앱계획.md 13장 기능 5) */
+.dates { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; font-size: 14px; }
+.dates label { display: inline-flex; align-items: center; gap: 6px; }
+.dates input[type="date"] { font: inherit; padding: 6px 8px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); border-radius: 0; }
+.dday { font-size: 11px; color: var(--gold); letter-spacing: .04em; margin-left: 2px; }
+.tripstrip .evcat { background: var(--gold); color: #fff; }
+/* 제품번호 스캔 (11-08, 웹앱계획.md 13장 기능 6) */
+.scanbtn { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border: 1px solid var(--ink); font-size: 13px; cursor: pointer; vertical-align: middle; }
+.scanbtn svg { width: 14px; height: 14px; }
+.scanbox { margin: 12px 0 16px; padding: 12px 14px; border: 1px solid var(--line); background: var(--paper); font-size: 14px; }
+.scanbox .lrows { margin-top: 8px; }
+.scanbox .link { margin-top: 8px; }
+/* 언어 (11-08, 웹앱계획.md 13장 기능 7): 영어·일본어 제목은 길어서 휴대폰 첫 화면 제목을 두 줄까지 */
+html:not([lang="ko"]) .hero.hm .htop h1 { white-space: normal; font-size: min(24px, 6.2vw); line-height: 1.15; }
+html:not([lang="ko"]) .hero.hm .htop .hchk { flex-wrap: wrap; white-space: normal; }

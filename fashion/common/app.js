@@ -47,7 +47,9 @@
     loadSet();
     S.trip = qs.has("trip") ? qs.get("trip").split(",").filter(c => TRIP_CODES.includes(c)).slice(0, 3) : store.get(tripKey(), []);
     S.picks = store.get(pickKey(), []);
+    S.cmp = store.get(KEY("cmp"), []);  // 나란히 비교에 담은 제품 (11-08)
     S.sel = {};
+    applyLang();
   }
 
   const BUDGET = {
@@ -61,14 +63,37 @@
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const safeUrl = u => /^https:\/\//.test(u || "") ? u : "";
   const won = n => "₩" + Math.round(n).toLocaleString("ko-KR");
-  const man = n => SET.num === "M" ? (n / 1e6).toFixed(n >= 1e7 ? 1 : 2).replace(/\.?0+$/, "") + "M"  // 설정 '숫자 표기'
+  const wonK = n => "₩" + (Math.round(n / 1000) * 1000).toLocaleString("ko-KR");  // 11-08 제품 화면 진짜가격은 천 원 단위(환율이 매일 바뀌어 원 단위는 과한 정확성) — 계산 과정은 won 그대로
+  const man = n => SET.num === "M" || L() !== "ko" ? (L() !== "ko" ? "₩" : "") + (n / 1e6).toFixed(n >= 1e7 ? 1 : 2).replace(/\.?0+$/, "") + "M"  // 설정 '숫자 표기' (한국어가 아니면 ₩1.84M, 11-08)
     : n >= 1e8 ? (n / 1e8).toFixed(2).replace(/0$/, "") + "억원" : Math.round(n / 1e4).toLocaleString("ko-KR") + "만원";  // 한국 돈은 '85만원' (10-30 사용자)
   const local = (cc, v) => { const cur = C[cc].cur; return (cur === "KRW" ? "₩" : cur + " ") + Number(v).toLocaleString("ko-KR", { maximumFractionDigits: 2 }); };
   // 제품의 현지 가격: 원래 다른 통화로 적힌 칸이면 그 통화로 (계산은 나라 통화로 바꾼 값)
   const localP = (p, cc, v) => p.pc && p.pc[cc] ? `${esc(p.pc[cc][1])} ${Number(p.pc[cc][0]).toLocaleString("ko-KR")} <small>(≈ ${local(cc, Math.round(v))})</small>` : local(cc, v);
   const cc = c => `<span class="cc">${c}</span>`;
   // '진짜가격' 표기 (관세까지 넣은 실제 부담 가격). 2026-10-28 앱 이름이 럭스캐너로 바뀌어 '진·가' 강조는 뺌
-  const JINGA = "진짜가격";
+  let JINGA = "진짜가격";  // 언어에 따라 applyLang 이 바꿈 (11-08)
+  // ── 언어 (11-08, 웹앱계획.md 13장 기능 7 — 1차: 틀·첫 화면·카드·제품·찾기. 설정·이벤트·가이드·공지는 아직 한국어) ──
+  const L = () => SET && (SET.lang === "en" || SET.lang === "ja") ? SET.lang : "ko";
+  const t = (ko, en, ja) => L() === "en" ? en : L() === "ja" ? (ja || en) : ko;
+  const CN = {
+    en: { KR: "Korea", US: "USA", FR: "France", IT: "Italy", ES: "Spain", GB: "UK", JP: "Japan", TW: "Taiwan", HK: "Hong Kong", SG: "Singapore", AU: "Australia", AE: "UAE", CH: "Switzerland", VN: "Vietnam", MO: "Macau", TH: "Thailand" },
+    ja: { KR: "韓国", US: "アメリカ", FR: "フランス", IT: "イタリア", ES: "スペイン", GB: "イギリス", JP: "日本", TW: "台湾", HK: "香港", SG: "シンガポール", AU: "オーストラリア", AE: "UAE", CH: "スイス", VN: "ベトナム", MO: "マカオ", TH: "タイ" } };
+  const TYPE_L = {
+    en: { ring: "Rings", necklace: "Necklaces", bracelet: "Bracelets", earring: "Earrings", watch: "Watches", bag: "Bags", wallet: "Wallets", accessory: "Accessories", shoes: "Shoes", silk: "Belts · Scarves · Silk", clothing: "Clothing" },
+    ja: { ring: "リング", necklace: "ネックレス", bracelet: "ブレスレット", earring: "イヤリング", watch: "時計", bag: "バッグ", wallet: "財布", accessory: "アクセサリー", shoes: "シューズ", silk: "ベルト・スカーフ・シルク小物", clothing: "ウェア" } };
+  const TYPE_KO = { ...TYPE_ALL };
+  // 정렬 이름 (찾기 화면): 언어 적용 때문에 여기서 정의 (원래 찾기 쪽에 있었음)
+  const SORTS = [["", "절약률 순"], ["amt", "절약 금액 순"], ["low", "진짜가격 낮은 순"], ["high", "진짜가격 높은 순"], ["new", "신상 순"], ["spread", "나라마다 가격 차이 큰 순"]];
+  const SORT_KO = SORTS.map(o => o[1]);  // applyLang 이 언어에 맞게 바꿈
+  const SORT_L = { en: ["By savings %", "By savings amount", "Real price: low to high", "Real price: high to low", "New first", "Biggest gap between countries"], ja: ["節約率順", "節約額順", "実質価格が安い順", "実質価格が高い順", "新作順", "国ごとの価格差が大きい順"] };
+  function applyLang() {
+    const l = L();
+    for (const c of CODES) { C[c].ko = C[c].ko || C[c].n; C[c].n = l === "ko" ? C[c].ko : (CN[l] || {})[c] || C[c].ko; }
+    for (const k in TYPE_KO) TYPE_ALL[k] = (TYPE_L[l] || {})[k] || TYPE_KO[k];
+    SORTS.forEach((o, i) => { o[1] = l === "ko" ? SORT_KO[i] : SORT_L[l][i]; });
+    JINGA = t("진짜가격", "real price", "実質価格");
+    document.documentElement.lang = l;
+  }
   const fxFmt = v => v >= 100 ? v.toLocaleString("ko-KR", { maximumFractionDigits: 2 }) : v >= 1 ? v.toLocaleString("ko-KR", { maximumFractionDigits: 4 }) : v.toLocaleString("ko-KR", { maximumFractionDigits: 5 });
   const nation = c => cc(c) + " " + esc(C[c].n);
   // 둥근 국기 (웹앱계획.md 6장): 나라를 고르거나 나라끼리 훑어보는 곳에만. 국기 + 나라 이름을 늘 함께 (제품 카드 가격 줄은 글자만)
@@ -77,7 +102,7 @@
   const pct = r => (r >= 0 ? "−" : "+") + Math.abs(Math.round(r * 100)) + "%";
   const median = a => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
   const isM = () => matchMedia("(max-width: 1023px)").matches;
-  const bk = b => (RU.brandName || {})[b] || b;  // 브랜드 한글 이름: 빌더 BR_NAME_KO(엑셀과 같은 표)를 내보낸 것 — 새 브랜드는 빌더 표 한 곳만 고침 (2026-10-27)
+  const bk = b => L() === "ko" ? (RU.brandName || {})[b] || b : b;  // 브랜드 한글 이름: 빌더 BR_NAME_KO(엑셀과 같은 표)를 내보낸 것 — 새 브랜드는 빌더 표 한 곳만 고침 (2026-10-27)
   const link = p => "#/p/" + encodeURIComponent(p.b) + "/" + encodeURIComponent(p.s);
   // 공유 링크 (2026-10-29, 11-02 luxcanner.com): Cloudflare 공유 함수가 만드는 제품 페이지(카톡 미리보기 사진·이름) — 이름 규칙은 pack.py share_slug 와 같음
   // 앱이 깔린 안드로이드에서는 이 주소가 앱으로 바로 열림(앱 링크, 아래 appUrlOpen)
@@ -95,7 +120,9 @@
   // ── 설정 (웹앱계획.md 5.15절). 앱마다 따로 저장 ──
   const DEF = { pay: "card", fee: 1.2, refund: true, customs: true, self: true, krDisc: 0, jpDept: false, jpRate: 5, jpFeeMode: "tier", jpRefFee: 2.3, cp: {},
     us: "ny", usTax: 6, euHigh: false, euThr: 5000, euUp: { FR: 1, IT: 1.5, ES: 1 }, off: [], hide: [], tripOnly: false, num: "man", theme: "auto", stale: 30, onboarded: false,
-    fxMode: "live", fxCustom: {} };  // 환율: live = 페이지를 열 때마다 받은 최신 환율(못 받으면 마지막 값 → 빌드 값), build = 빌드 환율, custom = 직접 입력
+    fxMode: "live", fxCustom: {},  // 환율: live = 페이지를 열 때마다 받은 최신 환율(못 받으면 마지막 값 → 빌드 값), build = 빌드 환율, custom = 직접 입력
+    tripFrom: "", tripTo: "",  // 여행 날짜(11-08, 13장 기능 5): 출발·귀국 'YYYY-MM-DD', 비면 없음. 계산 기준(CALC_KEYS)은 아님
+    lang: "ko" };  // 언어(11-08, 13장 기능 7): ko·en·ja — 1차는 틀·첫 화면·카드·제품·찾기만
   // 숫자 칸의 범위 (5.15절 '입력 지키기')
   const RANGE = { fee: [0, 10], krDisc: [0, 30], jpRate: [0, 15], jpRefFee: [0, 5], usTax: [0, 15], euThr: [1000, 50000], "euUp.FR": [0, 3], "euUp.IT": [0, 3], "euUp.ES": [0, 3], stale: [7, 90] };
   const setKey = () => KEY("settings");
@@ -111,7 +138,7 @@
     applyTheme();
     applyFx();  // 저장된 환율 설정(빌드·직접 입력)으로 다시
   }
-  function saveSet(patch) { SET = { ...SET, ...patch }; store.set(setKey(), SET); cache.clear(); applyTheme(); applyFx(); }
+  function saveSet(patch) { SET = { ...SET, ...patch }; store.set(setKey(), SET); cache.clear(); if ("lang" in patch) applyLang(); applyTheme(); applyFx(); }
   function applyTheme() { const r = document.documentElement; SET.theme === "auto" ? r.removeAttribute("data-theme") : r.setAttribute("data-theme", SET.theme); }
   // 기본값과 다른 계산 설정 (띠에 개수로 보여 줌)
   const CALC_KEYS = ["pay", "fee", "refund", "customs", "self", "krDisc", "jpDept", "jpRate", "jpFeeMode", "jpRefFee", "cp", "us", "usTax", "euHigh", "euThr", "euUp", "off", "tripOnly", "fxMode", "fxCustom"];
@@ -120,19 +147,19 @@
       .filter(k => !(k === "fee" && SET.pay !== "custom") && !(k === "usTax" && SET.us !== "custom") && !(k === "jpRate" && !SET.jpDept) && !(k === "jpRefFee" && SET.jpFeeMode !== "custom")
         && !(["euThr", "euUp"].includes(k) && !SET.euHigh) && !(k === "self" && !SET.customs) && !(k === "fxCustom" && SET.fxMode !== "custom"));
   }
-  const payLabel = () => SET.pay === "travel" ? "트래블카드 0%" : SET.pay === "custom" ? `수수료 ${SET.fee}%` : "신용카드 1.2%";
+  const payLabel = () => SET.pay === "travel" ? t("트래블카드 0%", "Travel card 0%", "トラベルカード0%") : SET.pay === "custom" ? t(`수수료 ${SET.fee}%`, `Fee ${SET.fee}%`, `手数料${SET.fee}%`) : t("신용카드 1.2%", "Credit card 1.2%", "クレジットカード1.2%");
   // 찾기·브랜드 화면의 '계산 기준' 줄 (11-02): 결제·환급·관세를 그 자리에서 바꿈. 값은 설정 화면과 같은 SET — 펼침 상태는 다시 그려도 유지
   let calcOpen = false;
   document.addEventListener("toggle", e => { if (e.target.classList && e.target.classList.contains("calcbar")) calcOpen = e.target.open; }, true);
-  const calcBar = () => `<details class="calcbar" ${calcOpen ? "open" : ""}><summary><span class="cbl">계산 기준</span><span class="cbs">${esc([payLabel(), SET.refund ? "세금 환급 받음" : "환급 없음", SET.customs ? "관세 포함" : "관세 제외"].join(" · "))}</span><span class="car">▾</span></summary>
+  const calcBar = () => `<details class="calcbar" ${calcOpen ? "open" : ""}><summary><span class="cbl">${t("계산 기준", "Pricing basis", "計算条件")}</span><span class="cbs">${esc([payLabel(), SET.refund ? t("세금 환급 받음", "Tax refund", "免税あり") : t("환급 없음", "No refund", "免税なし"), SET.customs ? t("관세 포함", "Duty incl.", "関税込み") : t("관세 제외", "Duty excl.", "関税抜き")].join(" · "))}</span><span class="car">▾</span></summary>
       <div class="cbbody">
-        <div class="cbrow"><span class="cbk">카드</span>${segBtns("pay", [["card", "신용카드 1.2%"], ["travel", "트래블카드 0%"]].concat(SET.pay === "custom" ? [["custom", `직접 ${SET.fee}%`]] : []))}</div>
-        <div class="cbrow"><span class="cbk">세금 환급</span>${segBtns("refund", [[true, "받아요"], [false, "안 받아요"]])}</div>
-        <div class="cbrow"><span class="cbk">관세</span>${segBtns("customs", [[true, "포함"], [false, "빼고 보기"]])}</div>
-        <p class="note"><a class="link" href="#/settings">자세한 설정 ›</a> 수수료 직접 입력 · 자진신고 · 한국 할인 · 일본 백화점 할인</p>
+        <div class="cbrow"><span class="cbk">${t("카드", "Card", "カード")}</span>${segBtns("pay", [["card", t("신용카드 1.2%", "Credit card 1.2%", "クレジットカード1.2%")], ["travel", t("트래블카드 0%", "Travel card 0%", "トラベルカード0%")]].concat(SET.pay === "custom" ? [["custom", t(`직접 ${SET.fee}%`, `Custom ${SET.fee}%`, `手入力${SET.fee}%`)]] : []))}</div>
+        <div class="cbrow"><span class="cbk">${t("세금 환급", "Tax refund", "免税")}</span>${segBtns("refund", [[true, t("받아요", "Yes", "受ける")], [false, t("안 받아요", "No", "受けない")]])}</div>
+        <div class="cbrow"><span class="cbk">${t("관세", "Duty", "関税")}</span>${segBtns("customs", [[true, t("포함", "Include", "含む")], [false, t("빼고 보기", "Exclude", "除く")]])}</div>
+        <p class="note"><a class="link" href="#/settings">${t("자세한 설정 ›", "More settings ›", "詳細設定 ›")}</a> ${t("수수료 직접 입력 · 자진신고 · 한국 할인 · 일본 백화점 할인", "Custom fee · self-declare · Korea discounts · Japan store discounts", "手数料入力 · 自主申告 · 韓国割引 · 日本百貨店割引")}</p>
       </div></details>`;
-  const setSummary = () => [payLabel(), SET.refund ? "세금 환급 받음" : "환급 없음", SET.customs ? (SET.self ? "자진신고 관세 포함" : "관세 포함") : "관세 제외"]
-    .concat(SET.krDisc ? [`한국 할인 ${SET.krDisc}%`] : [], SET.jpDept ? [`일본 백화점 ${SET.jpRate}%`] : [], cpOn().map(cp => `${cp.short} 쿠폰 ${cp.rate}%`), [fxLabel()]).join(" · ");
+  const setSummary = () => [payLabel(), SET.refund ? t("세금 환급 받음", "Tax refund", "免税あり") : t("환급 없음", "No refund", "免税なし"), SET.customs ? (SET.self ? t("자진신고 관세 포함", "Duty incl. (self-declared)", "関税込み(自主申告)") : t("관세 포함", "Duty incl.", "関税込み")) : t("관세 제외", "Duty excl.", "関税抜き")]
+    .concat(SET.krDisc ? [t(`한국 할인 ${SET.krDisc}%`, `Korea discount ${SET.krDisc}%`, `韓国割引${SET.krDisc}%`)] : [], SET.jpDept ? [t(`일본 백화점 ${SET.jpRate}%`, `Japan dept. store ${SET.jpRate}%`, `日本百貨店${SET.jpRate}%`)] : [], cpOn().map(cp => t(`${cp.short} 쿠폰 ${cp.rate}%`, `${cp.short} coupon ${cp.rate}%`, `${cp.short}クーポン${cp.rate}%`)), [fxLabel()]).join(" · ");
   const jpExcluded = b => CALC.jpExcluded(b);
   // 기간 쿠폰 (sheets/config/coupons.json, 2026-10-28): 기간이 지나면 켜 둔 것도 계산에서 빠지고 저장된 설정에서도 지운다
   const cpLive = cp => CALC.cpActive(cp, CALC.today());
@@ -157,9 +184,9 @@
     return FX_BUILD[cur];
   }
   function fxLabel() {
-    if (SET.fxMode === "custom") return "환율 직접 입력";
-    if (SET.fxMode === "build" || !FXL) return `빌드 환율 ${M.fxDate.slice(5).replace("-", ".")}`;
-    return `최신 환율 ${FXL.date.slice(5).replace("-", ".")}`;
+    if (SET.fxMode === "custom") return t("환율 직접 입력", "Custom FX", "為替手入力");
+    if (SET.fxMode === "build" || !FXL) return `${t("빌드 환율", "Build FX", "収集時の為替")} ${M.fxDate.slice(5).replace("-", ".")}`;
+    return `${t("최신 환율", "Latest FX", "最新為替")} ${FXL.date.slice(5).replace("-", ".")}`;
   }
   let CALC, CUS = RU.customs;
   function applyFx(first) {
@@ -231,12 +258,12 @@
     const outlier = !!p.ck;
     return { best, kr, save, mode, outlier, all };
   }
-  const krLab = R => R.kr && R.kr.ref ? "나라 평균" : "한국";  // A안: 한국에 없는 브랜드는 기준이 '나라 평균'
+  const krLab = R => R.kr && R.kr.ref ? t("나라 평균", "country avg.", "各国平均") : C.KR.n;  // A안: 한국에 없는 브랜드는 기준이 '나라 평균'
   function badge(R) {
-    if (R.outlier) return `<span class="bdg warn">가격 확인 필요</span>`;
-    if (!R.kr) return `<span class="bdg gray">한국 미판매</span>`;
-    if (R.save === null || R.save <= 0) return `<span class="bdg kr">한국 최저</span>`;
-    return R.kr.ref ? `<span class="bdg save" title="한국 미판매 브랜드 — 파는 나라들 평균 대비">평균 ${pct(R.save)}</span>` : `<span class="bdg save">${pct(R.save)}</span>`;
+    if (R.outlier) return `<span class="bdg warn">${t("가격 확인 필요", "Check price", "要確認")}</span>`;
+    if (!R.kr) return `<span class="bdg gray">${t("한국 미판매", "Not sold in Korea", "韓国未販売")}</span>`;
+    if (R.save === null || R.save <= 0) return `<span class="bdg kr">${t("한국 최저", "Korea lowest", "韓国が最安")}</span>`;
+    return R.kr.ref ? `<span class="bdg save" title="${t("한국 미판매 브랜드 — 파는 나라들 평균 대비", "Not sold in Korea — vs average of selling countries", "韓国未販売 — 販売国平均との比較")}">${t("평균", "avg", "平均")} ${pct(R.save)}</span>` : `<span class="bdg save">${pct(R.save)}</span>`;
   }
 
   // ── 목록 단위: 주얼리 = 제품, 가방 = 모델 묶음 (5.6절) ──
@@ -298,10 +325,10 @@
   // ── 카드 (5.6절) ──
   // 카드 가격 (2026-10-30 사용자: 금액이 잘 보이게): 위에 작은 '최저 🇹🇼대만', 아래 큰 굵은 금액
   function priceLine(R, from = "") {
-    if (!R.best) return `<div class="pr">비교할 가격 없음</div>`;
-    const opt = R.best.opt ? "부터" : from;
-    if (R.mode === "notrip") return `<div class="pr muted">내 여행지에서 안 팜</div><div class="kr">최저 ${nationF(R.best.cc)} ${man(R.best.net)}${opt}</div>`;
-    return `<div class="pr"><span class="prl">${R.mode === "all" ? "최저 " : ""}${nationF(R.best.cc)}</span> <span class="amt">${man(R.best.net)}${opt}</span></div>`;
+    if (!R.best) return `<div class="pr">${t("비교할 가격 없음", "No price to compare", "比較できる価格なし")}</div>`;
+    const opt = R.best.opt ? t("부터", "+", "〜") : from;
+    if (R.mode === "notrip") return `<div class="pr muted">${t("내 여행지에서 안 팜", "Not sold on your trip", "旅行先では未販売")}</div><div class="kr">${t("최저", "Lowest", "最安")} ${nationF(R.best.cc)} ${man(R.best.net)}${opt}</div>`;
+    return `<div class="pr"><span class="prl">${R.mode === "all" ? t("최저 ", "Lowest ", "最安 ") : ""}${nationF(R.best.cc)}</span> <span class="amt">${man(R.best.net)}${opt}</span></div>`;
   }
   function card(it, extra) {
     const p = head(it), R = rep(p), on = S.picks.includes(p.b + "|" + p.s);
@@ -309,12 +336,12 @@
     let from = "";
     if (isBag && it.ps.length > 1) {
       const nets = it.ps.map(q => rep(q).best?.net).filter(Boolean);
-      if (Math.max(...nets) - Math.min(...nets) > 1) from = "부터";
+      if (Math.max(...nets) - Math.min(...nets) > 1) from = t("부터", "+", "〜");
     }
     const tags = [badge(R)];
-    if (R.best && R.best.t === 2) tags.push(`<span class="bdg stock" title="가장 싼 나라 공홈에서 온라인 품절·미판매예요. 매장 재고를 꼭 확인하세요">재고 확인</span>`);
+    if (R.best && R.best.t === 2) tags.push(`<span class="bdg stock" title="${t("가장 싼 나라 공홈에서 온라인 품절·미판매예요. 매장 재고를 꼭 확인하세요", "Sold out or not sold online in the cheapest country — check store stock", "最安国の公式サイトでは品切れ・未販売 — 店舗在庫を確認")}">${t("재고 확인", "Check stock", "在庫確認")}</span>`);
     if (p.x && p.x["신상"]) tags.push(`<span class="bdg new">신상</span>`);
-    if (isBag && it.ps.length > 1) tags.push(`<span class="bdg gray">색상 ${it.ps.length}</span>`);
+    if (isBag && it.ps.length > 1) tags.push(`<span class="bdg gray">${t("색상", "Colors", "カラー")} ${it.ps.length}</span>`);
     const chips = isBag && it.ps.length > 1 ? `<div class="chips" role="group" aria-label="색상">${it.ps.slice(0, 4).map(q =>
       `<button type="button" class="sw ${q === p ? "on" : ""}" data-sel="${esc(it.key)}" data-sku="${esc(q.s)}" title="${esc(colKo(q))}" aria-label="${esc(colKo(q))}" style="background:${COLG[q.colg] || "#999"}"></button>`).join("")}${it.ps.length > 4 ? `<span class="more">+${it.ps.length - 4}</span>` : ""}</div>` : "";
     const name = isBag ? p.n : p.n;
@@ -327,19 +354,22 @@
         <div class="nm">${esc(name)}</div>
         ${chips}
         ${priceLine(R, from)}
-        <div class="kr">${R.kr ? `${krLab(R)} ${savedAmt(R) ? `<s>${man(R.kr.net)}</s>` : man(R.kr.net)}` : "한국 가격 없음"}${savedAmt(R) ? ` <span class="saved">${man(savedAmt(R))} 아낌</span>` : ""}</div>
+        <div class="kr">${R.kr ? `${krLab(R)} ${savedAmt(R) ? `<s>${man(R.kr.net)}</s>` : man(R.kr.net)}` : t("한국 가격 없음", "No Korea price", "韓国価格なし")}${savedAmt(R) ? ` <span class="saved">${t(`${man(savedAmt(R))} 아낌`, `save ${man(savedAmt(R))}`, `${man(savedAmt(R))}お得`)}</span>` : ""}</div>
         ${extra || ""}
       </div></article>`;
   }
   // 목록 보기 한 줄 (5M.12절: 모바일 찾기·브랜드·여행지 결과의 기본)
   function rowItem(it, extra) {
     const p = head(it), R = rep(p), on = S.picks.includes(p.b + "|" + p.s), amt = savedAmt(R);
-    const price = R.best ? `${R.mode === "notrip" ? `<span class="muted">여행지 안 팜 · 최저</span> ` : ""}${cc(R.best.cc)} <b>${man(R.best.net)}</b>` : "가격 없음";
-    const tail = amt ? ` <span class="saved">${man(amt)} 아낌</span>` : R.kr && R.save !== null && R.save <= 0 ? ` <span class="kr">한국 최저</span>` : !R.kr ? ` <span class="kr">한국 미판매</span>` : "";
+    // 11-08: 한국이 가장 쌀 때는 한국 가격을 앞에 ('TH 8,707만원 한국 최저'로 읽히던 것)
+    const krBest = R.kr && !R.kr.ref && R.save !== null && R.save <= 0;
+    const price = !R.best ? t("가격 없음", "No price", "価格なし") : krBest ? `${cc("KR")} <b>${man(R.kr.net)}</b>`
+      : `${R.mode === "notrip" ? `<span class="muted">${t("여행지 안 팜 · 최저", "Not on trip · lowest", "旅行先未販売・最安")}</span> ` : ""}${cc(R.best.cc)} <b>${man(R.best.net)}</b>`;
+    const tail = amt ? ` <span class="saved">${t(`${man(amt)} 아낌`, `save ${man(amt)}`, `${man(amt)}お得`)}</span>` : krBest ? ` <span class="kr">${t("한국이 가장 쌈", "Korea is cheapest", "韓国が最安")}${R.best.cc !== "KR" ? ` · ${t("해외 최저", "abroad lowest", "海外最安")} ${cc(R.best.cc)} ${man(R.best.net)}` : ""}</span>` : R.kr && R.save !== null && R.save <= 0 ? ` <span class="kr">${t("평균 이하", "Below avg.", "平均以下")}</span>` : !R.kr ? ` <span class="kr">${t("한국 미판매", "Not sold in Korea", "韓国未販売")}</span>` : "";
     return `<article class="lrow" data-brand="${esc(bk(p.b))}"><a class="hit" href="${link(p)}" aria-label="${esc(p.n)}"></a>
       <div class="lph">${photo(p)}</div>
-      <div class="ltx"><div class="br">${esc(p.b)}${kind === "bag" && it.ps.length > 1 ? ` · 색상 ${it.ps.length}` : ""}</div><div class="lnm">${esc(p.n)}</div>
-        <div class="lpr">${price}${tail}${R.best && R.best.t === 2 ? ` <span class="bdg stock">재고 확인</span>` : ""}</div>${extra || ""}</div>
+      <div class="ltx"><div class="br">${esc(p.b)}${kind === "bag" && it.ps.length > 1 ? ` · ${t("색상", "colors", "カラー")} ${it.ps.length}` : ""}</div><div class="lnm">${esc(p.n)}</div>
+        <div class="lpr">${price}${tail}${R.best && R.best.t === 2 ? ` <span class="bdg stock">${t("재고 확인", "Check stock", "在庫確認")}</span>` : ""}</div>${extra || ""}</div>
       <button type="button" class="heart ${on ? "on" : ""}" data-pick="${esc(p.b + "|" + p.s)}" aria-label="${on ? "담기 취소" : "담기"}"><svg><use href="#i-heart"/></svg></button></article>`;
   }
   const viewMode = q => q.get("view") || "card";  // 기본 = 카드(사진이 크게), 모바일·PC 같음 (2026-10-26)
@@ -374,26 +404,38 @@
   const SEAL = `<svg class="seal lxm" viewBox="0 0 100 100" aria-hidden="true"><path class="lxx" d="M19 12H36L55.24 44.5H38.24Z M44.76 55.5H61.76L81 88H64Z M75 12H82L61.05 44.5H54.05Z M46.95 55.5H53.95L33 88H26Z"/><rect class="lxb" x="2" y="48.3" width="96" height="3.4"/></svg>`;
   // 매장 재고 경고 (5.4절, 2026-10-27): 공홈에 가격이 있어도 그 나라 매장에 재고가 있다는 뜻은 아님
   const stockNote = (short) => short
-    ? `<p class="stocknote sm" role="note"><b>⚠ 매장 재고는 꼭 확인하세요</b> 가격이 있어도 재고가 없거나 사이즈·소재가 다를 수 있어요.</p>`
+    ? `<p class="stocknote sm" role="note"><b>${t("⚠ 매장 재고는 꼭 확인하세요", "⚠ Check store stock first", "⚠ 店舗在庫を必ず確認")}</b> ${t("가격이 있어도 재고가 없거나 사이즈·소재가 다를 수 있어요.", "A listed price doesn't guarantee stock; sizes and materials may differ.", "価格があっても在庫がない、サイズ・素材が異なることがあります。")}</p>`
+    : L() !== "ko" ? `<div class="stocknote" role="note"><b>${t("", "⚠ Check store stock before you go", "⚠ 買いに行く前に店舗在庫を必ず確認")}</b>
+        <p>${t("", "A price on the official site doesn't mean the store in that country has it. Popular items may be sold out or differ in size, material or carat. Call or email the store, or use the official site's stock check and reservation. Prices, tax, exchange and refund rules may change.", "公式サイトに価格があっても、その国の店舗に在庫があるとは限りません。人気製品は品切れや、サイズ・素材・カラットが異なることがあります。行く前に店舗へ電話・メールで確認するか、公式サイトの在庫確認・予約を使ってください。価格・税率・為替・還付条件も変わることがあります。")}</p></div>`
     : `<div class="stocknote" role="note"><b>⚠ 사러 가기 전에 매장 재고를 꼭 확인하세요</b>
         <p>공식 홈페이지에 가격이 있어도 그 나라 매장에 재고가 있다는 뜻은 아니에요. 인기 제품은 품절이거나 사이즈·소재·캐럿이 다를 수 있어요.
         가기 전에 매장에 전화·메일로 묻거나 공식 홈페이지의 매장 재고 확인·예약을 이용하세요. 가격·세율·환율·환급 조건도 바뀔 수 있어요.</p></div>`;
   // ── 공통 틀 ──
   function frame() {
     // 앱 이름·아이콘은 앱마다 따로 (웹앱계획.md 0.1절): 럭스캐너 주얼리 / 럭스캐너 패션 (패션 앱의 내부 종류 이름은 bag)
-    const appName = kind === "bag" ? "패션" : "주얼리";
+    const appName = kind === "bag" ? t("패션", "Fashion", "ファッション") : t("주얼리", "Jewelry", "ジュエリー");
     document.getElementById("kindName").textContent = appName;
     const other = document.getElementById("otherApp");
-    other.textContent = kind === "bag" ? "주얼리" : "패션";  // ↗ 는 style.css .other::after 가 붙임 (두 번 나오던 것, 2026-10-28)
+    other.textContent = kind === "bag" ? t("주얼리", "Jewelry", "ジュエリー") : t("패션", "Fashion", "ファッション");  // ↗ 는 style.css .other::after 가 붙임 (두 번 나오던 것, 2026-10-28)
     other.hidden = !M.other || !!window.LUX_APP;  // 다른 앱 페이지가 생기면 manifest 의 other 주소. 앱 안에서는 숨김(다른 앱 열기는 4단계)
     document.getElementById("appIcon").href = "../common/" + (kind === "bag" ? "icon-fashion.svg" : "icon-jewelry.svg");
-    document.title = "럭스캐너 " + appName;
+    document.title = (L() === "ko" ? "럭스캐너 " : "LUXCANNER ") + appName;  // 11-08 영어·일본어 화면은 영문 이름
+    const tn = document.getElementById("topnote");  // 머리글 위 한 줄 (11-08 언어): 한국어는 index.html 그대로
+    if (tn && L() !== "ko") tn.innerHTML = `<span class="long">${t("", "Real prices of 16 countries — refund, card fee and customs included", "還付・カード手数料・関税込みの実質価格で16か国を比較")}</span><span class="short">${t("", "16 countries · real price incl. customs", "関税込みの実質価格で16か国比較")}</span>`;
     const chip = document.getElementById("tripChip");
-    chip.innerHTML = S.trip.length ? S.trip.map(c => esc(C[c].n)).join(" · ") : "내 여행지";  // 머리글 단추 (10-30 사용자: "여행지 고르기" → "내 여행지")
+    chip.innerHTML = (S.trip.length ? S.trip.map(c => esc(C[c].n)).join(" · ") : t("내 여행지", "My trip", "旅行先")) + (tripDday() ? ` <small class="dday">${esc(tripDday())}</small>` : "");  // 머리글 단추 (10-30 사용자: "여행지 고르기" → "내 여행지") · D-day (11-08)
     chip.classList.toggle("set", S.trip.length > 0);
     const n = S.picks.length;
     document.getElementById("pickCnt").textContent = n;
+    // 메뉴·아래 탭 글자 (11-08 언어): index.html 의 한국어를 언어에 맞게
+    const tabs = { home: t("홈", "Home", "ホーム"), country: t("여행지", "Destinations", "旅行先"), search: t("찾기", "Search", "検索"), picks: t("담기", "Picks", "お気に入り"), settings: t("설정", "Settings", "設定"),
+      brand: t("브랜드", "Brands", "ブランド"), changes: t("가격 변동", "Price changes", "価格変動"), guide: t("쇼핑 리스트", "Shopping lists", "買い物リスト"), events: t("이벤트", "Events", "イベント") };
+    document.querySelectorAll("#bottombar a[data-r], .menu a[data-r]").forEach(a => { const tn = [...a.childNodes].find(x => x.nodeType === 3 && x.textContent.trim()); if (tn && tabs[a.dataset.r]) tn.textContent = tabs[a.dataset.r]; });
     document.getElementById("pickCntM").textContent = n ? n : "";
+    cmpBar();  // 나란히 비교 띠 (11-08)
+    const A = pickAlerts(), hasA = A.n > 0 || A.nts.length > 0;  // 담은 제품 변동 알림 점 (11-08)
+    document.getElementById("pickCntM").classList.toggle("alert", hasA);
+    document.getElementById("pickCnt").classList.toggle("alert", hasA);
     // 기본 설정과 다르게 계산 중이면 머리글 아래 띠 (5.15절)
     const sb = document.getElementById("setbar"), dn = diffs().length;
     sb.hidden = !dn;
@@ -402,7 +444,7 @@
       `<br>각 브랜드와 관계없는 개인 비교입니다 · 브랜드 이름·로고·제품 사진은 각 브랜드의 것 · <b>가격이 있어도 매장 재고·가격은 다를 수 있으니 사러 가기 전에 매장에 꼭 확인하세요</b>`;
     // 모바일 바닥글은 짧게 (5M.12절)
     document.getElementById("foot").innerHTML = isM()
-      ? `<span class="fseal">${SEAL}<span class="mark" lang="en">LUXCANNER</span></span><p class="f1">각 브랜드와 관계없는 개인 비교 · 데이터 ${esc(D.generated)}</p><p class="f1"><b>⚠ 가격이 있어도 매장 재고는 꼭 확인하세요</b></p><details class="fmore"><summary>자세히</summary><p>${footMore}</p></details>`
+      ? `<span class="fseal">${SEAL}<span class="mark" lang="en">LUXCANNER</span></span><p class="f1">${t("각 브랜드와 관계없는 개인 비교", "Independent comparison, not affiliated with any brand", "各ブランドとは無関係の個人比較")} · ${t("데이터", "Data", "データ")} ${esc(D.generated)}</p><p class="f1"><b>${t("⚠ 가격이 있어도 매장 재고는 꼭 확인하세요", "⚠ Always check store stock before you go", "⚠ 価格があっても店舗在庫は必ず確認を")}</b></p><details class="fmore"><summary>자세히</summary><p>${footMore}</p></details>`
       : `<span class="fseal">${SEAL}<span class="mark" lang="en">LUXCANNER</span></span><span class="tag">the real price of luxury</span>${footMore}`;
   }
 
@@ -513,13 +555,15 @@
   //  - 대표 컬렉션 = 브랜드마다 제품이 가장 많은 컬렉션 3개(관리 목록 없음). 한국보다 5% 이상 싼 것, 1~3위·같은 브랜드·같은 컬렉션은 되도록 피함
   //  - 절약률이 높을수록 뽑힐 확률이 큼. 패션은 가방만(첫인상). 고른 7장은 내 여행지를 바꾸거나 새로 열 때까지 유지
   const HERO_RAND = 7, HERO_MIN = 0.05;
+  // 11-08: 첫 화면 대표에서 아동·베이비 제품과 싼 소품(한국가 30만 원 미만)은 뺌 — 절약률만 보면 '아동 토트 백 39%'가 1번에 왔음
+  const HERO_KID = /아동|키즈|베이비|baby|kids?\b|enfant|bambin/i, HERO_KRMIN = 300000;
   let heroSel = null;
   function heroPick(P, byRate, take, used) {
-    const okT0 = o => o.p.img && (kind !== "bag" || o.p.t === "bag");
+    const okT0 = o => o.p.img && (kind !== "bag" || o.p.t === "bag") && !HERO_KID.test(o.p.n) && (!o.R.kr || o.R.kr.ref || o.R.kr.net >= HERO_KRMIN);
     // 첫 화면 대표는 '한국보다 N% 싸요'로 보이게 한국 가격이 있는 제품 먼저 (2026-10-29) — 모자라면(내 여행지를 좁게 고른 때) 나라 평균 기준도
     const okK = o => okT0(o) && o.R.kr && !o.R.kr.ref;
     const okT = P.filter(okK).length >= 10 ? okK : okT0;
-    const top = take(P.filter(okT).sort(byRate), 3).map((o, i) => ({ ...o, lab: `${o.R.mode === "trip" ? "내 여행지에서" : "이번 주"} 절약률 ${i + 1}위` }));
+    const top = take(P.filter(okT).sort(byRate), 3).map((o, i) => ({ ...o, lab: t(`${o.R.mode === "trip" ? "내 여행지에서" : "이번 주"} 절약률 ${i + 1}위`, `#${i + 1} savings ${o.R.mode === "trip" ? "on your trip" : "this week"}`, `${o.R.mode === "trip" ? "旅行先で" : "今週の"}節約率 ${i + 1}位`) }));
     const sig = S.trip.join(",") + "|" + top.map(o => o.it.key).join(",");
     if (!heroSel || heroSel.sig !== sig) {
       const cnt = {};
@@ -547,7 +591,7 @@
       heroSel = { sig, keys: out.map(o => o.it.key) };
     }
     const rnd = heroSel.keys.map(k => P.find(o => o.it.key === k)).filter(Boolean)
-      .map(o => ({ ...o, lab: `대표 컬렉션 · ${bk(o.p.b)} ${colName(o.p.c)}` }));
+      .map(o => ({ ...o, lab: `${t("대표 컬렉션", "Signature collection", "代表コレクション")} · ${bk(o.p.b)} ${colName(o.p.c)}` }));
     rnd.forEach(o => used.add(o.it.key));
     // 순서: 1위 → 대표 2 → 2위 → 대표 2 → 3위 → 대표 3
     const order = [top[0], rnd[0], rnd[1], top[1], rnd[2], rnd[3], top[2], rnd[4], rnd[5], rnd[6]];
@@ -555,23 +599,26 @@
   }
   // 첫 화면 제목 (2026-10-29 '같은 명품, 가장 싸게 사는 나라'). 휴대폰은 상품 장마다 사진 위에 넣어 넘길 때 같이 넘어감 — 이벤트 배너 장에는 없음
   // 휴대폰은 장마다 제목이 붙어서 같은 말이 반복됨 (10-31 사용자) → 첫 장만 이 제목, 다음 장부터는 아래 문구를 앱을 열 때마다 섞어 돌려 씀
-  const HERO_LINES = ["명품, <em>어디서</em> 사야 이득일까?", "여행 가서 사면 <em>얼마나</em> 아낄까?", "관세까지 넣어도 <em>더 싼</em> 나라", "16개 나라 <em>공식 가격</em>을 한 번에", "공항 가기 전에 <em>한 번</em> 비교"]
-    .map(l => [Math.random(), l]).sort((x, y) => x[0] - y[0]).map(x => x[1]);
+  const HERO_ALL = { ko: ["명품, <em>어디서</em> 사야 이득일까?", "여행 가서 사면 <em>얼마나</em> 아낄까?", "관세까지 넣어도 <em>더 싼</em> 나라", "16개 나라 <em>공식 가격</em>을 한 번에", "공항 가기 전에 <em>한 번</em> 비교"],
+    en: ["Luxury: <em>where</em> is it cheapest?", "<em>How much</em> do you save abroad?", "Cheaper <em>even after</em> customs duty", "<em>Official prices</em> of 16 countries at once", "One check <em>before</em> the airport"],
+    ja: ["名品、<em>どこで</em>買うのが得?", "海外で買うと<em>いくら</em>お得?", "関税を入れても<em>安い</em>国", "16か国の<em>公式価格</em>をひと目で", "空港へ行く前に<em>ひと目</em>比較"] };
+  const HERO_ORDER = [0, 1, 2, 3, 4].map(i => [Math.random(), i]).sort((x, y) => x[0] - y[0]).map(x => x[1]);
+  const heroLine = i => HERO_ALL[L()][HERO_ORDER[i % 5]];
   const heroTopHTML = (i = 0) => `<p class="eyebrow">The Real Price · 16 Countries</p>
-        <h1${i ? ' aria-hidden="true"' : ""}>${i ? HERO_LINES[(i - 1) % HERO_LINES.length] : "같은 명품, <em>가장 싸게</em> 사는 나라"}</h1>
-        <p class="hchk"><span>✓ 환급</span><span>✓ 카드 수수료</span><span>✓ 관세</span><b>까지 넣은 진짜 가격</b></p>`;
+        <h1${i ? ' aria-hidden="true"' : ""}>${i ? heroLine(i - 1) : t("같은 명품, <em>가장 싸게</em> 사는 나라", "Same luxury, <em>the cheapest</em> country", "同じ名品を<em>一番安く</em>買える国")}</h1>
+        <p class="hchk"><span>✓ ${t("환급", "Tax refund", "免税還付")}</span><span>✓ ${t("카드 수수료", "Card fee", "カード手数料")}</span><span>✓ ${t("관세", "Customs", "関税")}</span><b>${t("까지 넣은 진짜 가격", "— all in the real price", "まで入れた実質価格")}</b></p>`;
   function featHTML(i) {
     const o = heroList[i % Math.max(1, heroList.length)];
     if (!o) return "";
     const p = o.p, R = o.R;
     // 사진을 크게 + 절약률을 사진 위 큰 숫자로 (첫인상, 2026-10-26). '30% · 한국보다 싸요' + 사진 위 국기·나라 이름 (2026-10-29)
     const cc = R.best.cc, cheaper = R.save > 0;
-    return `<a class="feat" href="${link(p)}" data-brand="${esc(bk(p.b))}"><div class="fimg">${isM() ? `<div class="htop">${heroTopHTML(i)}</div>` : ""}${photo(p, "big")}<span class="fpct">${cheaper ? Math.round(R.save * 100) + "%" : pct(R.save)}<small>${krLab(R)}보다${cheaper ? " 이득" : ""}</small></span>
+    return `<a class="feat" href="${link(p)}" data-brand="${esc(bk(p.b))}"><div class="fimg">${isM() ? `<div class="htop">${heroTopHTML(i)}</div>` : ""}${photo(p, "big")}<span class="fpct">${cheaper ? Math.round(R.save * 100) + "%" : pct(R.save)}<small>${t(`${krLab(R)}보다${cheaper ? " 이득" : ""}`, `vs ${krLab(R)}`, `${krLab(R)}より${cheaper ? "お得" : ""}`)}</small></span>
       <span class="fcc">${flag(cc)}${esc(C[cc].n)}</span></div>
-      <div class="ftx"><p class="eyebrow">${esc(o.lab || (R.mode === "trip" ? "내 여행지에서 가장 싸게 사는 제품" : "이번 주 가장 싸게 사는 제품"))}</p>
+      <div class="ftx"><p class="eyebrow">${esc(o.lab || (R.mode === "trip" ? t("내 여행지에서 가장 싸게 사는 제품", "Cheapest on your trip", "旅行先で一番安い製品") : t("이번 주 가장 싸게 사는 제품", "Cheapest this week", "今週一番安い製品")))}</p>
         <div class="br">${esc(p.b)}</div><div class="fname">${esc(p.n)}</div>
-        <div class="fsave">${esc(C[R.best.cc].n)}에서 사면 ${krLab(R)}보다 <b>${man(savedAmt(R))}</b> 싸요</div>
-        <div class="fsub">${krLab(R)} ${won(R.kr.net)} → ${esc(C[R.best.cc].n)} ${JINGA} ${won(R.best.net)} · 관세 포함</div></div></a>`;
+        <div class="fsave">${t(`${esc(C[R.best.cc].n)}에서 사면 ${krLab(R)}보다 <b>${man(savedAmt(R))}</b> 싸요`, `Buy in ${esc(C[R.best.cc].n)}: <b>${man(savedAmt(R))}</b> less than ${krLab(R)}`, `${esc(C[R.best.cc].n)}で買うと${krLab(R)}より<b>${man(savedAmt(R))}</b>安い`)}</div>
+        <div class="fsub">${krLab(R)} ${won(R.kr.net)} → ${esc(C[R.best.cc].n)} ${JINGA} ${won(R.best.net)} · ${t("관세 포함", "incl. customs", "関税込み")}</div></div></a>`;
   }
   // 대표 제품 넘김 (2026-10-28, 모바일에서 2px 점을 누르기 힘들던 것): 손가락으로 밀어 넘기는 가로 칸(scroll-snap) + 큰 이전·다음 단추 + '3 / 10'.
   // 사용자가 만지거나 단추를 누르면 자동 넘김을 20초 멈춤
@@ -730,7 +777,7 @@
     const cnt = items().filter(it => test({ it, p: head(it), R: itemRep(it) }, F)).length;
     const ch = D.changes.find(c => c.b === p.b && c.s === p.s && c.cc === (R.best && R.best.cc)) || D.changes.find(c => c.b === p.b && c.s === p.s && c.cc === "KR");
     const chg = ch && Math.abs(ch.r) >= 0.01 ? `<span class="ichg ${ch.r > 0 ? "up" : "dn"}" title="${esc(C[ch.cc].n)} 지난 수집 대비">${esc(C[ch.cc].n)} ${ch.r > 0 ? "▲" : "▼"}${Math.abs(Math.round(ch.r * 100))}%</span>` : "";
-    return `<div class="icol"><a class="imore" href="${esc(colQ)}"><span class="icn">${esc(colName(p.c))}</span><span>${man(ICON_CAP)} 이하 ${cnt}개 ›</span></a>${chg}</div>`;
+    return `<div class="icol"><a class="imore" href="${esc(colQ)}"><span class="icn">${esc(colName(p.c))}</span><span>${t(`${man(ICON_CAP)} 이하 ${cnt}개 ›`, `${cnt} under ${man(ICON_CAP)} ›`, `${man(ICON_CAP)}以下 ${cnt}点 ›`)}</span></a>${chg}</div>`;
   }
   function ibars(o) {
     const p = o.p, R = o.R, rs = rows(p).filter(r => r.cc !== "KR" && r.t > 0 && r.v).sort((a, b) => a.net - b.net);
@@ -847,12 +894,12 @@
     const c = flightSel.c, its = flightSel.keys.map(k => items().find(it => it.key === k)).filter(Boolean);
     its.forEach(it => used.add(it.key));
     const keep = AT; AT = c;  // 카드 가격도 그 나라 기준
-    const where = S.trip.length ? `내 여행지(${S.trip.map(x => esc(C[x].n)).join("·")})` : `${flag(c || "JP")}${esc(C[c || "JP"].n)}`;
+    const where = S.trip.length ? `${t("내 여행지", "My trip", "旅行先")}(${S.trip.map(x => esc(C[x].n)).join("·")})` : `${flag(c || "JP")}${esc(C[c || "JP"].n)}`;
     const body = its.length ? listOrGrid(its) : `<p class="empty">지금은 ${S.trip.length ? "내 여행지에서" : "이 나라에서"} ${man(SAVE_MIN)} 넘게 아끼는 제품이 없어요.</p>`;
     AT = keep;
-    return `<section class="sec" id="h-flight">${section("Worth the Flight", `${where}에서 비행기값 뽑는 제품`,
-        `관세까지 넣고도 ${man(SAVE_MIN)} 넘게 아끼는 제품 · ${S.trip.length ? "고른 나라 안에서" : "나라를"} 열 때마다 바꿔 보여 줘요`,
-        `<span class="shlinks"><button type="button" class="link" data-flightshuffle>↻ ${S.trip.length ? "다시 뽑기" : "다른 나라"}</button>${c ? ` <a class="link" href="#/country/${c}">${esc(C[c].n)} 모두 보기</a>` : ""}</span>`)}
+    return `<section class="sec" id="h-flight">${section("Worth the Flight", t(`${where}에서 비행기값 뽑는 제품`, `Pays for the flight in ${where}`, `${where}で航空券代が浮く製品`),
+        t(`관세까지 넣고도 ${man(SAVE_MIN)} 넘게 아끼는 제품 · ${S.trip.length ? "고른 나라 안에서" : "나라를"} 열 때마다 바꿔 보여 줘요`, `Saves over ${man(SAVE_MIN)} even with duty · reshuffled each visit`, `関税込みでも${man(SAVE_MIN)}以上お得 · 開くたびに入れ替え`),
+        `<span class="shlinks"><button type="button" class="link" data-flightshuffle>↻ ${S.trip.length ? t("다시 뽑기", "Shuffle", "入れ替え") : t("다른 나라", "Another country", "別の国")}</button>${c ? ` <a class="link" href="#/country/${c}">${t(`${esc(C[c].n)} 모두 보기`, `All in ${esc(C[c].n)}`, `${esc(C[c].n)}をすべて見る`)}</a>` : ""}</span>`)}
       ${body}</section>`;
   }
   function home() {
@@ -866,18 +913,20 @@
     // 휴대폰 (2026-10-29): 제목('같은 명품, 가장 싸게 사는 나라' — 10-29 사용자: 고급스럽고 직접적으로)과 대표 제품 카드가 한 화면에 — 찾기 칸·칩은 카드 아래로
     const heroRest = `<form class="hsearch" data-search role="search"><input name="q" placeholder="${isM() ? `예: ${HINT[kind]}` : `브랜드 · 제품 이름 · 예산 — 예: ${HINT[kind]}`}" aria-label="브랜드, 제품 이름, 예산으로 찾기" autocomplete="off"><button type="submit" aria-label="찾기"><svg><use href="#i-search"/></svg></button></form>
         ${templates()}
-        <div class="hchips"><span>어디로 가세요?</span>${brd.slice(0, 5).map(o => `<button type="button" class="tchip ${S.trip.includes(o.c) ? "on" : ""}" data-trip="${o.c}">${nationF(o.c)}</button>`).join("")}</div>`;
+        <div class="hchips"><span>${t("어디로 가세요?", "Where to?", "どちらへ?")}</span>${brd.slice(0, 5).map(o => `<button type="button" class="tchip ${S.trip.includes(o.c) ? "on" : ""}" data-trip="${o.c}">${nationF(o.c)}</button>`).join("")}</div>`;
     const heroFeat = `<div class="herofeat" id="heroFeat">${heroHTML()}</div>`;
     let html = isM()
       ? `<section class="hero hm">${heroFeat}<div class="herotx hrest">${heroRest}</div></section>`
       : `<section class="hero"><div class="herotx">${heroTopHTML()}${heroRest}</div>${heroFeat}</section>`;
     setTimeout(heroInit, 0);
     // ①a 믿음 띠: 어디서 · 몇 개 · 언제 · 무엇을 넣었는지 (5.7절)
-    html += `<div class="trust"><span>${TRIP_CODES.length + 1}개국 공식 홈페이지</span><span>${kind === "bag" ? "패션" : "주얼리"} ${list().length.toLocaleString("ko-KR")}개</span><span>${esc(D.generated.slice(5).replace("-", "."))} 수집</span><span>환급 · 카드 수수료 · 관세 포함</span><a class="link" href="#/settings">계산 방법</a></div>`;
+    html += `<div class="trust"><span>${t(`${TRIP_CODES.length + 1}개국 공식 홈페이지`, `Official sites of ${TRIP_CODES.length + 1} countries`, `${TRIP_CODES.length + 1}か国の公式サイト`)}</span><span>${t(`${kind === "bag" ? "패션" : "주얼리"} ${list().length.toLocaleString("ko-KR")}개`, `${list().length.toLocaleString("en-US")} ${kind === "bag" ? "fashion items" : "jewelry pieces"}`, `${kind === "bag" ? "ファッション" : "ジュエリー"} ${list().length.toLocaleString("ja-JP")}点`)}</span><span>${esc(D.generated.slice(5).replace("-", "."))} ${t("수집", "collected", "収集")}</span><span>${t("환급 · 카드 수수료 · 관세 포함", "Refund · card fee · customs included", "還付・カード手数料・関税込み")}</span><a class="link" href="#/settings">${t("계산 방법", "How it's calculated", "計算方法")}</a></div>`;
     html += evStrip(liveEvents(), "#/events");  // 진행 중인 이벤트 (2026-10-29)
     html += ntStrip(notices());  // 공지사항 (11-04)
+    html += alertStrip();  // 담은 제품 변동 알림 (11-08)
+    html += tripStrip();  // 여행 날짜 띠 (11-08)
     // 모바일: 구역 바로 가기 칩 (5M.12절)
-    if (isM()) html += `<nav class="jump" aria-label="바로 가기">${[["h-calc", "내 쇼핑"], ["h-icons", "아이콘"], ["h-where", S.trip.length ? "내 여행지" : "나라 순위"], ["h-flight", "비행기값"], ["h-price", "가격 변동"], ["h-gift", "선물"], ...(kind === "jewelry" ? [["h-bridal", "예물"]] : []), ["h-good", "알아 두면"], ["h-bq", "브랜드"]]
+    if (isM()) html += `<nav class="jump" aria-label="${t("바로 가기", "Jump to", "ジャンプ")}">${[["h-calc", t("내 쇼핑", "My total", "買い物計算")], ["h-icons", t("아이콘", "Icons", "アイコン")], ["h-where", S.trip.length ? t("내 여행지", "My trip", "旅行先") : t("나라 순위", "Countries", "国ランキング")], ["h-flight", t("비행기값", "Flight", "航空券")], ["h-price", t("가격 변동", "Prices", "価格変動")], ["h-gift", t("선물", "Gifts", "ギフト")], ...(kind === "jewelry" ? [["h-bridal", t("예물", "Bridal", "ブライダル")]] : []), ["h-good", t("알아 두면", "Tips", "豆知識")], ["h-bq", t("브랜드", "Brands", "ブランド")]]
       .map(([id, l]) => `<button type="button" class="tchip sm" data-jump="${id}">${l}</button>`).join("")}</nav>`;
     html += brandQuick();
     html += onboardCard();
@@ -886,14 +935,14 @@
     if (!isM()) html += calcHtml;
     // ② 아이콘 제품 가격표
     const ic = icons().filter(o => !used.has(o.it.key)).slice(0, isM() ? 4 : 8); ic.forEach(o => used.add(o.it.key));
-    if (ic.length) html += `<section class="sec" id="h-icons">${section("The Icons", "아이콘 제품 가격표", `브랜드 컬렉션을 ${man(ICON_CAP)} 이하 입문 제품으로 — 나라별 ${JINGA}, 열 때마다 바뀌어요`,
-        `<button type="button" class="link" data-iconshuffle>↻ 다른 컬렉션</button>`)}
+    if (ic.length) html += `<section class="sec" id="h-icons">${section("The Icons", t("아이콘 제품 가격표", "Icon price board", "アイコン製品の価格表"), t(`브랜드 컬렉션을 ${man(ICON_CAP)} 이하 입문 제품으로 — 나라별 ${JINGA}, 열 때마다 바뀌어요`, `Entry pieces under ${man(ICON_CAP)} from each collection — ${JINGA} by country`, `各コレクションの${man(ICON_CAP)}以下の入門品 — 国別${JINGA}`),
+        `<button type="button" class="link" data-iconshuffle>↻ ${t("다른 컬렉션", "Other collections", "別のコレクション")}</button>`)}
       <div class="grid icong2">${ic.map(o => card(o.it, iconExtra(o))).join("")}</div></section>`;
     // ③ 지금 유리한 나라 / 내 여행지 추천
     if (!S.trip.length) {
-      html += `<section class="sec" id="h-where">${section("Where to Buy", "지금 유리한 나라", "관세까지 넣고 한국보다 싼 제품이 많고, 많이 아끼는 순서", `<a class="link" href="#/country">모든 나라</a>`)}
+      html += `<section class="sec" id="h-where">${section("Where to Buy", t("지금 유리한 나라", "Best countries now", "今お得な国"), t("관세까지 넣고 한국보다 싼 제품이 많고, 많이 아끼는 순서", "Most items cheaper than Korea after duty, biggest savings first", "関税込みで韓国より安い製品が多い順"), `<a class="link" href="#/country">${t("모든 나라", "All countries", "すべての国")}</a>`)}
         ${isM() ? `<ol class="rank">${brd.slice(0, 5).map((o, i) => `<li><a class="hit" href="#/country/${o.c}" aria-label="${esc(C[o.c].n)}"></a><span class="rk">${i + 1}</span><span class="nn">${nationF(o.c)}</span>
-            <span class="rv"><b>${o.cheaper}</b>개 쌈 · 중간 ${pct(o.medCheap)}</span><button type="button" class="tchip sm" data-trip="${o.c}" aria-label="${esc(C[o.c].n)} 내 여행지로">✈</button></li>`).join("")}</ol>`
+            <span class="rv">${t(`<b>${o.cheaper}</b>개 쌈 · 중간 ${pct(o.medCheap)}`, `<b>${o.cheaper}</b> cheaper · median ${pct(o.medCheap)}`, `<b>${o.cheaper}</b>点安い · 中央値 ${pct(o.medCheap)}`)}</span><button type="button" class="tchip sm" data-trip="${o.c}" aria-label="${esc(C[o.c].n)} ${t("내 여행지로", "add to trip", "旅行先に")}">✈</button></li>`).join("")}</ol>`
         : `<div class="board">${brd.slice(0, 5).map((o, i) => {
           const ths = P.filter(x => rep(x.p, []).best?.cc === o.c && x.p.img).map(x => ({ ...x, R: rep(x.p, []) })).sort(byRate).slice(0, 3);
           return `<div class="ncell"><a class="hit" href="#/country/${o.c}" aria-label="${esc(C[o.c].n)}"></a>
@@ -903,12 +952,12 @@
             <button type="button" class="tchip sm" data-trip="${o.c}">✈ 내 여행지로</button></div>`;
         }).join("")}</div>`}</section>`;
     } else {
-      const t = S.trip[tripTab % S.trip.length];
-      const mine = P.filter(o => o.R.best.cc === t).sort(byRate);
-      html += `<section class="sec" id="h-where">${section("Your Journey", "내 여행지 추천", "내 여행지 중 이 나라가 가장 싼 제품, 절약률 높은 순서", `<button type="button" class="link" data-trip-open>여행지 바꾸기</button>`)}
-        <div class="tabs">${S.trip.map((c, i) => `<button type="button" class="tab ${c === t ? "on" : ""}" data-triptab="${i}">${nationF(c)}</button>`).join("")}</div>
-        ${mine.length ? listOrGrid(take(mine, isM() ? 4 : 8).map(o => o.it)) : `<p class="empty">이 나라는 한국보다 싼 제품이 없어요. <a class="link" href="#/country/${t}?tab=kr">한국이 더 싼 제품</a></p>`}
-        <div class="center"><a class="more" href="#/country/${t}">${esc(C[t].n)} 모두 보기</a></div></section>`;
+      const tc = S.trip[tripTab % S.trip.length];  // 11-08: 언어 도우미 t() 와 겹치던 이름을 tc 로
+      const mine = P.filter(o => o.R.best.cc === tc).sort(byRate);
+      html += `<section class="sec" id="h-where">${section("Your Journey", t("내 여행지 추천", "Picks for your trip", "旅行先のおすすめ"), "내 여행지 중 이 나라가 가장 싼 제품, 절약률 높은 순서", `<button type="button" class="link" data-trip-open>여행지 바꾸기</button>`)}
+        <div class="tabs">${S.trip.map((c, i) => `<button type="button" class="tab ${c === tc ? "on" : ""}" data-triptab="${i}">${nationF(c)}</button>`).join("")}</div>
+        ${mine.length ? listOrGrid(take(mine, isM() ? 4 : 8).map(o => o.it)) : `<p class="empty">이 나라는 한국보다 싼 제품이 없어요. <a class="link" href="#/country/${tc}?tab=kr">한국이 더 싼 제품</a></p>`}
+        <div class="center"><a class="more" href="#/country/${tc}">${t(`${esc(C[tc].n)} 모두 보기`, `All in ${esc(C[tc].n)}`, `${esc(C[tc].n)}をすべて見る`)}</a></div></section>`;
     }
     // ④ 비행기값 뽑는 제품 (2026-10-27): 열 때마다 무작위 — 내 여행지가 없으면 나라 하나를 무작위로 골라 그 나라에서,
     //    내 여행지가 있으면 고른 나라들 안에서. 관세까지 넣고 50만원 넘게 아끼는 제품 중 브랜드가 겹치지 않게
@@ -925,12 +974,12 @@
       chCards.push(card(it, chg));
       if (chCards.length >= 4) break;
     }
-    if (chCards.length) html += `<section class="sec" id="h-price">${section("Price Watch", "가격이 바뀌었어요", "한국 가격 변동을 먼저, 해외는 3% 넘게 바뀐 것만", `<a class="link" href="#/changes">모두 보기</a>`)}
+    if (chCards.length) html += `<section class="sec" id="h-price">${section("Price Watch", t("가격이 바뀌었어요", "Prices changed", "価格が変わりました"), t("한국 가격 변동을 먼저, 해외는 3% 넘게 바뀐 것만", "Korea changes first; abroad only moves over 3%", "韓国の変動を先に、海外は3%超のみ"), `<a class="link" href="#/changes">${t("모두 보기", "See all", "すべて見る")}</a>`)}
       <div class="grid">${chCards.join("")}</div></section>`;
     // ⑥ 선물 예산별
     const G = GIFT[kind], [, lo, hi] = G[budgetIdx];
     const gifts = take(P.filter(o => o.R.best.net >= lo && o.R.best.net < hi).sort(byRate), isM() ? 4 : 8);
-    html += `<section class="sec" id="h-gift">${section("Gifting", "선물 예산별", `관세까지 넣은 ${JINGA} 기준`, "")}
+    html += `<section class="sec" id="h-gift">${section("Gifting", t("선물 예산별", "Gifts by budget", "予算別ギフト"), `관세까지 넣은 ${JINGA} 기준`, "")}
       <div class="tabs">${G.map((x, i) => `<button type="button" class="tab ${i === budgetIdx ? "on" : ""}" data-budget="${i}">${x[0]}</button>`).join("")}</div>
       ${gifts.length ? listOrGrid(gifts.map(o => o.it)) : `<p class="empty">이 구간에는 한국보다 싼 제품이 없어요.</p>`}</section>`;
     // ⑥b 예물 (주얼리)
@@ -957,16 +1006,16 @@
         body: `실효 환급률 약 ${C[refundTop].refund}%${C[refundTop].min ? `, 최소 구매 ${local(refundTop, C[refundTop].min)}` : ", 최소 구매 금액 없음"}. ${esc(C[refundTop].how)}`,
         more: `<a class="link" href="#/country/${refundTop}">${esc(C[refundTop].n)} 보기</a>` }];
     // 모바일: 가로 밀기 대신 접힌 제목 3줄 (누르면 펼침)
-    html += `<section class="sec" id="h-good">${section("Good to Know", "알아 두면 이득", "", "")}${isM()
+    html += `<section class="sec" id="h-good">${section("Good to Know", t("알아 두면 이득", "Good to know", "知って得する"), "", "")}${isM()
       ? `<div class="factl">${facts.map(f => `<details class="factd"><summary><span class="num">${f.num}</span><b>${f.t}</b></summary><p>${f.body}</p>${f.more || ""}</details>`).join("")}</div>`
       : `<div class="facts">${facts.map(f => `<div class="fact"><p class="eyebrow">${f.eb}</p><div class="num">${f.num}</div><h4>${f.t}</h4><p>${f.body}</p>${f.more || ""}</div>`).join("")}</div>`}</section>`;
     // ⑧ 브랜드 (PC: 브랜드 칸. 휴대폰은 위쪽 '브랜드로 찾기'로 대신)
-    if (!isM()) html += `<section class="sec" id="h-brand">${section("Maisons", "브랜드", "", "")}<div class="brands">${brandTiles()}</div></section>`;
+    if (!isM()) html += `<section class="sec" id="h-brand">${section("Maisons", t("브랜드", "Maisons", "ブランド"), "", "")}<div class="brands">${brandTiles()}</div></section>`;
     if (isM()) {
       const tail = html.slice(cut);
       html = html.slice(0, cut) + (homeMore
         ? `<div class="hmore">${calcHtml}${tail}</div><div class="center"><button type="button" class="more" data-homemore="0">접기 ↑</button></div>`
-        : `<div class="center hmorebtn"><button type="button" class="btn ghost wide" data-homemore="1">더 보기<small>내 쇼핑 계산 · 가격 변동 · 선물 · 알아 두면</small></button></div>`);
+        : `<div class="center hmorebtn"><button type="button" class="btn ghost wide" data-homemore="1">${t("더 보기", "More", "もっと見る")}<small>${t("내 쇼핑 계산 · 가격 변동 · 선물 · 알아 두면", "My total · Prices · Gifts · Tips", "買い物計算 · 価格変動 · ギフト · 豆知識")}</small></button></div>`);
     }
     return html;
   }
@@ -990,7 +1039,6 @@
   // 가격 범위 (진가 기준, 만원 단위로 움직임). 기본 0~400만, 막대 끝(2,000만)은 '제한 없음'
   const PR = { def: [0, Infinity], top: 2e7, step: 1e5 };  // 기본은 가격 제한 없음 (2026-10-27: 0~400만 기본값이 검색 결과를 크게 줄여 뺌)
   const SAVES = [["", "상관없음"], ["0", "한국보다 싼 것만"], ["10", "10% 이상"], ["20", "20% 이상"], ["30", "30% 이상"]];
-  const SORTS = [["", "절약률 순"], ["amt", "절약 금액 순"], ["low", "진짜가격 낮은 순"], ["high", "진짜가격 높은 순"], ["new", "신상 순"], ["spread", "나라마다 가격 차이 큰 순"]];
   const isBag = () => kind === "bag";
   const stoneKey = () => isBag() ? "color" : "stone";
   const fMat = p => isBag() ? p.lt : p.mt;
@@ -1089,9 +1137,11 @@
     return true;
   }
   const spread = R => { const a = R.all.map(r => r.net); return a.length > 1 ? (Math.max(...a) - Math.min(...a)) / Math.min(...a) : 0; };
+  // 11-08: '나라 평균' 기준(한국 미판매 브랜드, R.kr.ref)은 한국 대비와 기준이 달라 절약률·절약 금액 순에서 한국 대비 제품 뒤로
+  const refLast = (a, b) => +!!(a.R.kr && a.R.kr.ref) - +!!(b.R.kr && b.R.kr.ref);
   const SORTERS = {
-    "": (a, b) => (b.R.save ?? -9) - (a.R.save ?? -9) || savedAmt(b.R) - savedAmt(a.R),
-    amt: (a, b) => savedAmt(b.R) - savedAmt(a.R) || (b.R.save ?? -9) - (a.R.save ?? -9),
+    "": (a, b) => refLast(a, b) || (b.R.save ?? -9) - (a.R.save ?? -9) || savedAmt(b.R) - savedAmt(a.R),
+    amt: (a, b) => refLast(a, b) || savedAmt(b.R) - savedAmt(a.R) || (b.R.save ?? -9) - (a.R.save ?? -9),
     low: (a, b) => (a.R.best?.net ?? Infinity) - (b.R.best?.net ?? Infinity),
     high: (a, b) => (b.R.best?.net ?? 0) - (a.R.best?.net ?? 0),
     new: (a, b) => (+!!(b.p.x && b.p.x["신상"]) - +!!(a.p.x && a.p.x["신상"])) || savedAmt(b.R) - savedAmt(a.R),
@@ -1195,27 +1245,27 @@
     const qo = k => `${quickOpen === k ? " open" : ""}" aria-expanded="${quickOpen === k}`;
     const lim = showN || PAGE(), shown = res.slice(0, lim);
     return `<div class="fbar${quickOpen || panelOpen ? "" : " stick"}">
-      <form class="fsearch" data-search role="search"><svg><use href="#i-search"/></svg><input id="fq" name="q" value="${esc(F.q)}" placeholder="${isM() ? "이름·제품번호로 찾기" : isBag() ? "제품 이름, 제품번호, 라인 — 예: 보테가 토트백 블랙" : "제품 이름, 제품번호, 컬렉션 — 예: 까르띠에 반지 러브"}" aria-label="찾기" autocomplete="off" data-live><button type="submit" class="link">찾기</button>${ac}</form>
+      <form class="fsearch" data-search role="search"><svg><use href="#i-search"/></svg><input id="fq" name="q" value="${esc(F.q)}" placeholder="${isM() ? t("이름·제품번호로 찾기", "Name or reference no.", "名前・品番で検索") : isBag() ? t("제품 이름, 제품번호, 라인 — 예: 보테가 토트백 블랙", "Name, reference no., line — e.g. Bottega tote black", "製品名・品番・ライン — 例: ボッテガ トート ブラック") : t("제품 이름, 제품번호, 컬렉션 — 예: 까르띠에 반지 러브", "Name, reference no., collection — e.g. Cartier Love ring", "製品名・品番・コレクション — 例: カルティエ ラブ リング")}" aria-label="찾기" autocomplete="off" data-live><button type="submit" class="link">${t("찾기", "Search", "検索")}</button>${ac}</form>
       ${conv}
       <div class="qchips">
-        ${lock.brand ? "" : `<button type="button" class="qchip ${F.brand.length ? "on" : ""}${qo("brand")}" data-quick="brand"><span class="qtx">${F.brand.length ? esc(F.brand.map(bk).join("·")) : "브랜드"}</span>&nbsp;▾</button>`}
-        <button type="button" class="qchip ${F.type ? "on" : ""}${qo("type")}" data-quick="type">${F.type ? esc(TYPE_ALL[F.type]) : "종류"} ▾</button>
-        <button type="button" class="qchip ${F.pmin || F.pmax !== Infinity ? "on" : ""}${qo("price")}" data-quick="price">${esc(F.pmin || F.pmax !== Infinity ? rangeLabel(F) : "가격대")} ▾</button>
-        <a class="qchip qsave ${F.save === "0" ? "on" : ""}" href="${esc(url({ save: F.save === "0" ? "" : "0" }))}">한국보다 싼 것만</a>
+        ${lock.brand ? "" : `<button type="button" class="qchip ${F.brand.length ? "on" : ""}${qo("brand")}" data-quick="brand"><span class="qtx">${F.brand.length ? esc(F.brand.map(bk).join("·")) : t("브랜드", "Brand", "ブランド")}</span>&nbsp;▾</button>`}
+        <button type="button" class="qchip ${F.type ? "on" : ""}${qo("type")}" data-quick="type">${F.type ? esc(TYPE_ALL[F.type]) : t("종류", "Type", "種類")} ▾</button>
+        <button type="button" class="qchip ${F.pmin || F.pmax !== Infinity ? "on" : ""}${qo("price")}" data-quick="price">${esc(F.pmin || F.pmax !== Infinity ? rangeLabel(F) : t("가격대", "Price", "価格帯"))} ▾</button>
+        <a class="qchip qsave ${F.save === "0" ? "on" : ""}" href="${esc(url({ save: F.save === "0" ? "" : "0" }))}">${t("한국보다 싼 것만", "Cheaper than Korea", "韓国より安いものだけ")}</a>
         ${lock.brand && isM() ? "" : lock.at ? `<span class="qchip on" title="가격을 이 나라 기준으로 보여 줘요">${flag(lock.at)}${esc(C[lock.at].n)} 기준</span>` : `<button type="button" class="qchip qtrip ${S.trip.length ? "on" : ""}" data-trip-open>✈ ${!S.trip.length ? "내 여행지" : isM() && S.trip.length > 1 ? `${esc(C[S.trip[0]].n)} 외 ${S.trip.length - 1}` : S.trip.map(c => esc(C[c].n)).join("·")}</button>`}
-        <button type="button" class="qchip more" data-fpanel>${isM() ? "필터" : "필터 더 보기"}${moreN ? ` (${moreN})` : ""}</button>
+        <button type="button" class="qchip more" data-fpanel>${isM() ? t("필터", "Filters", "絞り込み") : t("필터 더 보기", "More filters", "絞り込みをもっと")}${moreN ? ` (${moreN})` : ""}</button>
       </div>${quickRow}
     </div>
     <div class="fl ${panelOpen ? "open" : ""}">
-      <aside class="fpanel" aria-label="필터"><div class="fphead"><b>필터</b><button type="button" class="link" data-fpanel>닫기</button></div>${panel}
-        <div class="fpfoot"><a class="btn ghost" href="${esc(lock.reset || base)}">초기화</a><button type="button" class="btn" data-fpanel>결과 ${res.length}개 보기</button></div></aside>
+      <aside class="fpanel" aria-label="${t("필터", "Filters", "絞り込み")}"><div class="fphead"><b>${t("필터", "Filters", "絞り込み")}</b><button type="button" class="link" data-fpanel>${t("닫기", "Close", "閉じる")}</button></div>${panel}
+        <div class="fpfoot"><a class="btn ghost" href="${esc(lock.reset || base)}">${t("초기화", "Reset", "リセット")}</a><button type="button" class="btn" data-fpanel>${t(`결과 ${res.length}개 보기`, `Show ${res.length} results`, `${res.length}件を表示`)}</button></div></aside>
       <div class="fmain">
-        <div class="ftool"><b class="cnt2">${res.length}개</b>${hidChk ? `<span class="hidnote">가격 확인 필요 ${hidChk}개 뺌 <a class="link" href="${esc(url({ chk: "0" }))}">포함</a></span>` : ""}${act.map(([l, h]) => `<a class="achip" href="${esc(h)}">${esc(l)} ✕</a>`).join("")}${act.length ? `<a class="link" href="${esc(lock.reset || (lock.brand ? base : "#/search"))}">모두 지우기</a>` : ""}
-          <span class="sp"></span><span class="vtog" role="group" aria-label="보기"><a class="${viewMode(q) === "list" ? "on" : ""}" href="${esc(url({ view: "list" }))}">목록</a><a class="${viewMode(q) === "card" ? "on" : ""}" href="${esc(url({ view: "" }))}">카드</a></span><select data-sort aria-label="정렬">${SORTS.map(([k, l]) => `<option value="${esc(url({ sort: k }))}" ${k === F.sort ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+        <div class="ftool"><b class="cnt2">${t(`${res.length}개`, `${res.length.toLocaleString("en-US")} items`, `${res.length}件`)}</b>${hidChk ? `<span class="hidnote">${t(`가격 확인 필요 ${hidChk}개 뺌`, `${hidChk} unverified hidden`, `要確認${hidChk}件を除外`)} <a class="link" href="${esc(url({ chk: "0" }))}">${t("포함", "Show", "含める")}</a></span>` : ""}${act.map(([l, h]) => `<a class="achip" href="${esc(h)}">${esc(l)} ✕</a>`).join("")}${act.length ? `<a class="link" href="${esc(lock.reset || (lock.brand ? base : "#/search"))}">${t("모두 지우기", "Clear all", "すべて解除")}</a>` : ""}
+          <span class="sp"></span><span class="vtog" role="group" aria-label="보기"><a class="${viewMode(q) === "list" ? "on" : ""}" href="${esc(url({ view: "list" }))}">${t("목록", "List", "リスト")}</a><a class="${viewMode(q) === "card" ? "on" : ""}" href="${esc(url({ view: "" }))}">${t("카드", "Cards", "カード")}</a></span><select data-sort aria-label="정렬">${SORTS.map(([k, l]) => `<option value="${esc(url({ sort: k }))}" ${k === F.sort ? "selected" : ""}>${l}</option>`).join("")}</select></div>
         ${!lock.noResults && res.length ? stockNote(true) : ""}
         ${lock.noResults ? "" : res.length ? (viewMode(q) === "list" ? `<div class="lrows">${withAds(adPg(), shown.map(o => rowItem(o.it)))}</div>`
           : `<div class="grid ${panelOpen && !isM() ? "g3" : ""}">${withAds(adPg(), shown.map(o => card(o.it)))}</div>`) : empty}
-        ${!lock.noResults && res.length > lim ? `<button type="button" class="btn ghost wide" data-moreF>${PAGE()}개 더 보기 (${res.length - lim}개 남음)</button>` : ""}
+        ${!lock.noResults && res.length > lim ? `<button type="button" class="btn ghost wide" data-moreF>${t(`${PAGE()}개 더 보기 (${res.length - lim}개 남음)`, `Show ${PAGE()} more (${res.length - lim} left)`, `さらに${PAGE()}件 (残り${res.length - lim}件)`)}</button>` : ""}
       </div></div>`;
   }
   // 가격 범위: 두 손잡이 막대 + 숫자 칸(만원). 손을 떼거나 [적용]을 누르면 반영
@@ -1243,67 +1293,123 @@
     const F = filterState(q), noCond = !F.q && [...q.keys()].filter(k => k !== "sort").length === 0;
     const recent = store.get(KEY("recent"), []);
     const popular = POPULAR[kind];
-    return `<div class="pagehead center inl"><h1>찾기</h1><p class="eyebrow">Search</p></div>
+    return `<div class="pagehead center inl"><h1>${t("찾기", "Search", "検索")}</h1><p class="eyebrow">Search</p></div>
       ${calcBar()}
+      ${urlMissHtml()}${scanHtml()}
       ${filterView("#/search", q, noCond ? { noResults: true } : {})}
+      ${noCond && !urlMiss && !scan ? `<p class="note center urlhint">공식 홈페이지 제품 주소를 붙여넣거나, ${scanBtn()} 으로 가격표의 제품번호를 찍어도 바로 찾아요</p>` : ""}
       ${noCond ? `<div class="sec">
         ${recent.length ? `<div class="sh"><p class="eyebrow">Recent</p><h3>최근 검색어</h3><button type="button" class="link" data-recent-clear>지우기</button></div><div class="chiprow center">${recent.map(r => `<a class="tchip" href="#/search?q=${encodeURIComponent(r)}">${esc(r)}</a>`).join("")}</div>` : ""}
         <div class="sh" style="margin-top:48px"><p class="eyebrow">Popular</p><h3>많이 찾는 말</h3></div><div class="chiprow center">${popular.map(r => `<a class="tchip" href="#/search?q=${encodeURIComponent(r)}">${esc(r)}</a>`).join("")}</div>
         <div class="sh" style="margin-top:48px"><p class="eyebrow">Maisons</p><h3>브랜드로 보기</h3></div><div class="brands">${brandTiles()}</div></div>` : ""}`;
   }
   const POPULAR = { bag: ["안디아모", "카세트", "조디", "인트레치아토", "레이디 디올", "트리옹프"], jewelry: ["러브", "알함브라", "저스트 앵 끌루", "세르펜티", "티 스마일"] };
+  // ── 공홈 주소 붙여넣기로 찾기 (11-08, 웹앱계획.md 13장 기능 3) ──
+  // 16개 브랜드 공홈 제품 주소에는 모두 제품번호가 들어 있다(디올은 S2394UTZQ_M928 처럼 밑줄이 끼고, 로에베·셀린느는 한글 경로).
+  // 주소를 풀어 영문·숫자만 남긴 뒤 제품번호가 들어 있는 제품을 찾는다. 호스트로 브랜드를 알면 그 브랜드 안에서만 (짧은 번호 오판 방지).
+  const HOST_BRAND = { ysl: "Saint Laurent", tiffany: "Tiffany & Co.", vancleefarpels: "Van Cleef & Arpels", bottegaveneta: "Bottega Veneta", louisvuitton: "Louis Vuitton", miumiu: "Miu Miu", therow: "The Row" };
+  function productOfUrl(text) {
+    let u; try { u = new URL(String(text || "").trim()); } catch (e) { return null; }
+    if (!/^https?:$/.test(u.protocol)) return null;
+    const host = u.hostname.toLowerCase().replace(/[^a-z]/g, ""), bs = [...new Set(list().map(p => p.b))];
+    const b = bs.find(x => host.includes(x.toLowerCase().replace(/[^a-z]/g, ""))) || Object.entries(HOST_BRAND).filter(([k]) => host.includes(k)).map(([, v]) => v).find(v => bs.includes(v)) || "";
+    let path = u.pathname + " " + u.search;
+    for (let i = 0; i < 3; i++) { try { const d = decodeURIComponent(path); if (d === path) break; path = d; } catch (e) { break; } }  // 생로랑은 두 번 인코딩된 주소
+    const U = path.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const cand = (b ? list().filter(p => p.b === b) : list()).filter(p => { const k = p.s.toUpperCase().replace(/[^A-Z0-9]/g, ""); return k.length >= 5 && U.includes(k); }).sort((x, y) => y.s.length - x.s.length);
+    return { p: cand[0] || null, b, host: u.hostname, other: !b && !!HOST_BRAND[Object.keys(HOST_BRAND).find(k => host.includes(k)) || ""] };
+  }
+  // ── 제품번호 스캔 (11-08, 웹앱계획.md 13장 기능 6) ──
+  // 카메라로 찍은 가격표·보증서·영수증·공홈 화면에서 글자를 읽어 제품번호를 찾는다. 글자 인식은 바깥에서 준다:
+  //  ① window.LUX_OCR(file) → Promise<string>  (앱: Capacitor ML Kit 글자 인식 플러그인 — 아직 안 붙임, 13장)
+  //  ② 브라우저 TextDetector (실험 기능, 안드로이드 크롬 일부)  ③ BarcodeDetector (안드로이드 크롬: 바코드·QR 값을 글자로)
+  //  없으면 사진을 서버로 보내지 않고 '지원 안 함'으로 끝낸다(개인정보·용량). 읽은 글에서 제품번호 모양 토큰을 골라 제품번호와 맞춘다.
+  let scan = null;  // { state: "busy"|"done"|"none", text, hits: [제품], toks: [] }
+  async function ocrText(file) {
+    if (typeof window.LUX_OCR === "function") return String(await window.LUX_OCR(file) || "");
+    const bmp = await createImageBitmap(file);
+    const out = [];
+    if ("TextDetector" in window) { try { (await new TextDetector().detect(bmp)).forEach(t => out.push(t.rawValue)); } catch (e) { /* 지원 안 함 */ } }
+    if ("BarcodeDetector" in window) { try { (await new BarcodeDetector().detect(bmp)).forEach(b => out.push(b.rawValue)); } catch (e) { /* 지원 안 함 */ } }
+    if (!out.length && !("TextDetector" in window) && !("BarcodeDetector" in window)) throw new Error("nosupport");
+    return out.join("\n");
+  }
+  function skuMatches(text) {
+    const toks = [...new Set(String(text || "").toUpperCase().split(/[^A-Z0-9_.\-]+/).map(t => t.replace(/[^A-Z0-9]/g, "")).filter(t => t.length >= 5 && /\d/.test(t)))];
+    const norm = s => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const hits = [];
+    for (const p of list()) { const k = norm(p.s); if (k.length >= 5 && toks.some(t => t === k || (k.length >= 7 && (t.includes(k) || (t.length >= 7 && k.includes(t)))))) hits.push(p); }
+    return { toks: toks.slice(0, 12), hits: hits.slice(0, 8) };
+  }
+  async function runScan(file) {
+    scan = { state: "busy" }; render();
+    try { const text = await ocrText(file); scan = { state: "done", text, ...skuMatches(text) }; }
+    catch (e) { scan = { state: e && e.message === "nosupport" ? "none" : "fail", text: "" }; }
+    if (scan.hits && scan.hits.length === 1) { const p = scan.hits[0]; scan = null; location.hash = link(p); return; }
+    render();
+  }
+  const scanHtml = () => !scan ? "" : `<div class="scanbox">${scan.state === "busy" ? `<p class="note">사진에서 글자를 읽는 중…</p>`
+    : scan.state === "none" ? `<b>이 브라우저는 사진 글자 인식을 지원하지 않아요</b><p class="note">${window.LUX_APP ? "앱의 글자 인식은 다음 판에서 들어가요." : "안드로이드 크롬에서는 바코드·QR 을 읽을 수 있어요. 제품번호를 직접 넣어도 바로 찾아요."}</p>`
+    : scan.state === "fail" ? `<b>사진을 읽지 못했어요</b><p class="note">가까이서 글자가 또렷하게 나오게 다시 찍어 주세요.</p>`
+    : scan.hits.length ? `<b>사진에서 찾은 제품 ${scan.hits.length}개</b><div class="lrows">${scan.hits.map(p => rowItem(itemOf(p))).join("")}</div>`
+    : `<b>사진에서 제품번호를 못 찾았어요</b><p class="note">${scan.toks.length ? `읽은 글: ${scan.toks.map(t => `<a class="tchip sm" href="#/search?q=${encodeURIComponent(t)}">${esc(t)}</a>`).join(" ")}` : "읽을 수 있는 글자가 없었어요. 제품번호가 또렷하게 나오게 다시 찍어 주세요."}</p>`}
+    <button type="button" class="link" data-scan-close>닫기</button></div>`;
+  const scanBtn = () => `<label class="scanbtn" title="가격표·보증서의 제품번호를 찍어 찾기"><input type="file" accept="image/*" capture="environment" data-scanfile hidden><svg><use href="#i-search"/></svg>스캔</label>`;
+  let urlMiss = null;  // 찾기 화면에 보여 줄 '이 주소의 제품을 못 찾았어요'
+  const urlMissHtml = () => !urlMiss ? "" : `<div class="urlmiss"><b>이 주소의 제품을 못 찾았어요</b> <span class="note">${esc(urlMiss.host)}${urlMiss.b ? ` · ${esc(bk(urlMiss.b))} 제품 ${list().filter(p => p.b === urlMiss.b).length.toLocaleString("ko-KR")}개 중에 제품번호가 맞는 것이 없어요(이번 수집에 없는 제품이거나 주소에 제품번호가 없음)` : urlMiss.other ? " · 이 브랜드는 다른 앱(주얼리·패션)에 있어요" : " · 아직 수집하지 않는 브랜드예요"}</span>
+    ${urlMiss.b ? `<a class="tchip sm" href="#/brand/${encodeURIComponent(urlMiss.b)}">${esc(bk(urlMiss.b))} 제품 보기</a>` : ""}${urlMiss.other && M.other ? ` <a class="tchip sm" href="${esc(M.other)}">다른 앱 열기 ↗</a>` : ""}<button type="button" class="link" data-urlmiss-close>닫기</button></div>`;
   // 검색 템플릿 (첫 화면 검색창 아래): 조건이 다 들어간 찾기 (2026-10-27)
   const TEMPLATES = {
     jewelry: [
-      ["까르띠에 러브 팔찌", { brand: "Cartier", c: "LOVE (러브)", type: "bracelet" }],
-      ["반클리프 알함브라", { brand: "Van Cleef & Arpels", q: "알함브라" }],
-      ["불가리 세르펜티", { brand: "Bulgari", q: "세르펜티" }],
-      ["티파니 하트", { brand: "Tiffany & Co.", q: "하트" }],
-      ["100만원 이하 선물", { pmax: 1000000, save: 0 }],
-      ["300만원 이하", { pmax: 3000000, save: 0 }],
-      ["예물 반지", { type: "ring", sub: "밴드" }],
-      ["일본이 가장 싼 것", { cheap: "JP" }],
-      ["까르띠에 저스트 앵 끌루", { brand: "Cartier", q: "저스트 앵 끌루" }],
-      ["티파니 스마일", { brand: "Tiffany & Co.", q: "스마일" }],
-      ["쇼메 조세핀", { brand: "Chaumet", q: "조세핀" }],
-      ["메시카 무브", { brand: "Messika", q: "무브" }],
-      ["불가리 비제로원", { brand: "Bulgari", q: "비제로원" }],
-      ["부쉐론 콰트로", { brand: "Boucheron", q: "콰트로" }],
-      ["미키모토 진주 목걸이", { brand: "Mikimoto", type: "necklace" }],
-      ["100만원 이하 귀걸이", { type: "earring", pmax: 1000000, save: 0 }],
+      ["까르띠에 러브 팔찌", "Cartier Love bracelet", "カルティエ ラブ ブレス", { brand: "Cartier", c: "LOVE (러브)", type: "bracelet" }],
+      ["반클리프 알함브라", "Van Cleef Alhambra", "ヴァンクリーフ アルハンブラ", { brand: "Van Cleef & Arpels", q: "알함브라" }],
+      ["불가리 세르펜티", "Bulgari Serpenti", "ブルガリ セルペンティ", { brand: "Bulgari", q: "세르펜티" }],
+      ["티파니 하트", "Tiffany heart", "ティファニー ハート", { brand: "Tiffany & Co.", q: "하트" }],
+      ["100만원 이하 선물", "Gifts under ₩1M", "₩100万以下のギフト", { pmax: 1000000, save: 0 }],
+      ["300만원 이하", "Under ₩3M", "₩300万以下", { pmax: 3000000, save: 0 }],
+      ["예물 반지", "Wedding bands", "結婚指輪", { type: "ring", sub: "밴드" }],
+      ["일본이 가장 싼 것", "Cheapest in Japan", "日本が最安", { cheap: "JP" }],
+      ["까르띠에 저스트 앵 끌루", "Cartier Juste un Clou", "カルティエ ジュスト アン クル", { brand: "Cartier", q: "저스트 앵 끌루" }],
+      ["티파니 스마일", "Tiffany Smile", "ティファニー スマイル", { brand: "Tiffany & Co.", q: "스마일" }],
+      ["쇼메 조세핀", "Chaumet Joséphine", "ショーメ ジョゼフィーヌ", { brand: "Chaumet", q: "조세핀" }],
+      ["메시카 무브", "Messika Move", "メシカ ムーヴ", { brand: "Messika", q: "무브" }],
+      ["불가리 비제로원", "Bulgari B.zero1", "ブルガリ ビー・ゼロワン", { brand: "Bulgari", q: "비제로원" }],
+      ["부쉐론 콰트로", "Boucheron Quatre", "ブシュロン キャトル", { brand: "Boucheron", q: "콰트로" }],
+      ["미키모토 진주 목걸이", "Mikimoto pearl necklace", "ミキモト パールネックレス", { brand: "Mikimoto", type: "necklace" }],
+      ["100만원 이하 귀걸이", "Earrings under ₩1M", "₩100万以下のピアス", { type: "earring", pmax: 1000000, save: 0 }],
     ],
     bag: [
-      ["루이비통 네버풀", { brand: "Louis Vuitton", q: "네버풀" }],
-      ["디올 레이디 디올", { brand: "Dior", q: "레이디 디올" }],
-      ["보테가 인트레치아토", { brand: "Bottega Veneta", q: "인트레치아토" }],
-      ["샤넬 가방", { brand: "Chanel", type: "bag" }],
-      ["100만원 이하 지갑", { type: "wallet", pmax: 1000000, save: 0 }],
-      ["300만원 이하 가방", { type: "bag", pmax: 3000000, save: 0 }],
-      ["스카프·트윌리", { type: "silk", sub: "스카프·트윌리" }],
-      ["일본이 가장 싼 것", { cheap: "JP" }],
-      ["셀린느 트리옹프", { brand: "Celine", q: "트리옹프" }],
-      ["루이비통 스피디", { brand: "Louis Vuitton", q: "스피디" }],
-      ["디올 북 토트", { brand: "Dior", q: "북 토트" }],
-      ["구찌 홀스빗", { brand: "Gucci", q: "홀스빗" }],
-      ["로에베 퍼즐", { brand: "Loewe", q: "퍼즐" }],
-      ["미우미우 아르카디", { brand: "Miu Miu", q: "Arcadie" }],
-      ["생로랑 카산드라", { brand: "Saint Laurent", q: "카산드라" }],
-      ["에르메스 가방", { brand: "Hermès", type: "bag" }],
+      ["루이비통 네버풀", "LV Neverfull", "ルイ・ヴィトン ネヴァーフル", { brand: "Louis Vuitton", q: "네버풀" }],
+      ["디올 레이디 디올", "Lady Dior", "レディ ディオール", { brand: "Dior", q: "레이디 디올" }],
+      ["보테가 인트레치아토", "Bottega Intrecciato", "ボッテガ イントレチャート", { brand: "Bottega Veneta", q: "인트레치아토" }],
+      ["샤넬 가방", "Chanel bags", "シャネル バッグ", { brand: "Chanel", type: "bag" }],
+      ["100만원 이하 지갑", "Wallets under ₩1M", "₩100万以下の財布", { type: "wallet", pmax: 1000000, save: 0 }],
+      ["300만원 이하 가방", "Bags under ₩3M", "₩300万以下のバッグ", { type: "bag", pmax: 3000000, save: 0 }],
+      ["스카프·트윌리", "Scarves & twillys", "スカーフ・ツイリー", { type: "silk", sub: "스카프·트윌리" }],
+      ["일본이 가장 싼 것", "Cheapest in Japan", "日本が最安", { cheap: "JP" }],
+      ["셀린느 트리옹프", "Celine Triomphe", "セリーヌ トリオンフ", { brand: "Celine", q: "트리옹프" }],
+      ["루이비통 스피디", "LV Speedy", "ルイ・ヴィトン スピーディ", { brand: "Louis Vuitton", q: "스피디" }],
+      ["디올 북 토트", "Dior Book Tote", "ディオール ブックトート", { brand: "Dior", q: "북 토트" }],
+      ["구찌 홀스빗", "Gucci Horsebit", "グッチ ホースビット", { brand: "Gucci", q: "홀스빗" }],
+      ["로에베 퍼즐", "Loewe Puzzle", "ロエベ パズル", { brand: "Loewe", q: "퍼즐" }],
+      ["미우미우 아르카디", "Miu Miu Arcadie", "ミュウミュウ アルカディ", { brand: "Miu Miu", q: "Arcadie" }],
+      ["생로랑 카산드라", "Saint Laurent Cassandre", "サンローラン カサンドラ", { brand: "Saint Laurent", q: "카산드라" }],
+      ["에르메스 가방", "Hermès bags", "エルメス バッグ", { brand: "Hermès", type: "bag" }],
     ],
   };
   // 앱을 열 때마다 섞어서 앞의 6·8개만 (10-31 사용자: 늘 같은 예시) — 한 번 연 동안은 같은 순서
   let tplMix = null;
   const templates = () => {
     if (!tplMix) tplMix = (TEMPLATES[kind] || []).map(t => [Math.random(), t]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
-    const t = tplMix.slice(0, isM() ? 6 : 8);  // 휴대폰은 6개(두세 줄)
-    return t.length ? `<div class="htpl" aria-label="이렇게 찾아 보세요">${t.map(([l, q]) => `<a class="tchip sm" href="#/search?${esc(new URLSearchParams(q).toString())}">${esc(l)}</a>`).join("")}</div>` : "";
+    const tp = tplMix.slice(0, isM() ? 6 : 8);  // 휴대폰은 6개(두세 줄) — 이름은 한·영·일
+    return tp.length ? `<div class="htpl" aria-label="${t("이렇게 찾아 보세요", "Try searching", "検索例")}">${tp.map(([l, le, lj, q]) => `<a class="tchip sm" href="#/search?${esc(new URLSearchParams(q).toString())}">${esc(t(l, le, lj))}</a>`).join("")}</div>` : "";
   };
   // 브랜드로 찾기 (첫 화면 위쪽): 제품 많은 순 로고 — PC 12개, 휴대폰 6개 + 모든 브랜드
   function brandQuick() {
     const cnt = {};
     for (const p of list()) cnt[p.b] = (cnt[p.b] || 0) + 1;
     const bs = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]).slice(0, isM() ? 6 : 12);
-    return `<section class="bquick" id="h-bq"><div class="bqh"><b>브랜드로 찾기</b><a class="link" href="#/brand">모든 브랜드 ${Object.keys(cnt).length}</a></div>
+    return `<section class="bquick" id="h-bq"><div class="bqh"><b>${t("브랜드로 찾기", "Shop by brand", "ブランドで探す")}</b><a class="link" href="#/brand">${t("모든 브랜드", "All brands", "全ブランド")} ${Object.keys(cnt).length}</a></div>
       <div class="bqgrid">${bs.map(b => `<a class="blogo" href="#/brand/${encodeURIComponent(b)}" aria-label="${esc(bk(b))}">${brandMark(b, "lg")}</a>`).join("")}</div></section>`;
   }
   function brandTiles() {
@@ -1361,7 +1467,7 @@
     const here = o => `<div class="here">${cc(c)} ${man(o.net)} · 한국 대비 ${pct(o.s)}</div>`;
     const cLim = countryShow || PAGE();
     const cards = withAds("country", listA.slice(0, cLim).map(o => viewMode(q) === "list" ? rowItem(o.it, here(o)) : card(o.it, here(o))));
-    return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/country">여행지</a> › ${esc(k.n)}</nav>${evStrip(liveEvents().filter(e => e.countries.includes(c)), "#/events?cc=" + c)}${ntStrip(ntFor(null, c), c)}${gCountry(c) ? `<a class="evstrip" href="#/guide/${c}"><span class="evcat">쇼핑</span><span class="evt">${esc(k.n)} 쇼핑 리스트 — 꼭 사 오는 것 ${gCountry(c).items.length}가지</span><span class="evgo">›</span></a>` : ""}${M.stores ? `<a class="evstrip" href="#/stores/${c}"><span class="evcat">매장</span><span class="evt">${esc(k.n)} 브랜드 매장 — 주소·영업시간·전화</span><span class="evgo">›</span></a>` : ""}
+    return `<nav class="crumb"><a href="#/">${t("홈", "Home", "ホーム")}</a> › <a href="#/country">여행지</a> › ${esc(k.n)}</nav>${evStrip(liveEvents().filter(e => e.countries.includes(c)), "#/events?cc=" + c)}${ntStrip(ntFor(null, c), c)}${gCountry(c) ? `<a class="evstrip" href="#/guide/${c}"><span class="evcat">쇼핑</span><span class="evt">${esc(k.n)} 쇼핑 리스트 — 꼭 사 오는 것 ${gCountry(c).items.length}가지</span><span class="evgo">›</span></a>` : ""}${M.stores ? `<a class="evstrip" href="#/stores/${c}"><span class="evcat">매장</span><span class="evt">${esc(k.n)} 브랜드 매장 — 주소·영업시간·전화</span><span class="evgo">›</span></a>` : ""}
       <div class="pagehead row"><div><h1>${nationF(c)}</h1><p class="lead">통화 ${esc(k.cur)} · 환율 ₩${fxFmt(D.fx[c])} (${esc(fxLabel())}) · 데이터 ${esc(D.generated)}</p>${stockNote(true)}</div>
         <button type="button" class="btn ${inTrip ? "ghost" : ""}" data-trip="${c}">${inTrip ? "✈ 내 여행지에서 빼기" : "✈ 내 여행지에 넣기"}</button></div>
       <div class="kpis"><div><b>${st.cheapest}</b><span>${esc(k.n)}이(가) 가장 싼 제품</span></div><div><b>${st.cheaper}</b><span>한국보다 싼 제품 (${st.total}개 중)</span></div><div><b>${pct(st.med)}</b><span>중간 절약률</span></div></div>
@@ -1418,7 +1524,7 @@
     for (const it of its) { const p = head(it); if (p.c && (!AT || soldAt(p, AT))) cols[p.c] = (cols[p.c] || 0) + 1; }
     const base = "#/brand/" + encodeURIComponent(b);
     const withQ = set => { const u = new URLSearchParams(q); for (const [k, v] of Object.entries(set)) v ? u.set(k, v) : u.delete(k); const s = u.toString(); return base + (s ? "?" + s : ""); };
-    return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/brand">브랜드</a> › ${esc(bk(b))}</nav>${ntStrip(ntFor(b))}${M.stores ? `<a class="evstrip" href="#/stores?b=${encodeURIComponent(b)}"><span class="evcat">매장</span><span class="evt">${esc(bk(b))} 매장 찾기 — 나라·도시별 주소·영업시간</span><span class="evgo">›</span></a>` : ""}
+    return `<nav class="crumb"><a href="#/">${t("홈", "Home", "ホーム")}</a> › <a href="#/brand">브랜드</a> › ${esc(bk(b))}</nav>${ntStrip(ntFor(b))}${M.stores ? `<a class="evstrip" href="#/stores?b=${encodeURIComponent(b)}"><span class="evcat">매장</span><span class="evt">${esc(bk(b))} 매장 찾기 — 나라·도시별 주소·영업시간</span><span class="evgo">›</span></a>` : ""}
       <div class="pagehead"><h1>${esc(b.toUpperCase())}</h1><p class="lead">${esc(bk(b))} · ${kind === "bag" ? `모델 ${its.length}개 (제품 ${its.reduce((n, it) => n + it.ps.length, 0)}개)` : `제품 ${its.length}개`}${AT ? ` · <b>${flag(AT)}${esc(C[AT].n)} 기준</b> <a class="link" href="#/country/${AT}?brand=${encodeURIComponent(b)}">${esc(C[AT].n)} 여행지 화면 ›</a>` : ""}</p>
         <p class="note">럭스캐너는 ${esc(bk(b))}와(과) 관계없는 개인 가격 비교 서비스예요. 가격은 각 나라 공식 홈페이지 기준이에요.</p></div>
       ${atChips(b, its, c => withQ({ at: c }), AT)}
@@ -1436,7 +1542,7 @@
     for (const it of its) { const p = head(it); if (p.c && soldAt(p, c)) cols[p.c] = (cols[p.c] || 0) + 1; }
     const base = `#/country/${c}`;
     const withQ = set => { const u = new URLSearchParams(q); for (const [kk, v] of Object.entries(set)) v ? u.set(kk, v) : u.delete(kk); const s = u.toString(); return base + (s ? "?" + s : ""); };
-    return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/country">여행지</a> › <a href="${base}">${esc(k.n)}</a> › ${esc(bk(b))}</nav>
+    return `<nav class="crumb"><a href="#/">${t("홈", "Home", "ホーム")}</a> › <a href="#/country">여행지</a> › <a href="${base}">${esc(k.n)}</a> › ${esc(bk(b))}</nav>
       <div class="pagehead row"><div><h1>${flag(c)}${esc(k.n)}에서 사는 ${esc(b.toUpperCase())}</h1>
         <p class="lead">가격은 ${esc(k.n)} ${JINGA} 기준 · 통화 ${esc(k.cur)} · 환율 ₩${fxFmt(D.fx[c])} (${esc(fxLabel())}) · <a class="link" href="#/brand/${encodeURIComponent(b)}">다른 나라와 비교 ›</a></p>${stockNote(true)}</div>
         <button type="button" class="btn ${inTrip ? "ghost" : ""}" data-trip="${c}">${inTrip ? "✈ 내 여행지에서 빼기" : "✈ 내 여행지에 넣기"}</button></div>
@@ -1522,7 +1628,7 @@
     const mine = ok.filter(r => S.trip.includes(r.cc)).sort((a, b2) => a.net - b2.net), rest = ok.filter(r => !S.trip.includes(r.cc)).sort((a, b2) => a.net - b2.net);
     const order = [...mine, ...rest, ...(kr ? [kr] : []), ...bad];
     const krNet = kr && kr.v ? kr.net : null, minNet = Math.min(...ok.map(r => r.net));
-    const status = r => r.cc === "KR" ? "기준" : !(r.t > 0 && r.v) ? "비교 불가" : r.t === 2 ? "매장 확인" : "";
+    const status = r => r.cc === "KR" ? t("기준", "base", "基準") : !(r.t > 0 && r.v) ? t("비교 불가", "n/a", "比較不可") : r.t === 2 ? t("매장 확인", "check store", "店舗確認") : "";
     const vs = r => krNet && r.v && r.cc !== "KR" ? pct((krNet - r.net) / krNet) : "";
     const optTxt = r => r.opt ? ` <small>(${r.opt.map(x => Number(x).toLocaleString("ko-KR")).join("~")})</small>` : "";
     // 나라별 공홈 링크 (https 주소만, 새 창, 6.1절)
@@ -1536,19 +1642,25 @@
         ? (SET.cp[cp.id] ? ` · ${esc(cp.short)}에 이 브랜드가 없어 쿠폰 할인 제외` : "")
         : (cp.exclude || {})[p.b] ? (SET.cp[cp.id] ? ` · ${esc(cp.short)}에서 이 브랜드는 쿠폰 할인 제외(${esc(cp.exclude[p.b])})` : "")
         : `<br><button type="button" class="link" data-cp="${esc(cp.id)}">${esc(cp.name)}에서 사면(쿠폰 ${cp.rate}%, ${ymd(cp.until)}까지) ${JINGA} −${won(r.net - CALC.calc(r.cc, r.v, grpOf(p), p.b, { ...PV, cp: { ...SET.cp, [cp.id]: true } }).net)} · 켜기</button>${offLinks(cp.links) ? " · " + offLinks(cp.links) : ""}`).join("");
+    // 여행 날짜가 있으면 지금은 아니어도 그때 쓸 수 있는 쿠폰을 알려 줌 (11-08, 기능 5)
+    const cpTrip = r => !r.v || !SET.tripFrom || tripOver() ? "" : CALC.coupons.filter(cp => cp.country === r.cc && !cpLive(cp) && CALC.cpActive(cp, SET.tripFrom) && cp.brands.includes(p.b) && !(cp.exclude || {})[p.b])
+      .map(cp => `<br><span class="note">여행 때(${esc(mdd(SET.tripFrom))}) 쓸 수 있는 쿠폰: ${esc(cp.name)} ${cp.rate}% (${esc(ymd(cp.from))}~${esc(ymd(cp.until))})</span>`).join("");
     const esTip = r => !r.v ? "" : NOTICES.filter(n => n.country === r.cc && n.tip).map(n => `<br><span class="note">${esc(n.tip)}</span>${offLinks(n.links) ? " " + offLinks(n.links) : ""}`).join("");
     // 할인은 원화로 바꾸기 전에 (판매가 − 할인 = 결제액 → 원화) — 할인을 끝에 따로 적으면 '판매가 → 원화' 숫자가 안 맞아 보였다(2026-10-27)
     const discPart = r => !r.disc ? "" : r.cc === "JP"
       ? ` − 백화점 할인 ${SET.jpRate}% ${local("JP", Math.round(r.v * SET.jpRate / 100))} = ${local("JP", Math.round(r.v * (1 - SET.jpRate / 100)))}`
       : r.cp ? (cp => ` − ${esc(cp.short)} 쿠폰 ${cp.rate}% ${local(r.cc, Math.round(r.v * cp.rate / 100))} = ${local(r.cc, Math.round(r.v * (1 - cp.rate / 100)))}`)(CALC.coupons.find(c => c.id === r.cp))
       : r.cc === "KR" ? ` − 한국 할인 ${SET.krDisc}% ${won(r.disc)}` : "";
-    const brk = r => `<div class="brk">${r.v ? `${localP(p, r.cc, r.v)}${discPart(r)}${C[r.cc].incl ? "" : ` + 판매세 ${r.tax ?? C[r.cc].tax}%`} → 원화 ${won(r.krw)}
+    const brk = r => `<div class="brk">${r.v ? `<span class="note">수집 ${esc(mdd(M.priceDate[r.cc] || D.generated))}</span> · ${localP(p, r.cc, r.v)}${discPart(r)}${C[r.cc].incl ? "" : ` + 판매세 ${r.tax ?? C[r.cc].tax}%`} → 원화 ${won(r.krw)}
       · 환급 ${r.rate ? `−${won(r.refund)} (${(r.rate * 100).toFixed(2)}%, 최소 ${local(r.cc, C[r.cc].min)} ${r.v >= C[r.cc].min ? "충족" : "미달"})` : pv && !PV.refund ? "이 표에서 뺌" : "없음"}
-      · 카드 수수료 +${won(r.fee)} (${payLabel()}) · 관세 ${r.duty ? "+" + won(r.duty) : r.cc === "KR" ? "없음" : !PV.customs ? (pv ? "이 표에서 뺌" : "설정에서 뺌") : "0 (면세 한도 $800 이내)"}${r.duty ? ` (면세 $800 공제${SET.self ? ", 자진신고 감면" : ""})` : ""}${jpTip(r)}${cpTip(r)}${esTip(r)}${r.cc !== "KR" ? `<br><span class="stk">⚠ ${esc(C[r.cc].n)} 매장 재고는 공홈 재고 확인·매장 문의로 꼭 확인하세요${r.t === 2 ? " — 지금 공홈 온라인 품절·미판매" : ""}</span>` : ""}` : "가격 정보 없음"}</div>`;
-    const conclusion = R.best ? (R.save !== null && R.save <= 0 ? `<b>한국에서 사는 게 가장 싸요</b> · ${R.mode === "trip" ? "내 여행지" : "해외"} 최저는 ${nationF(R.best.cc)}` : R.mode === "trip" ? `내 여행지 중 <b>${nationF(R.best.cc)}</b>이(가) 가장 싸요` : R.mode === "notrip" ? `내 여행지에서는 안 팔아요 · 전체 최저는 <b>${nationF(R.best.cc)}</b>` : `가장 싼 곳은 <b>${nationF(R.best.cc)}</b>`) : "가격을 비교할 수 있는 나라가 없어요";
+      · 카드 수수료 +${won(r.fee)} (${payLabel()}) · 관세 ${r.duty ? "+" + won(r.duty) : r.cc === "KR" ? "없음" : !PV.customs ? (pv ? "이 표에서 뺌" : "설정에서 뺌") : "0 (면세 한도 $800 이내)"}${r.duty ? ` (면세 $800 공제${SET.self ? ", 자진신고 감면" : ""})` : ""}${jpTip(r)}${cpTip(r)}${cpTrip(r)}${esTip(r)}${r.cc !== "KR" ? `<br><span class="stk">⚠ ${esc(C[r.cc].n)} 매장 재고는 공홈 재고 확인·매장 문의로 꼭 확인하세요${r.t === 2 ? " — 지금 공홈 온라인 품절·미판매" : ""}</span>` : ""}` : "가격 정보 없음"}</div>`;
+    const conclusion = R.best ? (R.save !== null && R.save <= 0 ? t(`<b>한국에서 사는 게 가장 싸요</b> · ${R.mode === "trip" ? "내 여행지" : "해외"} 최저는 ${nationF(R.best.cc)}`, `<b>Cheapest in Korea</b> · lowest ${R.mode === "trip" ? "on your trip" : "abroad"}: ${nationF(R.best.cc)}`, `<b>韓国で買うのが最安</b> · ${R.mode === "trip" ? "旅行先" : "海外"}の最安は${nationF(R.best.cc)}`)
+      : R.mode === "trip" ? t(`내 여행지 중 <b>${nationF(R.best.cc)}</b>이(가) 가장 싸요`, `Cheapest on your trip: <b>${nationF(R.best.cc)}</b>`, `旅行先では<b>${nationF(R.best.cc)}</b>が最安`)
+      : R.mode === "notrip" ? t(`내 여행지에서는 안 팔아요 · 전체 최저는 <b>${nationF(R.best.cc)}</b>`, `Not sold on your trip · lowest overall: <b>${nationF(R.best.cc)}</b>`, `旅行先では未販売 · 全体の最安は<b>${nationF(R.best.cc)}</b>`)
+      : t(`가장 싼 곳은 <b>${nationF(R.best.cc)}</b>`, `Cheapest: <b>${nationF(R.best.cc)}</b>`, `最安は<b>${nationF(R.best.cc)}</b>`)) : t("가격을 비교할 수 있는 나라가 없어요", "No country to compare", "比較できる国がありません");
     // '이 표만' 필터: 고른 값이 설정과 같으면 칩만 켜지고, 다르면 안내 줄과 '설정대로'
     const pvSeg = (key, opts) => `<div class="seg" role="radiogroup">${opts.map(([v, l]) => `<button type="button" class="${PV[key] === v ? "on" : ""}" role="radio" aria-checked="${PV[key] === v}" data-pv="${key}" data-val="${v}">${l}</button>`).join("")}</div>`;
-    const pvBar = `<div class="pvbar"><span class="pvk">이 표만</span>${pvSeg("refund", [[true, "환급 받음"], [false, "안 받음"]])}${pvSeg("customs", [[true, "관세 포함"], [false, "빼고"]])}${pv ? `<button type="button" class="link" data-pv="">설정대로</button>` : ""}</div>
+    const pvBar = `<div class="pvbar"><span class="pvk">${t("이 표만", "This table", "この表だけ")}</span>${pvSeg("refund", [[true, t("환급 받음", "With refund", "還付あり")], [false, t("안 받음", "No refund", "還付なし")]])}${pvSeg("customs", [[true, t("관세 포함", "With customs", "関税込み")], [false, t("빼고", "Without", "なし")]])}${pv ? `<button type="button" class="link" data-pv="">${t("설정대로", "Use settings", "設定どおり")}</button>` : ""}</div>
       ${pv ? `<p class="pvnote">이 표만 <b>${PV.refund ? "환급 받음" : "환급 없음"} · ${PV.customs ? "관세 포함" : "관세 제외"}</b> 기준이에요. 가장 싼 곳 안내·아래 띠·다른 화면은 설정 그대로예요.</p>` : ""}`;
     // 이 브랜드의 가격 인상·인하 공지 (11-04): 표에 나오는 나라 것만, 가장 최근 하나
     const ntP = ntFor(p.b).find(n => ntAuto(n) && n.countries.some(c => rs.some(r => r.cc === c && r.v)));
@@ -1560,15 +1672,15 @@
       const hidden = order.filter(r => !keep.has(r.cc));
       const shownN = allNations ? order : order.filter(r => keep.has(r.cc));
       table = `<div class="ncards">${shownN.map(r => `<div class="ncard ${S.trip.includes(r.cc) ? "mine" : ""} ${status(r) === "비교 불가" ? "dim" : ""} ${r.net === minNet ? "best" : ""}">
-        <button type="button" class="nhead" data-row="${r.cc}" aria-expanded="${openRow.has(r.cc)}"><span>${S.trip.includes(r.cc) ? "✈ " : ""}${nationF(r.cc)}${r.net === minNet ? ` <em>최저</em>` : ""}</span>
-          <span class="nnum">${r.v ? won(r.net) : "—"} <small>${vs(r) || status(r)}</small></span><span class="car">${openRow.has(r.cc) ? "▴" : "▾"}</span></button>
+        <button type="button" class="nhead" data-row="${r.cc}" aria-expanded="${openRow.has(r.cc)}"><span>${S.trip.includes(r.cc) ? "✈ " : ""}${nationF(r.cc)}${r.net === minNet ? ` <em>${t("최저", "lowest", "最安")}</em>` : ""}</span>
+          <span class="nnum">${r.v ? wonK(r.net) : "—"} <small>${vs(r) || status(r)}</small></span><span class="car">${openRow.has(r.cc) ? "▴" : "▾"}</span></button>
         ${openRow.has(r.cc) ? `<div class="nsub"><span>${r.v ? localP(p, r.cc, r.v) : esc(status(r))}${status(r) && r.v ? ` · ${r.t === 2 ? `<span class="stk">${status(r)}</span>` : status(r)}` : ""}${optTxt(r)}</span>${olink(r)}</div>${brk(r)}` : ""}</div>`).join("")}</div>
-        ${hidden.length ? `<button type="button" class="btn ghost wide" data-allnations>${allNations ? "접기" : `나머지 ${hidden.length}개 나라 보기`}</button>` : ""}`;
+        ${hidden.length ? `<button type="button" class="btn ghost wide" data-allnations>${allNations ? t("접기", "Show less", "閉じる") : t(`나머지 ${hidden.length}개 나라 보기`, `Show ${hidden.length} more countries`, `他${hidden.length}か国を見る`)}</button>` : ""}`;
     } else {
       table = `<table class="ntable"><thead><tr><th>나라</th><th>공홈가(현지)</th><th>원화</th><th>환급</th><th>카드</th><th>관세</th><th>${JINGA}</th><th>한국 대비</th><th>상태</th><th>공홈</th></tr></thead><tbody>${order.map(r => `
         <tr class="${S.trip.includes(r.cc) ? "mine" : ""} ${status(r) === "비교 불가" ? "dim" : ""} ${r.net === minNet ? "best" : ""}" data-row="${r.cc}" tabindex="0">
           <td>${S.trip.includes(r.cc) ? "✈ " : ""}${nationF(r.cc)}</td><td>${r.v ? localP(p, r.cc, r.v) : "—"}${optTxt(r)}</td><td>${r.v ? won(r.krw) : ""}</td>
-          <td>${r.refund ? "−" + won(r.refund) : r.v ? "0" : ""}</td><td>${r.fee ? "+" + won(r.fee) : r.v ? "0" : ""}</td><td>${r.duty ? "+" + won(r.duty) : r.v ? "0" : ""}</td><td><b>${r.v ? won(r.net) : ""}</b></td><td>${vs(r)}</td><td>${r.t === 2 ? `<span class="stk">${status(r)}</span>` : status(r)}</td><td>${olink(r)}</td></tr>
+          <td>${r.refund ? "−" + won(r.refund) : r.v ? "0" : ""}</td><td>${r.fee ? "+" + won(r.fee) : r.v ? "0" : ""}</td><td>${r.duty ? "+" + won(r.duty) : r.v ? "0" : ""}</td><td><b>${r.v ? wonK(r.net) : ""}</b></td><td>${vs(r)}</td><td>${r.t === 2 ? `<span class="stk">${status(r)}</span>` : status(r)}</td><td>${olink(r)}</td></tr>
         ${openRow.has(r.cc) ? `<tr class="brkrow"><td colspan="10">${brk(r)}</td></tr>` : ""}`).join("")}</tbody></table>`;
     }
     const bars = ok.concat(kr && kr.v ? [kr] : []).sort((a, b2) => a.net - b2.net), mx = Math.max(...bars.map(r => r.net));
@@ -1578,14 +1690,15 @@
     const kurl = safeUrl((p.p.KR || [])[2]) || safeUrl(Object.values(p.p).map(x => x[2]).find(Boolean));
     // 이 제품의 가격 변동 이력 (11-03 사용자): 최근 수집일 먼저, 같은 날은 한국 먼저 → 변동 큰 순
     const hist = D.changes.filter(c => c.b === p.b && c.s === p.s && C[c.cc]).sort((a, b2) => (b2.d || "").localeCompare(a.d || "") || (a.cc === "KR" ? -1 : b2.cc === "KR" ? 1 : Math.abs(b2.r) - Math.abs(a.r)));
+    const chart = hist.length ? priceChart(p, rs, R, hist) : "";
     if (isM() && R.best) {
       // 제품 화면 아래 띠 하나 (2026-10-28): 아래 메뉴 대신 '가장 싼 곳 · 진짜가격 · 아끼는 금액 + 담기'
-      fixbar.innerHTML = `<div class="fxinfo"><span class="fxwhere">가장 싼 곳 ${cc(R.best.cc)} ${esc(C[R.best.cc].n)}</span><span><b>${won(R.best.net)}</b>${R.save > 0 && R.kr ? ` <span class="save">${esc(krLab(R))}보다 ${won(R.kr.net - R.best.net)} 아껴요</span>` : ""}</span></div><button type="button" class="btn" data-pick="${esc(p.b + "|" + p.s)}">${on ? "♥ 담음" : "♡ 담기"}</button>`;
+      fixbar.innerHTML = `<div class="fxinfo"><span class="fxwhere">${t("가장 싼 곳", "Cheapest", "最安")} ${cc(R.best.cc)} ${esc(C[R.best.cc].n)}</span><span><b>${wonK(R.best.net)}</b>${R.save > 0 && R.kr ? ` <span class="save">${t(`${esc(krLab(R))}보다 ${wonK(R.kr.net - R.best.net)} 아껴요`, `save ${wonK(R.kr.net - R.best.net)} vs ${esc(krLab(R))}`, `${esc(krLab(R))}より${wonK(R.kr.net - R.best.net)}お得`)}</span>` : ""}</span></div><button type="button" class="btn" data-pick="${esc(p.b + "|" + p.s)}">${on ? t("♥ 담음", "♥ Picked", "♥ 保存済み") : t("♡ 담기", "♡ Pick", "♡ 保存")}</button>`;
       fixbar.hidden = false;
     }
     // 사진 여러 장: 첫 장은 fb, 2번째 장부터는 그 사진을 잰 fbs[i] — 잰 값이 없으면 사진 전체를 그대로 (10-30, 10-31)
     const fbAt = i => i ? (p.fbs && p.fbs[i]) || null : p.fb;
-    return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/brand/${encodeURIComponent(p.b)}">${esc(bk(p.b))}</a>${p.c ? ` › <a href="#/brand/${encodeURIComponent(p.b)}?c=${encodeURIComponent(p.c)}">${esc(colName(p.c))}</a>` : ""}</nav>
+    return `<nav class="crumb"><a href="#/">${t("홈", "Home", "ホーム")}</a> › <a href="#/brand/${encodeURIComponent(p.b)}">${esc(bk(p.b))}</a>${p.c ? ` › <a href="#/brand/${encodeURIComponent(p.b)}?c=${encodeURIComponent(p.c)}">${esc(colName(p.c))}</a>` : ""}</nav>
       <section class="pd" data-brand="${esc(bk(p.b))}">
         <div class="pdimg">${photo(p.imgs && p.imgs[pImg] ? { ...p, img: p.imgs[pImg], fb: fbAt(pImg) } : p, "big")}
           ${p.imgs && p.imgs.length > 1 ? `<div class="pthumbs">${p.imgs.map((u, i) => `<button type="button" class="${i === pImg ? "on" : ""}" data-pimg="${i}" aria-label="사진 ${i + 1}">${photo({ ...p, img: u, fb: fbAt(i) })}</button>`).join("")}</div>` : ""}
@@ -1593,23 +1706,66 @@
         <div class="pdtx">
           <div class="br">${esc(p.b.toUpperCase())}${p.c ? " · " + esc(colName(p.c).toUpperCase()) : ""}</div>
           <h1 class="${isM() ? "clamp2" : ""}" data-expand>${esc(p.n)}</h1>
-          <div class="sku">제품번호 ${esc(p.s)}${p.ne ? " · " + esc(p.ne) : ""}</div>
-          <div class="verdict">${R.best ? `<div>${conclusion}</div><div class="vnum">${won(R.best.net)} ${R.save !== null ? (R.save > 0 ? `<span class="save">${krLab(R)}보다 ${pct(R.save)} (${won(R.kr.net - R.best.net)})</span>` : `<span class="kr">한국이 더 싸거나 같아요</span>`) : `<span class="kr">한국 미판매</span>`}</div>${stBestLink(R.best.cc, p.b)}${R.outlier ? `<div class="warnline">가격 확인 필요 — ${esc(p.ck)}</div>` : ""}` : conclusion}</div>
+          <div class="sku">${t("제품번호", "Ref.", "品番")} ${esc(p.s)}${p.ne ? " · " + esc(p.ne) : ""}</div>
+          <div class="verdict">${R.best ? `<div>${conclusion}</div><div class="vnum">${wonK(R.best.net)} ${R.save !== null ? (R.save > 0 ? `<span class="save">${t(`${krLab(R)}보다 ${pct(R.save)}`, `${pct(R.save)} vs ${krLab(R)}`, `${krLab(R)}より ${pct(R.save)}`)} (${wonK(R.kr.net - R.best.net)})</span>` : `<span class="kr">${t("한국이 더 싸거나 같아요", "Korea is cheaper or equal", "韓国の方が安いか同じ")}</span>`) : `<span class="kr">${t("한국 미판매", "Not sold in Korea", "韓国未販売")}</span>`}</div>${stBestLink(R.best.cc, p.b)}${R.outlier ? `<div class="warnline">${t("가격 확인 필요", "Check price", "要確認")} — ${esc(p.ck)}</div>` : ""}` : conclusion}</div>
           ${!R.best ? "" : R.best.t === 2 && R.best.cc !== "KR"
-            ? `<p class="stocknote sm" role="note"><b>⚠ ${esc(C[R.best.cc].n)} 공홈은 지금 온라인 품절·미판매예요</b> 매장에 재고가 있는지 꼭 확인하세요.</p>`
+            ? `<p class="stocknote sm" role="note"><b>${t(`⚠ ${esc(C[R.best.cc].n)} 공홈은 지금 온라인 품절·미판매예요`, `⚠ Sold out or not sold online in ${esc(C[R.best.cc].n)}`, `⚠ ${esc(C[R.best.cc].n)}の公式サイトは現在品切れ・未販売`)}</b> ${t("매장에 재고가 있는지 꼭 확인하세요.", "Check the store's stock before you go.", "店舗に在庫があるか必ず確認してください。")}</p>`
             : stockNote(true)}
           ${varHtml}
-          <div class="acts"><button type="button" class="btn" data-pick="${esc(p.b + "|" + p.s)}">${on ? "♥ 담음" : "♡ 담기"}</button>${kurl ? `<a class="btn ghost" href="${esc(kurl)}" target="_blank" rel="noopener noreferrer">공홈에서 보기 ↗</a>` : ""}<button type="button" class="btn ghost" data-copylink="${esc(shareUrl(p))}">링크 복사</button></div>
+          <div class="acts"><button type="button" class="btn" data-pick="${esc(p.b + "|" + p.s)}">${on ? t("♥ 담음", "♥ Picked", "♥ 保存済み") : t("♡ 담기", "♡ Pick", "♡ 保存")}</button>${cmpBtn(p)}${kurl ? `<a class="btn ghost" href="${esc(kurl)}" target="_blank" rel="noopener noreferrer">${t("공홈에서 보기", "Official site", "公式サイト")} ↗</a>` : ""}<button type="button" class="btn ghost" data-copylink="${esc(shareUrl(p))}">${t("링크 복사", "Copy link", "リンクをコピー")}</button></div>
           ${stockNote()}
         </div></section>
-      <section class="sec"><div class="sh"><h3>나라별 ${JINGA}</h3><span class="note">내 여행지 먼저 · 행을 누르면 계산 과정</span><a class="link" href="#/settings">${esc(setSummary())} ✎</a></div>${ntNote}${pvBar}${table}</section>
-      ${hist.length ? `<section class="sec"><div class="sh"><h3>가격 변동 이력</h3><span class="note">수집할 때마다 공홈 가격이 바뀐 기록 · 최근 순</span><a class="link" href="#/changes">전체 변동</a></div><ul class="phist">${hist.map(c => `<li class="chg ${c.r < 0 ? "down" : "up"}"><span>${esc((c.d || "").slice(5).replace("-", "."))}</span> ${c.r < 0 ? "▼" : "▲"} ${nationF(c.cc)} ${local(c.cc, c.o)} → ${local(c.cc, c.nw)} (${c.r > 0 ? "+" : "−"}${Math.abs(c.r * 100).toFixed(1)}%)${Math.abs(c.r) >= 0.5 ? ` · <span class="warn">값 확인 필요</span>` : ""}</li>`).join("")}</ul></section>` : ""}
+      <section class="sec"><div class="sh"><h3>${t(`나라별 ${JINGA}`, `Real price by country`, `国別の${JINGA}`)}</h3><span class="note">${t("내 여행지 먼저 · 행을 누르면 계산 과정", "Your trip first · tap a row for the breakdown", "旅行先が先 · 行をタップで計算過程")} · ${t("수집", "collected", "収集")} ${esc(mdd(D.generated))}</span><a class="link" href="#/settings">${esc(setSummary())} ✎</a></div>${ntNote}${pvBar}${table}</section>
+      ${chart}
+      ${hist.length ? `<section class="sec"><div class="sh"><h3>${t("가격 변동 이력", "Price history", "価格変動履歴")}</h3><span class="note">${t("수집할 때마다 공홈 가격이 바뀐 기록 · 최근 순", "Official price changes seen at each collection · newest first", "収集ごとの公式価格の変化 · 新しい順")}</span><a class="link" href="#/changes">${t("전체 변동", "All changes", "すべての変動")}</a></div><ul class="phist">${hist.map(c => `<li class="chg ${c.r < 0 ? "down" : "up"}"><span>${esc((c.d || "").slice(5).replace("-", "."))}</span> ${c.r < 0 ? "▼" : "▲"} ${nationF(c.cc)} ${local(c.cc, c.o)} → ${local(c.cc, c.nw)} (${c.r > 0 ? "+" : "−"}${Math.abs(c.r * 100).toFixed(1)}%)${Math.abs(c.r) >= 0.5 ? ` · <span class="warn">값 확인 필요</span>` : ""}</li>`).join("")}</ul></section>` : ""}
       <div class="two">
-        ${isM() ? "" : `<section class="sec"><div class="sh"><h3>나라별 막대</h3></div><ol class="rank wide">${bars.map(r => `<li class="${S.trip.includes(r.cc) ? "mine" : ""} ${r.net === minNet ? "best" : ""}">${nationF(r.cc)}<span class="bar"><i style="width:${r.net / mx * 100}%" class="${r.cc === "KR" ? "krbar" : ""}"></i></span><b>${man(r.net)}</b></li>`).join("")}</ol></section>`}
-        <section class="sec"><div class="sh"><h3>제품 정보</h3></div><dl class="spec">${info.filter(([, v]) => v).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(String(v).slice(0, 300))}</dd>`).join("")}</dl>
+        ${isM() ? "" : `<section class="sec"><div class="sh"><h3>${t("나라별 막대", "By country", "国別")}</h3></div><ol class="rank wide">${bars.map(r => `<li class="${S.trip.includes(r.cc) ? "mine" : ""} ${r.net === minNet ? "best" : ""}">${nationF(r.cc)}<span class="bar"><i style="width:${r.net / mx * 100}%" class="${r.cc === "KR" ? "krbar" : ""}"></i></span><b>${man(r.net)}</b></li>`).join("")}</ol></section>`}
+        <section class="sec"><div class="sh"><h3>${t("제품 정보", "Details", "製品情報")}</h3></div><dl class="spec">${info.filter(([, v]) => v).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(String(v).slice(0, 300))}</dd>`).join("")}</dl>
           </section>
       </div>${adAt("p", 1)}
-      ${same.length ? `<section class="sec"><div class="sh"><h3>같은 컬렉션</h3></div>${isM() ? lrows(same.slice(0, 4).map(it => rowItem(it))) : grid(same, "g6")}</section>` : ""}${adAt("p", 2)}`;
+      ${same.length ? `<section class="sec"><div class="sh"><h3>${t("같은 컬렉션", "Same collection", "同じコレクション")}</h3></div>${isM() ? lrows(same.slice(0, 4).map(it => rowItem(it))) : grid(same, "g6")}</section>` : ""}${adAt("p", 2)}`;
+  }
+
+  // ── 제품 가격 이력 그래프 (11-08, 웹앱계획.md 13장 기능 1) ──
+  // 변동 기록(history: 바뀐 날·바뀌기 전·후 현지가)만 있으므로 지금 현지가에서 거꾸로 걸어 나라별 계단선을 만든다.
+  // 값은 지금 설정·환율로 환산한 진짜가격(다른 화면과 같은 기준). 선은 한국 → 가장 싼 나라 → 내 여행지 → 변동 많은 나라 순 최대 5개.
+  const HIST_FIRST = D.changes.reduce((m, c) => c.d && c.d < m ? c.d : m, D.generated || "");
+  function priceChart(p, rs, R, hist) {
+    const g = grpOf(p), day = s => Math.round(Date.parse(s + "T00:00:00Z") / 864e5);
+    const x0 = day(HIST_FIRST), x1 = Math.max(day(D.generated), x0 + 1);
+    const chg = {};
+    for (const c of hist) if (typeof c.o === "number" && typeof c.nw === "number") (chg[c.cc] = chg[c.cc] || []).push(c);
+    const cur = Object.fromEntries(rs.filter(r => r.v).map(r => [r.cc, r.v]));
+    const order = [...new Set(["KR", R.best && R.best.cc, ...S.trip, ...Object.keys(chg).sort((a, b) => chg[b].length - chg[a].length)].filter(c => c && cur[c] && (chg[c] || c === "KR")))].slice(0, 5);
+    if (!order.some(c => chg[c])) return "";
+    const net = (c, v) => calc(c, v, g, p.b).net;
+    // 나라 하나의 점: [날짜, 진짜가격] — 처음 수집일 값 → 바뀐 날마다 새 값 → 데이터 날 값
+    const series = c => {
+      const cs = (chg[c] || []).slice().sort((a, b) => b.d.localeCompare(a.d));
+      const pts = [[x1, cur[c]]];
+      let v = cur[c];
+      for (const k of cs) { pts.unshift([day(k.d), k.nw]); v = k.o; }
+      pts.unshift([x0, v]);
+      return pts.map(([d, lv]) => [d, net(c, lv), lv]);
+    };
+    const data = order.map(c => ({ c, pts: series(c) }));
+    const ys = data.flatMap(s => s.pts.map(q => q[1])), lo = Math.min(...ys), hi = Math.max(...ys), pad = Math.max((hi - lo) * 0.18, hi * 0.02);
+    const W = 640, H = 220, L = 8, Rr = 8, T = 14, B = 26, yl = lo - pad, yh = hi + pad;
+    const X = d => L + (d - x0) / (x1 - x0) * (W - L - Rr), Y = v => T + (yh - v) / (yh - yl) * (H - T - B);
+    const path = pts => pts.map((q, i) => (i ? `H${X(q[0]).toFixed(1)}V${Y(q[1]).toFixed(1)}` : `M${X(q[0]).toFixed(1)},${Y(q[1]).toFixed(1)}`)).join("");
+    const col = c => c === "KR" ? "var(--ink)" : R.best && c === R.best.cc ? "var(--save)" : S.trip.includes(c) ? "var(--gold)" : "var(--faint)";
+    const ticks = [...new Set([x0, ...hist.map(k => day(k.d)), x1])].sort((a, b) => a - b);
+    const lab = d => { const t = new Date(d * 864e5); return `${t.getUTCMonth() + 1}.${String(t.getUTCDate()).padStart(2, "0")}`; };
+    const svg = `<svg class="pcsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="나라별 ${JINGA} 추이">
+      ${[yl + (yh - yl) * 0.25, yl + (yh - yl) * 0.5, yl + (yh - yl) * 0.75].map(v => `<line x1="${L}" x2="${W - Rr}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" class="pcgrid"/><text x="${L + 2}" y="${(Y(v) - 3).toFixed(1)}" class="pctick">${man(v)}</text>`).join("")}
+      ${ticks.map(d => `<line x1="${X(d).toFixed(1)}" x2="${X(d).toFixed(1)}" y1="${T}" y2="${H - B}" class="pcgrid v"/><text x="${X(d).toFixed(1)}" y="${H - 8}" text-anchor="${d === x0 ? "start" : d === x1 ? "end" : "middle"}" class="pctick">${lab(d)}</text>`).join("")}
+      ${data.slice().reverse().map(s => `<path d="${path(s.pts)}" style="stroke:${col(s.c)}" class="pcline ${s.c === "KR" ? "kr" : ""}"/>${s.pts.slice(1, -1).map(q => `<circle cx="${X(q[0]).toFixed(1)}" cy="${Y(q[1]).toFixed(1)}" r="3.5" style="fill:${col(s.c)}"/>`).join("")}`).join("")}
+    </svg>`;
+    const leg = data.map(s => { const a = s.pts[0][1], b2 = s.pts[s.pts.length - 1][1], r = a ? (b2 - a) / a : 0;
+      return `<span class="pcleg"><i style="background:${col(s.c)}"></i>${nationF(s.c)} <b>${man(b2)}</b>${chg[s.c] ? ` <span class="${r > 0 ? "up" : r < 0 ? "down" : ""}">${r > 0 ? "+" : r < 0 ? "−" : ""}${Math.abs(r * 100).toFixed(1)}%</span>` : ` <span class="muted">변동 없음</span>`}</span>`; }).join("");
+    const omitted = Object.keys(chg).filter(c => !order.includes(c)).length;
+    return `<section class="sec pchart"><div class="sh"><h3>${t("가격 추이", "Price trend", "価格推移")}</h3><span class="note">${t(`${esc(mdd(HIST_FIRST))}부터 · ${JINGA} 기준(지금 설정·환율로 환산) · 점은 공홈 가격이 바뀐 날${omitted ? ` · ${omitted}개 나라는 아래 이력에` : ""}`, `Since ${esc(mdd(HIST_FIRST))} · real price (current settings & rates) · dots = official price changes${omitted ? ` · ${omitted} more countries in the history below` : ""}`, `${esc(mdd(HIST_FIRST))}から · ${JINGA}基準(現在の設定・レートで換算) · 点は公式価格が変わった日${omitted ? ` · 他${omitted}か国は下の履歴に` : ""}`)}</span></div>
+      ${svg}<div class="pclegs">${leg}</div></section>`;
   }
 
   // ── S-09 설정 (5.15절): 질문으로 묻고, 바꾸는 즉시 미리보기 제품의 진가가 바뀜 ──
@@ -1678,7 +1834,7 @@
             ${q("어떻게 결제하세요?", segBtns("pay", [["card", "신용카드 1.2%"], ["travel", "트래블카드 0%"], ["custom", "직접 입력"]]),
               "해외 결제 수수료예요. 원화 결제(DCC)는 3~8%가 더 붙으니 현지 통화로 결제하세요.", SET.pay === "custom" ? `<div class="sub">수수료 ${numIn("fee", "%", "0.1")}</div>` : "")}
             ${q("출국할 때 세금 환급을 받으세요?", segBtns("refund", [[true, "받아요"], [false, "안 받아요"]]),
-              SET.refund ? `예: 일본은 약 ${jpRate}%, 프랑스는 약 ${C.FR.refund}%가 빠져요.` : "환급 없이 현지 가격 그대로 계산해요.")}
+              SET.refund ? `예: 일본은 약 ${jpRate(SET.jpFeeMode === "custom" ? SET.jpRefFee : 2.3)}%, 프랑스는 약 ${C.FR.refund}%가 빠져요.` : "환급 없이 현지 가격 그대로 계산해요.")}
             ${q("한국 들어올 때 세관에 신고하세요?", segBtns("customs", [[true, "신고해요"], [false, "관세 없이 볼게요"]]),
               SET.customs ? "면세 한도 $800을 넘는 만큼 관세를 더해요(제품 1개 기준)." : "관세를 빼고 보면 해외가 실제보다 싸 보여요.",
               SET.customs ? `<div class="sub">${segBtns("self", [[true, "자진신고 (관세 30% 감면, 최대 20만원)"], [false, "감면 없이"]])}</div>` : "")}
@@ -1686,12 +1842,15 @@
               "백화점 상품권·카드 할인 등. 한국 가격에서 빼고 비교해요.", SET.krDisc ? `<div class="sub">할인율 ${numIn("krDisc", "%", "0.5")}</div>` : "")}
             ${q("어디로 가세요?", `<button type="button" class="tchip" data-trip-open>✈ ${S.trip.length ? S.trip.map(c => esc(C[c].n)).join(" · ") : "여행지 고르기"}</button>`,
               "고르면 그 나라 옵션이 아래 '나라별 옵션' 맨 위로 올라와요.")}
+            ${q("언제 가세요?", `<div class="dates"><label>출발 <input type="date" data-date="tripFrom" value="${esc(SET.tripFrom)}" min="${CALC.today()}"></label><label>귀국 <input type="date" data-date="tripTo" value="${esc(SET.tripTo)}" min="${esc(SET.tripFrom || CALC.today())}"></label>${SET.tripFrom ? `<button type="button" class="link" data-date-clear>지우기</button>` : ""}</div>`,
+              tripInfo() ? `${tripInfo()} · 여행 기간의 이벤트·쿠폰을 첫 화면에 보여 주고, 출발 전에 담은 제품 가격을 다시 알려 드려요.` : "넣으면 여행 기간의 이벤트·쿠폰을 첫 화면에 보여 주고, 출발 전에 담은 제품 가격을 다시 알려 드려요. (안 넣어도 돼요)")}
           </section>
           <details class="setsec" ${isM() ? "" : "open"}><summary class="sth"><span class="stt"><h3>나라별 옵션</h3><span class="sdesc">일본 백화점 할인·환급 수수료 · 미국 판매세 지역 · 기간 쿠폰 · 유럽 고액 환급</span></span></summary><div class="right"><button type="button" class="link" data-reset="jpDept,jpRate,jpFeeMode,jpRefFee,cp,us,usTax,euHigh">이 묶음 기본값으로</button></div>
             ${mine.length ? `<p class="plabel">내 여행지</p>${mine.map(x => x.html).join("")}` : ""}
             ${rest.length ? `<details class="more2" ${mine.length ? "" : "open"}><summary>${mine.length ? "다른 나라 옵션 보기" : "나라별 옵션"}</summary>${rest.map(x => x.html).join("")}</details>` : ""}
           </details>
           <details class="setsec" ${isM() ? "" : "open"}><summary class="sth"><span class="stt"><h3>보기</h3><span class="sdesc">비교할 나라 · 브랜드 숨기기 · 숫자 표기 · 화면 밝기</span></span></summary><div class="right"><button type="button" class="link" data-reset="off,hide,tripOnly,num,theme">이 묶음 기본값으로</button></div>
+            ${q("언어 · Language · 言語", segBtns("lang", [["ko", "한국어"], ["en", "English"], ["ja", "日本語"]]), "1차: 첫 화면·찾기·제품·담기 화면. 설정·이벤트·쇼핑 리스트·공지는 아직 한국어예요.")}
             ${q("비교할 나라", `<div class="fopts">${TRIP_CODES.map(c => `<button type="button" class="fopt ${SET.off.includes(c) ? "" : "on"}" data-toggle-off="${c}">${flag(c)}${esc(C[c].n)}</button>`).join("")}</div>`, "끈 나라는 가장 싼 나라·순위 계산에서 빠져요. 한국은 늘 비교해요.")}
             ${q("내 여행지 나라만 비교", segBtns("tripOnly", [[false, "모든 나라"], [true, "한국 + 내 여행지만"]]))}
             ${q("관심 없는 브랜드 숨기기", `<div class="fopts">${[...new Set(list().map(p => p.b))].map(b => `<button type="button" class="fopt ${SET.hide.includes(b) ? "" : "on"}" data-toggle-hide="${esc(b)}">${brandMark(b, "sm")}</button>`).join("")}</div>`, "숨긴 브랜드도 브랜드를 직접 고르면 보여요.")}
@@ -1753,8 +1912,8 @@
     panel.hidden = false;
   }
   const onboardCard = () => SET.onboarded ? "" : isM()
-    ? `<div class="onbband"><span>세 가지만 알려 주시면 더 정확해져요</span><button type="button" class="btn" data-onb-open>시작</button><button type="button" class="link" data-onboard aria-label="닫기">✕</button></div>`
-    : `<section class="onb"><div><p class="eyebrow">3 Questions</p><h3>세 가지만 알려 주시면 더 정확해져요</h3></div>
+    ? `<div class="onbband"><span>${t("세 가지만 알려 주시면 더 정확해져요", "Answer 3 questions for sharper prices", "3つの質問でより正確に")}</span><button type="button" class="btn" data-onb-open>${t("시작", "Start", "開始")}</button><button type="button" class="link" data-onboard aria-label="${t("닫기", "Close", "閉じる")}">✕</button></div>`
+    : `<section class="onb"><div><p class="eyebrow">3 Questions</p><h3>${t("세 가지만 알려 주시면 더 정확해져요", "Answer 3 questions for sharper prices", "3つの質問でより正確に")}</h3></div>
     <div class="onbq"><span>결제는</span>${segBtns("pay", [["card", "신용카드"], ["travel", "트래블카드"]])}</div>
     <div class="onbq"><span>세금 환급은</span>${segBtns("refund", [[true, "받아요"], [false, "안 받아요"]])}</div>
     <div class="onbq"><span>세관 신고는</span>${segBtns("customs", [[true, "해요"], [false, "관세 없이"]])}</div>
@@ -1792,23 +1951,69 @@
   function picks() {
     const all = S.picks.map(k => { const i = k.indexOf("|"); return findP(k.slice(0, i), k.slice(i + 1)); });
     const ps = all.filter(Boolean), gone = all.length - ps.length;
-    const head = `<div class="pagehead center"><p class="eyebrow">Picks</p><h1>담은 목록</h1>`;
-    if (!ps.length) return `${head}<p class="lead">${gone ? `담은 제품 ${gone}개가 이번 데이터에 없어요. ` : ""}아직 담은 제품이 없어요. 제품의 ♡를 누르면 여기 모여요.</p><a class="btn" href="#/search">제품 찾기</a></div>`;
+    const head = `<div class="pagehead center"><p class="eyebrow">Picks</p><h1>${t("담은 목록", "My picks", "保存リスト")}</h1>`;
+    if (!ps.length) return `${head}<p class="lead">${gone ? t(`담은 제품 ${gone}개가 이번 데이터에 없어요. `, `${gone} picked items are not in this data. `, `保存した製品${gone}点は今回のデータにありません。`) : ""}${t("아직 담은 제품이 없어요. 제품의 ♡를 누르면 여기 모여요.", "Nothing picked yet. Tap ♡ on a product to keep it here.", "まだ保存した製品がありません。製品の♡を押すとここに集まります。")}</p><a class="btn" href="#/search">${t("제품 찾기", "Find products", "製品を探す")}</a></div>`;
     const kr = basket(ps, "KR");
     const cs = TRIP_CODES.map(c => ({ c, net: basket(ps, c) })), can = cs.filter(o => o.net !== null).sort((a, b) => a.net - b.net);
     const part = cs.filter(o => o.net === null).map(o => o.c);
     const order = [...can.filter(o => S.trip.includes(o.c)), ...can.filter(o => !S.trip.includes(o.c))];
     const best = can[0], mx = Math.max(kr || 0, ...can.map(o => o.net));
-    const line = o => `<li class="${S.trip.includes(o.c) ? "mine" : ""} ${o === best ? "best" : ""}"><span>${S.trip.includes(o.c) ? "✈ " : ""}${nationF(o.c)}</span><span class="bar"><i style="width:${o.net / mx * 100}%"></i></span><b>${won(o.net)}</b><small>${kr ? (kr > o.net ? `${won(kr - o.net)} 아낌` : `한국보다 ${won(o.net - kr)} 비쌈`) : ""}</small></li>`;
-    return `${head}<p class="lead">${ps.length}개 · 한 나라에서 함께 살 때 합계 ${JINGA} · 관세는 합계에서 $800를 한 번만 빼요</p></div>
+    const line = o => `<li class="${S.trip.includes(o.c) ? "mine" : ""} ${o === best ? "best" : ""}"><span>${S.trip.includes(o.c) ? "✈ " : ""}${nationF(o.c)}</span><span class="bar"><i style="width:${o.net / mx * 100}%"></i></span><b>${won(o.net)}</b><small>${kr ? (kr > o.net ? t(`${won(kr - o.net)} 아낌`, `save ${won(kr - o.net)}`, `${won(kr - o.net)}お得`) : t(`한국보다 ${won(o.net - kr)} 비쌈`, `${won(o.net - kr)} more than Korea`, `韓国より${won(o.net - kr)}高い`)) : ""}</small></li>`;
+    // 바뀐 가격 (11-08): 마지막 확인 뒤 담은 제품에 생긴 변동 + 관계있는 공지. '확인했어요'를 누르면 사라짐
+    const A = pickAlerts();
+    const alerts = A.n || A.nts.length ? `<section class="sec alerts"><div class="sh"><h2>${t("바뀐 가격", "Price changes", "価格の変化")}</h2><p class="note">${t("마지막 확인 뒤 담은 제품에 생긴 변동", "Changes to your picks since you last checked", "前回確認後の保存製品の変化")} · ${t("데이터", "Data", "データ")} ${esc(mdd(D.generated))}</p></div>
+        ${ntStrip(A.nts)}
+        ${A.n ? `<div class="lrows">${[...new Set(A.chg.map(c => c.b + "|" + c.s))].map(k => { const p = findP(k.slice(0, k.indexOf("|")), k.slice(k.indexOf("|") + 1)); if (!p) return "";
+          const cs = A.chg.filter(c => c.b === p.b && c.s === p.s);
+          return rowItem(itemOf(p), cs.slice(0, 3).map(c => `<div class="chg ${c.r < 0 ? "down" : "up"}">${c.r < 0 ? "▼" : "▲"} ${cc(c.cc)} ${esc(C[c.cc].n)} ${local(c.cc, c.o)} → ${local(c.cc, c.nw)} (${c.r > 0 ? "+" : "−"}${Math.abs(c.r * 100).toFixed(1)}%) · ${esc(mdd(c.d))}</div>`).join("") + (cs.length > 3 ? `<div class="chg">${t(`외 ${cs.length - 3}개 나라`, `+${cs.length - 3} more countries`, `他${cs.length - 3}か国`)}</div>` : "")); }).join("")}</div>` : ""}
+        <p class="center"><button type="button" class="btn ghost" data-alert-seen>${t("확인했어요", "Mark as seen", "確認しました")}</button></p></section>` : "";
+    return `${head}<p class="lead">${t(`${ps.length}개 · 한 나라에서 함께 살 때 합계 ${JINGA} · 관세는 합계에서 $800를 한 번만 빼요`, `${ps.length} items · total ${JINGA} when bought together in one country · the $800 customs allowance is taken once from the total`, `${ps.length}点 · 1か国でまとめて買うときの合計${JINGA} · 関税の免税枠$800は合計から1回だけ`)}</p></div>
+      ${alerts}
       <section class="sec shop"><div class="shopbox">
         ${stockNote(true)}
-        <div class="shophead">${!best ? "이 제품들을 모두 파는 나라가 없어요" : kr && kr > best.net ? `${nationF(best.c)}에서 다 사면 <b>${won(kr - best.net)}</b> 아껴요` : kr ? "한국에서 사는 게 가장 싸요" : `가장 싼 곳은 ${nationF(best.c)}`}</div>
-        <ol class="plist">${kr ? `<li class="kr"><span>${nationF("KR")} <small>기준</small></span><span class="bar"><i style="width:${kr / mx * 100}%"></i></span><b>${won(kr)}</b><small></small></li>` : ""}${order.map(line).join("")}</ol>
-        ${part.length ? `<p class="shopfoot">일부만 파는 나라 ${part.length}곳은 뺐어요 (${part.map(c => esc(C[c].n)).join(" · ")})</p>` : ""}
-        <p class="shopfoot">1,000만원 이하 제품은 합계에 간이세율, 넘는 제품은 그 제품만 일반 과세 (7장) · 지금 설정: ${esc(setSummary())} <a class="link" href="#/settings">바꾸기</a></p>
+        <div class="shophead">${!best ? t("이 제품들을 모두 파는 나라가 없어요", "No country sells all of these", "すべてを販売している国はありません") : kr && kr > best.net ? t(`${nationF(best.c)}에서 다 사면 <b>${won(kr - best.net)}</b> 아껴요`, `Buy all in ${nationF(best.c)} and save <b>${won(kr - best.net)}</b>`, `${nationF(best.c)}でまとめて買うと<b>${won(kr - best.net)}</b>お得`) : kr ? t("한국에서 사는 게 가장 싸요", "Cheapest in Korea", "韓国で買うのが最安") : t(`가장 싼 곳은 ${nationF(best.c)}`, `Cheapest: ${nationF(best.c)}`, `最安は${nationF(best.c)}`)}</div>
+        <ol class="plist">${kr ? `<li class="kr"><span>${nationF("KR")} <small>${t("기준", "base", "基準")}</small></span><span class="bar"><i style="width:${kr / mx * 100}%"></i></span><b>${won(kr)}</b><small></small></li>` : ""}${order.map(line).join("")}</ol>
+        ${part.length ? `<p class="shopfoot">${t(`일부만 파는 나라 ${part.length}곳은 뺐어요`, `${part.length} countries that sell only some are left out`, `一部のみ販売の${part.length}か国は除外`)} (${part.map(c => esc(C[c].n)).join(" · ")})</p>` : ""}
+        <p class="shopfoot">${t("1,000만원 이하 제품은 합계에 간이세율, 넘는 제품은 그 제품만 일반 과세 (7장)", "Items up to ₩10M use the simplified rate on the total; pricier items are taxed at the standard rate", "1,000万ウォン以下は合計に簡易税率、超える製品はその製品のみ一般課税")} · ${t("지금 설정", "Settings", "現在の設定")}: ${esc(setSummary())} <a class="link" href="#/settings">${t("바꾸기", "Change", "変更")}</a></p>
       </div></section>
-      <section class="sec"><div class="sh"><h2>담은 제품</h2>${gone ? `<p class="note">이번 데이터에 없는 제품 ${gone}개는 뺐어요</p>` : ""}</div>${grid(ps.map(itemOf))}</section>`;
+      <section class="sec"><div class="sh"><h2>${t("담은 제품", "Picked items", "保存した製品")}</h2>${gone ? `<p class="note">${t(`이번 데이터에 없는 제품 ${gone}개는 뺐어요`, `${gone} items not in this data were left out`, `今回のデータにない${gone}点は除外`)}</p>` : ""}<p class="note">${t(`‘⇄ 비교’로 ${CMP_MAX}개까지 골라 나란히 봐요`, `Use ‘⇄ Compare’ to view up to ${CMP_MAX} side by side`, `‘⇄ 比較’で${CMP_MAX}点まで並べて比較`)}</p></div><div class="grid">${ps.map(p => card(itemOf(p), `<div class="ccmp">${cmpBtn(p, "tchip sm")}</div>`)).join("")}</div></section>`;
+  }
+  // ── 나란히 비교 (11-08, 웹앱계획.md 13장 기능 4): 제품 화면·담은 목록의 '⇄ 비교'로 3개까지 담아 표 하나로 ──
+  const CMP_MAX = 3;
+  const cmpBtn = (p, cls) => { const k = p.b + "|" + p.s, on = S.cmp.includes(k);
+    return `<button type="button" class="${cls || "btn ghost"} ${on ? "on" : ""}" data-cmp="${esc(k)}" aria-pressed="${on}">${on ? t("⇄ 비교에 담음", "⇄ In compare", "⇄ 比較に追加済み") : t("⇄ 비교", "⇄ Compare", "⇄ 比較")}</button>`; };
+  function cmpBar() {
+    let el = document.getElementById("cmpbar");
+    if (!el) { el = document.createElement("div"); el.id = "cmpbar"; el.className = "cmpbar"; document.body.appendChild(el); }
+    el.hidden = !S.cmp.length || location.hash.split("?")[0] === "#/compare";
+    if (!el.hidden) el.innerHTML = `<span>${t(`비교 <b>${S.cmp.length}</b>개`, `Compare <b>${S.cmp.length}</b>`, `比較 <b>${S.cmp.length}</b>点`)}</span><a class="btn" href="#/compare">${t("나란히 보기", "View side by side", "並べて見る")}</a><button type="button" class="link" data-cmp-clear>${t("비우기", "Clear", "クリア")}</button>`;
+    document.body.classList.toggle("hascmp", !el.hidden);
+  }
+  function comparePage() {
+    const ps = S.cmp.map(k => findP(k.slice(0, k.indexOf("|")), k.slice(k.indexOf("|") + 1))).filter(Boolean);
+    const head = `<div class="pagehead center"><p class="eyebrow">Compare</p><h1>${t("나란히 비교", "Side by side", "並べて比較")}</h1>`;
+    if (ps.length < 2) return `${head}<p class="lead">${ps.length ? t("하나 더 담으면 나란히 비교할 수 있어요. ", "Add one more to compare side by side. ", "もう1点追加すると並べて比較できます。") : ""}${t(`제품 화면이나 담은 목록의 ‘⇄ 비교’를 눌러 ${CMP_MAX}개까지 담아요.`, `Tap ‘⇄ Compare’ on a product or in your picks to add up to ${CMP_MAX}.`, `製品画面や保存リストの‘⇄ 比較’で${CMP_MAX}点まで追加できます。`)}</p><a class="btn" href="#/picks">${t("담은 목록", "My picks", "保存リスト")}</a> <a class="btn ghost" href="#/search">${t("제품 찾기", "Find products", "製品を探す")}</a></div>`;
+    const Rs = ps.map(p => rep(p)), rss = ps.map(p => rows(p));
+    // 나라 줄: 내 여행지 → 각 제품의 가장 싼 나라 → 제품마다 싼 순 3개 (겹치면 하나)
+    const ccs = [...new Set([...S.trip, ...Rs.map(R => R.best && R.best.cc), ...rss.flatMap(rs => rs.filter(r => r.t > 0 && r.v && r.cc !== "KR").sort((a, b) => a.net - b.net).slice(0, 3).map(r => r.cc))].filter(c => c && c !== "KR" && C[c]))];
+    const cell = (i, cc) => { const r = rss[i].find(x => x.cc === cc), R = Rs[i];
+      if (!r || !r.v || !(r.t > 0)) return `<td class="dim">—</td>`;
+      return `<td class="${R.best && R.best.cc === cc ? "best" : ""}">${man(r.net)}${R.kr && !R.kr.ref ? `<small>${pct((R.kr.net - r.net) / R.kr.net)}</small>` : ""}${r.t === 2 ? `<small class="stk">${t("재고 확인", "check stock", "在庫確認")}</small>` : ""}</td>`; };
+    const row = (label, cells) => `<tr><th>${label}</th>${cells.join("")}</tr>`;
+    const info = p => kind === "bag" ? [[t("색상", "Color", "カラー"), colKo(p)], [t("종류", "Type", "種類"), TYPE_ALL[p.t] || p.t]] : [[t("소재", "Material", "素材"), p.m], [t("스톤", "Stone", "ストーン"), p.g], [t("종류", "Type", "種類"), TYPE_ALL[p.t] || p.t]];
+    const keys = info(ps[0]).map(x => x[0]);
+    return `${head}<p class="lead">${t(`${ps.length}개 · ${JINGA} 기준`, `${ps.length} items · ${JINGA}`, `${ps.length}点 · ${JINGA}基準`)} · ${esc(setSummary())} <a class="link" href="#/settings">✎</a></p></div>
+      <div class="cmpwrap"><table class="cmptable"><thead><tr><th></th>${ps.map(p => `<th><a class="cph" href="${link(p)}" aria-label="${esc(p.n)}">${photo(p)}</a><div class="br">${esc(p.b.toUpperCase())}</div><a class="cnm" href="${link(p)}">${esc(p.n)}</a>
+        <div class="cact"><button type="button" class="link" data-pick="${esc(p.b + "|" + p.s)}">${S.picks.includes(p.b + "|" + p.s) ? t("♥ 담음", "♥ Picked", "♥ 保存済み") : t("♡ 담기", "♡ Pick", "♡ 保存")}</button><button type="button" class="link" data-cmp="${esc(p.b + "|" + p.s)}">${t("✕ 빼기", "✕ Remove", "✕ 外す")}</button></div></th>`).join("")}</tr></thead><tbody>
+        ${row(t("가장 싼 곳", "Cheapest", "最安"), Rs.map(R => R.best ? `<td class="best">${nationF(R.best.cc)}<b>${man(R.best.net)}</b>${savedAmt(R) ? `<small class="save">${t(`${krLab(R)}보다 ${man(savedAmt(R))} 아낌`, `save ${man(savedAmt(R))} vs ${krLab(R)}`, `${krLab(R)}より${man(savedAmt(R))}お得`)}</small>` : R.kr ? `<small>${t(`${krLab(R)}이 가장 쌈`, `${krLab(R)} is cheapest`, `${krLab(R)}が最安`)}</small>` : ""}</td>` : `<td class="dim">${t("가격 없음", "No price", "価格なし")}</td>`))}
+        ${row(esc(C.KR.n), Rs.map(R => R.kr && !R.kr.ref ? `<td>${man(R.kr.net)}</td>` : `<td class="dim">${t("한국 미판매", "Not sold in Korea", "韓国未販売")}</td>`))}
+        ${ccs.map(c => row(`${S.trip.includes(c) ? "✈ " : ""}${nationF(c)}`, ps.map((p, i) => cell(i, c)))).join("")}
+        ${keys.map((k, j) => row(k, ps.map(p => `<td class="tx">${esc(String((info(p)[j] || [])[1] || "—").slice(0, 80))}</td>`))).join("")}
+        ${row(t("제품번호", "Ref.", "品番"), ps.map(p => `<td class="tx">${esc(p.s)}</td>`))}
+      </tbody></table></div>
+      <p class="note center">${t("초록 칸 = 그 제품이 가장 싼 나라 · 작은 숫자 = 한국 대비", "Green = cheapest country for that item · small number = vs Korea", "緑 = その製品の最安国 · 小さい数字 = 韓国比")}</p>
+      ${stockNote(true)}
+      <p class="center cmpfoot"><a class="btn ghost" href="#/picks">${t("담은 목록", "My picks", "保存リスト")}</a> <button type="button" class="btn ghost" data-cmp-clear>${t("비교 비우기", "Clear compare", "比較をクリア")}</button></p>`;
   }
   // ── S-07 가격 변동 (5.13절): 한국 변동 먼저, 오른·내린 ──
   function changesPage(q) {
@@ -1876,7 +2081,7 @@
     if (!M.stores) return "";
     const I = stIdx(), c = I && I.countries[cc];
     if (I && !(c && (c.nb || {})[b])) return "";
-    return `<a class="link stbest" href="#/stores/${cc}?b=${encodeURIComponent(b)}">${esc(C[cc] ? C[cc].n : cc)} ${esc(bk(b))} 매장 찾기 ›</a>`;
+    return `<a class="link stbest" href="#/stores/${cc}?b=${encodeURIComponent(b)}">${t(`${esc(C[cc] ? C[cc].n : cc)} ${esc(bk(b))} 매장 찾기 ›`, `${esc(bk(b))} stores in ${esc(C[cc] ? C[cc].n : cc)} ›`, `${esc(C[cc] ? C[cc].n : cc)}の${esc(bk(b))}店舗 ›`)}</a>`;
   };
   // ── 공지사항 #/notices (11-04 사용자): 브랜드×나라 전체 가격 인상·인하(가격 변동 기록에서 자동) + 직접 쓴 공지(config/events.json notices) ──
   // 자동 판정: 같은 수집일에 한 브랜드·한 나라에서 바뀐 제품이 20개 이상 · 바뀐 것의 90% 이상이 같은 방향 · 중간 변동 ±2% 이상
@@ -1912,6 +2117,39 @@
     return (ntList = [...auto, ...own].sort((x, y) => y.d.localeCompare(x.d) || (y.cs ? y.cs.length : 0) - (x.cs ? x.cs.length : 0)));
   }
   const ntAuto = n => n.type === "up" || n.type === "down";
+  // ── 담은 제품 가격 변동 알림 (11-08, 웹앱계획.md 13장 기능 2 = 12.2절 1단계 '앱 안 알림') ──
+  // 마지막으로 확인한 데이터 날(alertSeen) 뒤에 생긴 것만: 담은 제품의 가격 변동 + 담은 브랜드·내 여행지 나라 공지.
+  // 처음 쓰는 기기는 지금 데이터 날을 기준으로 삼아 옛 변동을 알리지 않는다. '확인했어요'를 누르면 기준 날을 데이터 날로.
+  const alertKey = () => KEY("alertSeen");
+  function pickAlerts() {
+    const since = store.get(alertKey(), null);
+    if (!since) { store.set(alertKey(), D.generated); return { chg: [], nts: [], n: 0 }; }
+    if (since >= D.generated || !S.picks.length) return { chg: [], nts: [], n: 0 };
+    const keys = new Set(S.picks), bs = new Set(S.picks.map(k => k.slice(0, k.indexOf("|"))));
+    const chg = D.changes.filter(c => c.d > since && C[c.cc] && keys.has(c.b + "|" + c.s)).sort((a, b) => (b.d || "").localeCompare(a.d || "") || (a.cc === "KR" ? -1 : b.cc === "KR" ? 1 : Math.abs(b.r) - Math.abs(a.r)));
+    const nts = notices().filter(n => n.d > since && (n.brands.some(b => bs.has(b)) || n.countries.some(c => S.trip.includes(c))));
+    return { chg, nts, n: new Set(chg.map(c => c.b + "|" + c.s)).size };
+  }
+  // ── 여행 날짜 (11-08, 웹앱계획.md 13장 기능 5) ──
+  const tripDays = () => SET.tripFrom ? Math.round((Date.parse(SET.tripFrom + "T00:00:00") - Date.parse(CALC.today() + "T00:00:00")) / 864e5) : null;  // 출발까지 남은 날(음수 = 여행 중·지남)
+  const tripOn = () => { const d = tripDays(); return d !== null && d <= 0 && (!SET.tripTo || CALC.today() <= SET.tripTo); };  // 지금 여행 중
+  const tripOver = () => !!SET.tripFrom && tripDays() < 0 && !tripOn();  // 다녀옴
+  const tripInfo = () => { const d = tripDays(); if (d === null) return ""; const span = SET.tripTo ? ` ${mdd(SET.tripFrom)}~${mdd(SET.tripTo)}` : ` ${mdd(SET.tripFrom)}`;
+    return tripOn() ? `지금 여행 중${span}` : tripOver() ? `다녀온 여행${span}` : d === 0 ? `오늘 출발${span}` : `출발 D-${d}${span}`; };
+  const tripDday = () => { const d = tripDays(); return d === null || tripOver() ? "" : tripOn() ? "여행 중" : d === 0 ? "오늘 출발" : `D-${d}`; };
+  // 여행 기간에 걸치는 이벤트·쿠폰 (지금 진행 중이 아니어도): 내 여행지 나라 것 먼저
+  const tripEvents = () => { if (!SET.tripFrom || tripOver()) return []; const a = evTime(SET.tripFrom, false), b = evTime(SET.tripTo || SET.tripFrom, true);
+    return EV.events.filter(e => !e.sample && evTime(e.from, false) <= b && a <= evTime(e.until, true) && (!e.countries || !e.countries.length || !S.trip.length || e.countries.some(c => S.trip.includes(c))))
+      .sort((x, y) => (y.priority || 0) - (x.priority || 0) || evTime(x.until, true) - evTime(y.until, true)); };
+  const tripStrip = () => { const d = tripDays(); if (d === null || tripOver()) return "";
+    const ev = tripEvents(), cps = CALC.coupons.filter(cp => S.trip.includes(cp.country) && CALC.cpActive(cp, SET.tripFrom) && !cpLive(cp));
+    const parts = [ev.length ? `이벤트 ${ev.length}개` : "", cps.length ? `그때 쓸 수 있는 쿠폰 ${cps.length}개` : ""].filter(Boolean);
+    const soon = d >= 0 && d <= 7 && S.picks.length ? ` · 담은 제품 ${S.picks.length}개 가격은 ${mdd(D.generated)} 수집 기준` : "";
+    return `<a class="evstrip tripstrip" href="${ev.length ? "#/events?trip=1" : S.picks.length ? "#/picks" : "#/settings"}"><span class="evcat">${esc(tripDday() || "여행")}</span><span class="evt">${esc(tripInfo())}${parts.length ? " · " + parts.join(" · ") : ""}${soon}</span><span class="evgo">›</span></a>`; };
+  const alertStrip = () => { const A = pickAlerts(); if (!A.n && !A.nts.length) return "";
+    const up = A.chg.filter(c => c.r > 0).length, dn = A.chg.filter(c => c.r < 0).length;
+    const t = A.n ? `담은 제품 ${A.n}개 가격이 바뀌었어요${up ? ` · 오름 ${up}` : ""}${dn ? ` · 내림 ${dn}` : ""}` : `담은 브랜드·내 여행지 공지 ${A.nts.length}개`;
+    return `<a class="evstrip alstrip" href="#/picks"><span class="evcat">알림</span><span class="evt">${t}</span><span class="evgo">›</span></a>`; };
   const ntFor = (b, cc) => notices().filter(n => (!b || n.brands.includes(b)) && (!cc || n.countries.includes(cc)));
   // 띠: 나라 화면이면 그 나라 숫자만 ('보테가 베네타 일본 가격 +3.3% 인상')
   const ntLabel = (n, cc) => ntAuto(n) && cc ? (x => `${bk(n.b)} ${C[cc].n} 가격 ${sgn(x.m)} ${NTW[n.type]}`)(n.cs.find(x => x.cc === cc)) : n.title;
@@ -1952,7 +2190,7 @@
     if (!pg || !livePages().includes(pg)) return `<div class="pagehead center"><h1>이벤트가 끝났어요</h1><p class="lead"><a class="link" href="#/events">진행 중인 이벤트 보기</a></p></div>`;
     const evs = pg.events.map(i => EV.events.find(e => e.id === i)).filter(Boolean);
     setTimeout(evImgFill, 0);
-    return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/events">이벤트</a> › ${esc(pg.title)}</nav>
+    return `<nav class="crumb"><a href="#/">${t("홈", "Home", "ホーム")}</a> › <a href="#/events">이벤트</a> › ${esc(pg.title)}</nav>
       ${pg.banner && pg.banner.image ? `<div class="evhero">${evImg(pg.banner, "evheroimg")}</div>` : ""}
       <div class="pagehead center evphead">${pg.banner && pg.banner.eyebrow ? `<p class="eyebrow">${esc(pg.banner.eyebrow)}</p>` : ""}<h1>${esc(pg.title)}</h1>${pg.sub ? `<p class="lead">${esc(pg.sub)}</p>` : ""}
         <p class="evwhen">이 페이지는 ${evDate(pg.until)}까지 보여요</p></div>
@@ -1961,19 +2199,20 @@
       <p class="note center evnote">행사·카드 조건은 바뀔 수 있어요. 사러 가기 전에 공식 안내와 매장에서 꼭 확인하세요. 럭스캐너는 각 매장·카드사와 관계없는 정보 모음이에요.</p>`;
   }
   function eventsPage(q) {
-    const all = liveEvents(), cat = q.get("cat") || "", cc = q.get("cc") || "";
+    const trip = q.get("trip") === "1" && !!SET.tripFrom && !tripOver();  // 여행 기간에 걸치는 이벤트만 (11-08, 기능 5)
+    const all = trip ? tripEvents() : liveEvents(), cat = q.get("cat") || "", cc = q.get("cc") || "";
     const inCat = e => !cat || e.category === cat, inCc = e => !cc || !e.countries.length || e.countries.includes(cc);
     const shown = all.filter(e => inCat(e) && inCc(e));
     const href = (k, v) => { const p = new URLSearchParams(q); v ? p.set(k, v) : p.delete(k); const s = p.toString(); return "#/events" + (s ? "?" + s : ""); };
     const cats = EV.categories.filter(c => all.some(e => e.category === c.id && inCc(e)));
     const ccs = [...new Set(all.filter(inCat).flatMap(e => e.countries))].filter(c => C[c]).sort((a, b) => TRIP_CODES.indexOf(a) - TRIP_CODES.indexOf(b));
     const chip = (on, h, label, n) => `<a class="tchip ${on ? "on" : ""}" href="${h}">${label}${n !== undefined ? ` <small>${n}</small>` : ""}</a>`;
-    return `<div class="pagehead center"><p class="eyebrow">Events</p><h1>이벤트</h1><p class="lead">해외 매장 프로모션·세일·면세 행사 — 기간 안에만 보여요</p></div>
+    return `<div class="pagehead center"><p class="eyebrow">Events</p><h1>이벤트</h1><p class="lead">${trip ? `${esc(tripInfo())} 기간에 걸치는 이벤트${S.trip.length ? " · 내 여행지 나라" : ""} <a class="link" href="#/events">지금 진행 중만</a>` : `해외 매장 프로모션·세일·면세 행사 — 기간 안에만 보여요${SET.tripFrom && !tripOver() ? ` · <a class="link" href="#/events?trip=1">여행 기간 이벤트</a>` : ""}`}</p></div>
       ${evPreview() ? `<p class="evpvbar">미리보기 — 샘플과 시작 전 이벤트도 보여요. 일반 화면·앱에는 보이지 않아요. <a class="link" href="#/events">미리보기 끄기</a></p>` : ""}
       ${livePages().length ? `<div class="evpages">${livePages().map(pg => `<a class="evpage" href="#/events/${esc(pg.id)}${evPreview() ? "?preview=1" : ""}"><b>${pg.sponsor ? `<span class="evad">광고</span> ` : ""}${esc(pg.title)}</b><small>${esc(pg.sub)}</small><span class="evgo">›</span></a>`).join("")}</div>` : ""}
       <div class="evfilter"><div class="chiprow"><span class="evlab">종류</span>${chip(!cat, href("cat", ""), "전체", all.filter(inCc).length)}${cats.map(c => chip(cat === c.id, href("cat", c.id), esc(c.name), all.filter(e => e.category === c.id && inCc(e)).length)).join("")}</div>
         <div class="chiprow"><span class="evlab">지역</span>${chip(!cc, href("cc", ""), "전체")}${ccs.map(c => chip(cc === c, href("cc", c), nationF(c))).join("")}</div></div>
-      ${shown.length ? `<div class="evlist">${withAds("events", shown.map(evCard))}</div>` : `<p class="empty">${all.length ? "이 조건에 맞는 이벤트가 없어요." : "지금 진행 중인 이벤트가 없어요."}</p>`}
+      ${shown.length ? `<div class="evlist">${withAds("events", shown.map(evCard))}</div>` : `<p class="empty">${all.length ? "이 조건에 맞는 이벤트가 없어요." : trip ? "여행 기간에 걸치는 이벤트가 아직 없어요." : "지금 진행 중인 이벤트가 없어요."}</p>`}
       <p class="note center evnote">이벤트 조건은 매장·브랜드마다 달라요. 사러 가기 전에 공식 안내를 꼭 확인하세요.${all.some(e => e.sponsor) ? " '광고' 표시는 광고주가 낸 안내예요." : ""}</p>`;
   }
   // 뒤로 가기 (앱, 2026-10-29): 화면 위 ‹ 버튼 + 안드로이드 뒤로 키. 열린 판을 먼저 닫고, 앱 안에서 옮겨 온 화면이면 이전 화면, 아니면 첫 화면.
@@ -2076,7 +2315,7 @@
     const cats = GD.categories.filter(x => g.items.some(it => it.cat === x.id && gIn(it, city)));
     const warns = new Set(g.items.flatMap(it => it.warn)), rules = (GD.rules || []).filter(r => r.code === "general" || warns.has(r.code));
     const st = countryStats(c);
-    return `<nav class="crumb"><a href="#/">홈</a> › <a href="#/guide">쇼핑 리스트</a> › ${esc(C[c].n)}</nav>
+    return `<nav class="crumb"><a href="#/">${t("홈", "Home", "ホーム")}</a> › <a href="#/guide">쇼핑 리스트</a> › ${esc(C[c].n)}</nav>
       <div class="pagehead"><p class="eyebrow">Shopping List</p><h1>${nationF(c)} 쇼핑 리스트</h1>${g.intro ? `<p class="lead">${esc(g.intro)}</p>` : ""}
         <p class="note">${g.draft ? "초안 · " : ""}${esc(g.checked || "")} 정리 · 가격·판매처는 바뀔 수 있어요</p></div>
       <div class="evfilter">${g.cities.length > 1 ? `<div class="chiprow"><span class="evlab">도시</span>${chip(!city, href("city", ""), "전체")}${g.cities.map(x => chip(city === x.id, href("city", x.id), esc(x.name))).join("")}</div>` : ""}
@@ -2156,7 +2395,7 @@
     if (!I) return stWait(STO.idxSt);
     const c = I.countries[cc];
     if (!c) return notFound();
-    const crumb = `<nav class="crumb"><a href="#/">홈</a> › <a href="#/stores${q.get("b") ? "?b=" + encodeURIComponent(q.get("b")) : ""}">매장 찾기</a> › ${esc(c.ko)}</nav>`;
+    const crumb = `<nav class="crumb"><a href="#/">${t("홈", "Home", "ホーム")}</a> › <a href="#/stores${q.get("b") ? "?b=" + encodeURIComponent(q.get("b")) : ""}">매장 찾기</a> › ${esc(c.ko)}</nav>`;
     const head = `<div class="pagehead"><h1>${c.fl ? flag(cc) : ""}${esc(c.ko)} 매장</h1><p class="lead">${esc(c.cont)} · ${c.n}곳${C[cc] ? ` · <a class="link" href="#/country/${cc}">${esc(C[cc].n)} 가격 보기 ›</a>` : ""}</p></div>`;
     const rows = stRows(cc);
     if (!rows) return crumb + head + stWait(STO.ccSt[cc]);
@@ -2216,6 +2455,7 @@
     else if (r === "search") html = search(q);
     else if (r === "settings") html = seg[1] === "status" ? status() : settings(q);
     else if (r === "picks") html = picks();
+    else if (r === "compare") html = comparePage();
     else if (r === "changes") html = changesPage(q);
     else if (r === "notices") html = noticesPage();
     else if (r === "events") html = seg[1] ? eventPage(seg[1]) : eventsPage(q);
@@ -2257,6 +2497,10 @@
     if (t.id === "otherApp") { if (M.other) location.href = M.other; return; }
     if (t.hasAttribute("data-fx-fetch")) { fetchFx(); render(); return; }
     if (t.hasAttribute("data-newbar-close")) { document.getElementById("newbar").hidden = true; return; }
+    if (t.hasAttribute("data-alert-seen")) { store.set(alertKey(), D.generated); render(); return; }
+    if (t.hasAttribute("data-urlmiss-close")) { urlMiss = null; render(); return; }
+    if (t.hasAttribute("data-scan-close")) { scan = null; render(); return; }
+    if (t.hasAttribute("data-date-clear")) { saveSet({ tripFrom: "", tripTo: "" }); render(); return; }
     if (t.dataset.chtab) { location.hash = "#/changes?tab=" + t.dataset.chtab + "&per=" + t.dataset.chper; return; }
     if (t.dataset.pimg !== undefined) { pImg = +t.dataset.pimg; render(); return; }
     if (t.dataset.trip) {
@@ -2312,6 +2556,12 @@
       store.set(pickKey(), S.picks); render(); return;
     }
     if (t.dataset.copylink) { copyLink(t); return; }
+    if (t.dataset.cmp) {  // 나란히 비교에 넣기·빼기 (11-08): 3개까지, 넘치면 가장 먼저 담은 것이 빠짐
+      const k = t.dataset.cmp;
+      S.cmp = S.cmp.includes(k) ? S.cmp.filter(x => x !== k) : [...S.cmp, k].slice(-CMP_MAX);
+      store.set(KEY("cmp"), S.cmp); render(); return;
+    }
+    if (t.hasAttribute("data-cmp-clear")) { S.cmp = []; store.set(KEY("cmp"), []); render(); return; }
     if (t.dataset.sel) { S.sel[t.dataset.sel] = t.dataset.sku; render(); return; }
     if (t.dataset.hnav) { heroHold = Date.now() + 20000; heroGo(heroIdx + +t.dataset.hnav, true); return; }
     if (t.dataset.budget) { budgetIdx = +t.dataset.budget; render(); return; }
@@ -2334,6 +2584,12 @@
     if (t.matches("select[data-sort]")) location.hash = t.value;
     if (t.matches("input[data-nav]")) location.hash = t.dataset.nav;
     if (t.matches("input[data-import]") && t.files[0]) importBackup(t.files[0]);
+    if (t.matches("input[data-scanfile]") && t.files[0]) { const f = t.files[0]; t.value = ""; if (location.hash.split("?")[0] !== "#/search") location.hash = "#/search"; runScan(f); }
+    if (t.matches("input[data-date]")) {  // 여행 날짜 (11-08): 형식이 맞을 때만, 귀국이 출발보다 앞서면 귀국을 비움
+      const k = t.dataset.date, v = /^\d{4}-\d\d-\d\d$/.test(t.value) ? t.value : "";
+      const nx = { [k]: v }; if (k === "tripFrom" && SET.tripTo && v && SET.tripTo < v) nx.tripTo = ""; if (k === "tripTo" && SET.tripFrom && v && v < SET.tripFrom) nx.tripTo = "";
+      saveSet(nx); render();
+    }
     if (t.matches("input[data-fx]")) {  // 환율 직접 입력: 빌드 값의 ±30% 안만 (빈칸 = 최신/빌드 값)
       const cur = t.dataset.fx, v = t.value === "" ? null : Number(t.value), err = document.querySelector('[data-err="fx"]');
       if (v !== null && !fxOk(cur, v)) { if (err) err.textContent = `${cur}: 빌드 환율(${fxFmt(FX_BUILD[cur])})의 ±30% 안으로 넣어 주세요`; return; }
@@ -2387,8 +2643,16 @@
     const f = e.target.closest("form[data-search]"); if (!f) return;
     e.preventDefault();
     const text = (f.elements.q.value || "").trim(), k = text.toLowerCase().replace(/[\s-]/g, "");
-    const hit = k ? list().filter(p => p.s.toLowerCase().replace(/-/g, "") === k) : [];
     acOpen = false;
+    // 공홈 주소를 붙여넣으면 바로 그 제품 화면으로 (11-08)
+    if (/^https?:\/\//i.test(text)) {
+      const r = productOfUrl(text);
+      if (r && r.p) { urlMiss = null; location.hash = link(r.p); return; }
+      urlMiss = r || { host: text.slice(0, 60), b: "", other: false };
+      if (location.hash.split("?")[0] === "#/search") render(); else location.hash = "#/search";
+      return;
+    }
+    const hit = k ? list().filter(p => p.s.toLowerCase().replace(/-/g, "") === k) : [];
     if (text) { const rk = KEY("recent"); store.set(rk, [text, ...store.get(rk, []).filter(x => x !== text)].slice(0, 10)); }
     if (hit.length === 1) { location.hash = link(hit[0]); return; }
     const inBar = !!f.closest(".fbar"), { path, q } = curBase();
@@ -2446,7 +2710,11 @@
   // 공유 주소로 앱이 열릴 때 (앱 링크, 11-02): https://luxcanner.com/{앱}/p/{브랜드}--{제품번호}.html → #/p/브랜드/제품번호
   const openShared = u => {
     const m = /^https:\/\/luxcanner\.com\/(?:jewelry|fashion)\/p\/([A-Za-z0-9_-]{1,400})\.html(?:[?#].*)?$/.exec(u || "");
-    if (!m) return;
+    if (!m) {  // 공홈 제품 주소를 앱으로 공유하면 그 제품 화면으로 (11-08, 기능 3)
+      const r = /^https?:\/\//i.test(u || "") ? productOfUrl(u) : null;
+      if (r && r.p) location.hash = link(r.p); else if (r) { urlMiss = r; location.hash = "#/search"; }
+      return;
+    }
     const unslug = t => { try { return decodeURIComponent(t.replace(/_([0-9A-F]{2})/g, "%$1")); } catch (e) { return ""; } };
     const i = m[1].indexOf("--"), b = i > 0 ? unslug(m[1].slice(0, i)) : "", s = i > 0 ? unslug(m[1].slice(i + 2)) : "";
     if (b && s) location.hash = link({ b, s });
