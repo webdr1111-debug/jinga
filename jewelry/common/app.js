@@ -1689,7 +1689,9 @@
     const bars = ok.concat(kr && kr.v ? [kr] : []).sort((a, b2) => a.net - b2.net), mx = Math.max(...bars.map(r => r.net));
     const spec = Object.entries(p.x || {}).filter(([, v]) => v !== "" && v !== null && v !== false);
     const info = isBag ? [["색상", colKo(p)], ["모델 번호", p.md], ["제품번호", p.s]] : [["소재", /[가-힣]/.test(p.m || "") || !p.mt || p.mt === "기타" ? p.m : (p.m.length > 30 ? matLabel(p.mt) : `${matLabel(p.mt)} (${p.m})`)]  /* 원문이 길면(구찌는 소재 칸에 제품 이름) 한글 분류만 */, ["스톤", p.g], ["종류", TYPE_ALL[p.t] || p.t], ...spec.map(([k, v]) => [k, v === true ? "예" : v])];
-    const same = isBag ? [] : D.jewelry.filter(q => q.b === p.b && q.c === p.c && q.v !== p.v).map(q => ({ q, R: rep(q) })).sort((a, b2) => (b2.R.save ?? -9) - (a.R.save ?? -9)).slice(0, 6).map(o => itemOf(o.q));
+    // 같은 컬렉션(패션은 '같은 라인', 11-13 사용자): 패션은 라인이 '기타'·빈 칸이면 안 보임(패션 제품의 약 69%), 같은 모델의 다른 색은 위 '색상'에 있으니 모델당 1개
+    const sameLine = !isBag || (p.c && p.c !== "기타");
+    const same = !sameLine ? [] : [...new Map((isBag ? D.bag : D.jewelry).filter(q => q.b === p.b && q.c === p.c && (isBag ? q.md !== p.md : q.v !== p.v)).map(q => ({ q, R: rep(q) })).sort((a, b2) => (isBag ? (a.q.t !== p.t) - (b2.q.t !== p.t) : 0) || (b2.R.save ?? -9) - (a.R.save ?? -9)).map(o => [isBag ? o.q.md : o.q.b + "|" + o.q.s, o.q])).values()].slice(0, 6).map(q => itemOf(q)).filter(Boolean);
     const kurl = safeUrl((p.p.KR || [])[2]) || safeUrl(Object.values(p.p).map(x => x[2]).find(Boolean));
     // 이 제품의 가격 변동 이력 (11-03 사용자): 최근 수집일 먼저, 같은 날은 한국 먼저 → 변동 큰 순
     const hist = D.changes.filter(c => c.b === p.b && c.s === p.s && C[c.cc]).sort((a, b2) => (b2.d || "").localeCompare(a.d || "") || (a.cc === "KR" ? -1 : b2.cc === "KR" ? 1 : Math.abs(b2.r) - Math.abs(a.r)));
@@ -1726,7 +1728,7 @@
         <section class="sec"><div class="sh"><h3>${t("제품 정보", "Details", "製品情報")}</h3></div><dl class="spec">${info.filter(([, v]) => v).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(String(v).slice(0, 300))}</dd>`).join("")}</dl>
           </section>
       </div>${adAt("p", 1)}
-      ${same.length ? `<section class="sec"><div class="sh"><h3>${t("같은 컬렉션", "Same collection", "同じコレクション")}</h3></div>${isM() ? lrows(same.slice(0, 4).map(it => rowItem(it))) : grid(same, "g6")}</section>` : ""}${adAt("p", 2)}`;
+      ${same.length ? `<section class="sec"><div class="sh"><h3>${isBag ? t("같은 라인", "Same line", "同じライン") : t("같은 컬렉션", "Same collection", "同じコレクション")}</h3></div>${isM() ? lrows(same.slice(0, 4).map(it => rowItem(it))) : grid(same, "g6")}</section>${adAt("p", 2)}` : ""}`;  /* 목록이 없으면 2번째 광고도 빼서 광고 두 칸이 붙지 않게 (11-13 사용자) */
   }
 
   // ── 제품 가격 이력 그래프 (11-08, 웹앱계획.md 13장 기능 1) ──
