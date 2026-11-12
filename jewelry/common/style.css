@@ -645,6 +645,11 @@ table.ref td { border-bottom: 1px solid var(--line); padding: 8px; vertical-alig
 .blogo .bmark.lg img { height: 16px; max-width: 100%; }
 .blogo .bmark.lg .btext { font-size: 16px; }
 @media (max-width: 600px) { .tile .bmark.lg .btext { font-size: 23px; } }
+.tile { container-type: inline-size; }
+.tile .bmark { max-width: 100%; }
+.tile .bmark.lg .btext { white-space: normal; line-height: 1.15; }  /* 여러 단어 이름은 두 줄로, 글자 크기는 가장 긴 단어 기준 */
+.tile .bmark.lg .btext { font-size: min(26px, calc((100cqi - 4px) / (var(--n, 8) * .82))); }  /* 로고 그림이 없는 긴 이름(메종 마르지엘라·발렌시아가·버버리)이 칸을 넘어 옆 칸 로고와 겹쳤음 — 칸 너비에 맞춰 글자 줄임 (11-12 사용자) */
+@media (max-width: 600px) { .tile .bmark.lg .btext { font-size: min(23px, calc((100cqi - 4px) / (var(--n, 8) * .82))); } }
 /* 모바일 가로 밀기 줄이기 (5M.13절): 나라 순위표 · 알아 두면 접힌 제목 */
 .rank { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
 .rank li { position: relative; display: grid; grid-template-columns: 22px auto minmax(0, 1fr) 44px; gap: 10px; align-items: center; min-height: 60px; border-bottom: 1px solid var(--line); }

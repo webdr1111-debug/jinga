@@ -314,7 +314,7 @@
   // 브랜드 로고 (브랜드를 고르는 곳에만, 웹앱계획.md 6장). 위키미디어 공용의 로고 파일을 인터넷에서 읽고, 못 읽으면 지금처럼 글자로
   const WM = "https://upload.wikimedia.org/wikipedia/commons/";
   const LOGOS = RU.logos || {};  // 브랜드 로고(위키미디어 공용 경로): sheets/config/brands.csv '로고' 칸을 내보낸 것 — 새 브랜드도 화면 코드 수정 없이 (2026-10-27)
-  const brandMark = (b, cls) => `<span class="bmark ${cls || ""}">${LOGOS[b] ? `<img src="${WM + LOGOS[b]}" alt="${esc(b)}" referrerpolicy="no-referrer" data-logo="1">` : ""}<span class="btext">${esc(b.toUpperCase())}</span></span>`;
+  const brandMark = (b, cls) => `<span class="bmark ${cls || ""}">${LOGOS[b] ? `<img src="${WM + LOGOS[b]}" alt="${esc(b)}" referrerpolicy="no-referrer" data-logo="1">` : ""}<span class="btext" style="--n:${Math.max(...b.split(" ").map(w => w.length))}">${esc(b.toUpperCase())}</span></span>`;
   document.addEventListener("error", e => {
     const img = e.target;
     if (img.tagName === "IMG" && img.dataset.logo) { img.remove(); return; }  // 로고를 못 읽으면 글자만 남김
