@@ -78,8 +78,8 @@
   const pn = p => { const l = L(); return l === "en" ? (p.en || p.n) : l === "ja" ? (p.ja || p.en || p.n) : p.n; };
   const t = (ko, en, ja) => L() === "en" ? en : L() === "ja" ? (ja || en) : ko;
   const CN = {
-    en: { KR: "Korea", US: "USA", FR: "France", IT: "Italy", ES: "Spain", GB: "UK", JP: "Japan", TW: "Taiwan", HK: "Hong Kong", SG: "Singapore", AU: "Australia", AE: "UAE", CH: "Switzerland", VN: "Vietnam", MO: "Macau", TH: "Thailand" },
-    ja: { KR: "韓国", US: "アメリカ", FR: "フランス", IT: "イタリア", ES: "スペイン", GB: "イギリス", JP: "日本", TW: "台湾", HK: "香港", SG: "シンガポール", AU: "オーストラリア", AE: "UAE", CH: "スイス", VN: "ベトナム", MO: "マカオ", TH: "タイ" } };
+    en: { KR: "Korea", US: "USA", FR: "France", IT: "Italy", ES: "Spain", GB: "UK", JP: "Japan", TW: "Taiwan", HK: "Hong Kong", SG: "Singapore", AU: "Australia", AE: "UAE", CH: "Switzerland", VN: "Vietnam", MO: "Macau", TH: "Thailand", MY: "Malaysia" },
+    ja: { KR: "韓国", US: "アメリカ", FR: "フランス", IT: "イタリア", ES: "スペイン", GB: "イギリス", JP: "日本", TW: "台湾", HK: "香港", SG: "シンガポール", AU: "オーストラリア", AE: "UAE", CH: "スイス", VN: "ベトナム", MO: "マカオ", TH: "タイ", MY: "マレーシア" } };  // 11-14 MY
   const TYPE_L = {
     en: { ring: "Rings", necklace: "Necklaces", bracelet: "Bracelets", earring: "Earrings", watch: "Watches", bag: "Bags", wallet: "Wallets", accessory: "Accessories", shoes: "Shoes", silk: "Belts · Scarves · Silk", clothing: "Clothing" },
     ja: { ring: "リング", necklace: "ネックレス", bracelet: "ブレスレット", earring: "イヤリング", watch: "時計", bag: "バッグ", wallet: "財布", accessory: "アクセサリー", shoes: "シューズ", silk: "ベルト・スカーフ・シルク小物", clothing: "ウェア" } };
