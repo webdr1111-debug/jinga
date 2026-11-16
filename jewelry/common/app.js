@@ -1652,9 +1652,15 @@
     const cpTrip = r => !r.v || !SET.tripFrom || tripOver() ? "" : CALC.coupons.filter(cp => cp.country === r.cc && !cpLive(cp) && CALC.cpActive(cp, SET.tripFrom) && cp.brands.includes(p.b) && !(cp.exclude || {})[p.b])
       .map(cp => `<br><span class="note">여행 때(${esc(mdd(SET.tripFrom))}) 쓸 수 있는 쿠폰: ${esc(cp.name)} ${cp.rate}% (${esc(ymd(cp.from))}~${esc(ymd(cp.until))})</span>`).join("");
     // 유럽 FTA (11-16 사용자: 일본 백화점 할인처럼) — '관세 포함'일 때만, EU에서 산 EU산 제품
-    const ftaTip = r => !r.v || !PV.customs || !CALC.ftaOk(r.cc, p.b, p.t) ? "" : SET.fta
-      ? (r.fta ? " · 한-EU FTA 원산지 신고로 관세 0% (부가세 10%와 기준 넘는 부분 개별소비세는 내요, 자진신고 감면 없음)" : " · FTA를 신청해도 간이세율이 더 낮아 간이세율로 계산")
-      : (sv => sv > 0 ? `<br><button type="button" class="link" data-set="fta" data-val="true">매장에서 FTA 원산지 신고를 받으면 ${JINGA} −${won(sv)} · 켜기</button>` : "")(r.net - CALC.calc(r.cc, r.v, grpOf(p), p.b, { ...PV, fta: true }, p.t).net);
+    // 유럽 FTA (11-16 사용자: 일본 백화점 할인처럼, 기본 '아니요') — '관세 포함'일 때, 유럽에서 산 유럽 브랜드 제품을 체크했을 때만. 계산 과정을 그대로 보여 줌
+    const ftaSteps = r => {
+      const f = CALC.ftaParts(r.krw - r.refund, grpOf(p)), simple = CALC.customs(r.krw - r.refund, grpOf(p), { ...PV, fta: false });
+      if (!f.T) return `<br><span class="ftac"><b>한-EU FTA 관세 계산</b> · 환급 후 ${won(f.base)}가 면세 한도 $800(${won(f.allow)}) 이내라 세금 0</span>`;
+      const ix = f.ictxR ? (f.ictx ? ` · 개별소비세 (${won(f.T)} − 기준 ${won(f.ib)}) × ${Math.round(f.ictxR * 100)}% = ${won(f.ictx)} · 교육세 ${won(f.ictx)} × ${Math.round(CUS.edu * 100)}% = ${won(f.edu)}` : ` · 개별소비세 없음(기준 ${won(f.ib)} 이하)`) : "";
+      return `<br><span class="ftac"><b>한-EU FTA 관세 계산</b> (원산지 신고 · 간이세율 대신 일반 과세)<br>과세가격 = 환급 후 ${won(f.base)} − 면세 $800 ${won(f.allow)} = <b>${won(f.T)}</b> · 관세 0%${ix} · 부가세 (${won(f.T)}${f.ictx ? ` + ${won(f.ictx)} + ${won(f.edu)}` : ""}) × ${Math.round(CUS.vat * 100)}% = ${won(f.vat)} · 자진신고 감면 없음 → <b>세금 ${won(f.total)}</b>(10원 미만 버림) (FTA 없이 간이세율이면 ${won(simple)}${f.total > simple ? ` — 간이세율이 ${won(f.total - simple)} 더 싸요` : f.total < simple ? ` — FTA가 ${won(simple - f.total)} 더 싸요` : ""})</span>`;
+    };
+    const ftaTip = r => !r.v || !PV.customs || !CALC.ftaOk(r.cc, p.b) ? "" : SET.fta ? (r.fta ? ftaSteps(r) : "")
+      : (sv => sv > 0 ? `<br><button type="button" class="link" data-set="fta" data-val="true">유럽 매장에서 FTA 원산지 신고를 받으면 ${JINGA} −${won(sv)} · 켜기</button>` : "")(r.net - CALC.calc(r.cc, r.v, grpOf(p), p.b, { ...PV, fta: true }, p.t).net);
     const esTip = r => !r.v ? "" : NOTICES.filter(n => n.country === r.cc && n.tip).map(n => `<br><span class="note">${esc(n.tip)}</span>${offLinks(n.links) ? " " + offLinks(n.links) : ""}`).join("");
     // 할인은 원화로 바꾸기 전에 (판매가 − 할인 = 결제액 → 원화) — 할인을 끝에 따로 적으면 '판매가 → 원화' 숫자가 안 맞아 보였다(2026-10-27)
     const discPart = r => !r.disc ? "" : r.cc === "JP"
@@ -1813,10 +1819,10 @@
     // 나라별 옵션: 내 여행지에 있는 나라를 위로
     const country = [
       { cs: (CALC.FTA.countries || []), html: q("유럽 매장에서 FTA 원산지 신고를 받아요?", segBtns("fta", [[false, "아니요"], [true, "네"]]),
-        `한-EU FTA로 <b>유럽(${(CALC.FTA.countries || []).map(c => esc(C[c] ? C[c].n : c)).join("·")})에서 산 유럽산 제품</b>은 관세가 0%예요. 대신 간이세율(15%)을 쓸 수 없어 부가세 10%를 내고(가방 200만·보석 500만 원 넘는 부분은 개별소비세·교육세도), 자진신고 감면은 없어요. '관세 포함'일 때만, 간이세율보다 쌀 때만 계산에 넣어요.
+        `'네'로 하면 <b>유럽(${(CALC.FTA.countries || []).map(c => esc(C[c] ? C[c].n : c)).join("·")})에서 산 유럽 브랜드 제품</b>을 그 나라 원산지로 보고 한-EU FTA 관세 0%로 계산해요('관세 포함'일 때만). 관세 0%이면 간이세율(15%)을 쓸 수 없어 <b>일반 과세</b>로 계산해요: 과세가격 = 환급 후 가격 − 면세 $800 → 관세 0% → 개별소비세 = (과세가격 − 기준 가방·시계 200만·보석 500만 원) × 20% → 교육세 = 개별소비세 × 30% → 부가세 = (과세가격 + 개별소비세 + 교육세) × 10%. 자진신고 감면은 관세의 30%라 없어요. 제품 화면의 나라별 계산에 과정이 그대로 나와요.
         <br><b>서류 받는 법</b> — 결제할 때 매장에 'FTA 원산지 신고(origin declaration)'를 부탁하세요. 영수증(작으면 뒷면이나 별지)에 <i>The exporter of the products covered by this document …</i>로 시작하는 원산지 신고 문구와 <b>판매자 손 서명</b>이 있어야 해요. 한 번에 €6,000을 넘으면 매장이 인증수출자 번호를 적어야 해요. 과세가격 미화 1,000달러 이하는 영수증과 제품 원산지 표시로 확인받을 수도 있어요.
         <br><b>입국할 때</b> — 휴대품신고서에서 '자진신고 및 FTA 적용 신청'에 체크하고 영수증(원산지 신고)을 내요.
-        <br><b class="stk">제품 라벨의 'Made in'이 EU 나라여야 해요.</b> 스위스·일본 등 다른 나라에서 산 제품, 시계(대부분 스위스산), 면세점 구입품은 안 돼요. 브랜드별 대상은 설정 > 계산 기준 보기 표(대부분의 원산지 기준 추정)예요.`) },
+        <br><b class="stk">실제로는 제품 라벨의 'Made in'이 EU 나라여야 해요</b>(예: 스위스산 시계, 중국산 제품은 안 돼요). 스위스·일본 등 EU 밖에서 산 제품, 면세점 구입품도 안 돼요. 대상 브랜드는 설정 > 계산 기준 보기 표에 있어요.`) },
       { cs: ["JP"], html: q("일본 백화점에서 사요?", segBtns("jpDept", [[false, "아니요"], [true, "네"]]),
         `켜면 외국인 할인 ${SET.jpRate}%를 빼요. 이세탄·미쓰코시 앱 쿠폰, 이와타야 게스트 카드, 한큐 게스트 쿠폰(모두 여권)이 있어야 해요. <b class="stk">할인 대상 브랜드는 백화점·지점마다 달라 꼭 확인하세요.</b> 이세탄·미쓰코시 기준 할인 제외 브랜드(${Object.entries(D.jpExcl).filter(([, v]) => v[0]).map(([b]) => bk(b)).slice(0, 6).join("·")} 등)는 자동으로 빠져요.`,
         (SET.jpDept ? `<div class="sub">할인율 ${numIn("jpRate", "%", "0.5")}</div>` : "") + (JPG().length ? `<details class="jpgbox"><summary>백화점별 게스트 할인 ${JPG().length}곳 — 받는 곳·조건·공식 안내</summary>${jpGuestList()}</details>` : "")) },
@@ -1903,8 +1909,8 @@
             <p class="refn">${esc(D.euRef.note || "")}</p>` : ""}
             <h4 class="refh">태국 환급률 구간</h4>
             ${refTable(["구매액", "환급률"], D.thTiers.map(([a, r]) => [a.toLocaleString("ko-KR") + "바트 이상", (r * 100).toFixed(1) + "%"]))}
-            ${Object.keys(CALC.FTA.brands || {}).length ? `<h4 class="refh">유럽 FTA 관세 0% 대상 브랜드 (한-EU FTA · 원산지 추정 — 제품 라벨 확인)</h4>
-            ${refTable(["브랜드", "FTA", "근거"], (bs => Object.entries(CALC.FTA.brands).filter(([b]) => bs.has(b)))(new Set(list().map(p => p.b))).map(([b, [ok, why]]) => [esc(bk(b)), ok ? "대상" : "제외", esc(why)]))}` : ""}
+            ${Object.keys(CALC.FTA.brands || {}).length ? `<h4 class="refh">유럽 FTA 대상 브랜드 (한-EU FTA · 유럽 브랜드만 · 체크하면 그 나라 원산지로 가정)</h4>
+            ${refTable(["브랜드", "FTA", "나라"], (bs => Object.entries(CALC.FTA.brands).filter(([b]) => bs.has(b)))(new Set(list().map(p => p.b))).map(([b, [ok, why]]) => [esc(bk(b)), ok ? "대상" : "제외", esc(why)]))}` : ""}
             <h4 class="refh">일본 백화점 할인 제외 브랜드 (이세탄·미쓰코시 기준 · 앱 쿠폰·이와타야 게스트 카드·한큐 게스트 쿠폰)</h4>
             ${refTable(["브랜드", "할인", "근거"], Object.entries(D.jpExcl).map(([b, [ex, why]]) => [esc(bk(b)), ex ? "제외" : "가능", esc(why)]))}
             <h4 class="refh">기간 쿠폰</h4>

@@ -580,6 +580,7 @@ table.ref td { border-bottom: 1px solid var(--line); padding: 8px; vertical-alig
 .refeu td:first-child { white-space: nowrap; }
 .refnat td:first-child { white-space: nowrap; }  /* 11-16 사용자: 나라별 표도 나라 이름 한 줄, 세율·환급률 칸은 좁게(줄바꿈) */
 .refnat th:nth-child(2), .refnat th:nth-child(3), .refnat td:nth-child(2), .refnat td:nth-child(3) { width: 1%; }  /* 11-16 사용자: 나라 이름(5글자까지) 한 줄 */
+.ftac { display: inline-block; margin-top: 4px; padding: 8px 10px; border-radius: 8px; background: var(--paper); border: 1px solid var(--line); font-size: 12.5px; line-height: 1.7; }  /* 11-16 FTA 계산 과정 */
 .refn { font-size: 12px; color: var(--sub); line-height: 1.6; margin: 8px 0 0; }
 table.ref td small { color: var(--sub); font-size: 11px; }
 .pv { border: 1px solid var(--line); background: var(--paper); }
