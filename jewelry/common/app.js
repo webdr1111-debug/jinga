@@ -16,7 +16,7 @@
   const kind = M.kind;
   const D = { generated: RU.generated, fx: RU.fx, countries: RU.countries, [kind]: LuxData.decodeSearch(LUX.search), changes: LUX.history || [],
     syn: RU.syn, presets: RU.presets, brandKo: RU.brandKo, subtypes: RU.subtypes, metals: RU.metals, stones: RU.stones,
-    jpExcl: RU.jpExcl, stores: RU.stores, thTiers: RU.thTiers, leathers: RU.leathers || [], colors: RU.colors || [] };
+    jpExcl: RU.jpExcl, stores: RU.stores, thTiers: RU.thTiers, euRef: RU.euRef || null, leathers: RU.leathers || [], colors: RU.colors || [] };
   // 이벤트·프로모션·광고 (sheets/config/events.json → data/events.json, 2026-10-29): 기간 안(휴대폰 시각)에만 보임
   const EV = LUX.events && Array.isArray(LUX.events.events) ? { pages: [], ...LUX.events } : { categories: [], events: [], pages: [] };
   // 패션: 데이터 칸을 화면 이름으로 (소재 칸 = 색상 원문, 금속 칸 = 가죽 그룹, 스톤 칸 = 색상 그룹), 모델 번호 없으면 제품번호
@@ -163,6 +163,8 @@
   const setSummary = () => [payLabel(), SET.refund ? t("세금 환급 받음", "Tax refund", "免税あり") : t("환급 없음", "No refund", "免税なし"), SET.customs ? (SET.self ? t("자진신고 관세 포함", "Duty incl. (self-declared)", "関税込み(自主申告)") : t("관세 포함", "Duty incl.", "関税込み")) : t("관세 제외", "Duty excl.", "関税抜き")]
     .concat(SET.krDisc ? [t(`한국 할인 ${SET.krDisc}%`, `Korea discount ${SET.krDisc}%`, `韓国割引${SET.krDisc}%`)] : [], SET.jpDept ? [t(`일본 백화점 ${SET.jpRate}%`, `Japan dept. store ${SET.jpRate}%`, `日本百貨店${SET.jpRate}%`)] : [], cpOn().map(cp => t(`${cp.short} 쿠폰 ${cp.rate}%`, `${cp.short} coupon ${cp.rate}%`, `${cp.short}クーポン${cp.rate}%`)), [fxLabel()]).join(" · ");
   const jpExcluded = b => CALC.jpExcluded(b);
+  // 화면에 쓰는 실효 환급률 % (11-16 사용자: 일본 8% 표시가 계산과 달라 맞춤) — 일본은 calc.js 와 같은 식 (10% − 환급 수수료) ÷ 1.1, 수수료는 설정(기본 글로벌블루 100만 엔 미만 2.3%)
+  const refundPct = c => c === "JP" && C.JP ? Math.round((0.10 - (SET.jpFeeMode === "custom" ? SET.jpRefFee || 0 : 2.3) / 100) / 1.1 * 1000) / 10 : (C[c] || {}).refund || 0;
   // 기간 쿠폰 (sheets/config/coupons.json, 2026-10-28): 기간이 지나면 켜 둔 것도 계산에서 빠지고 저장된 설정에서도 지운다
   const cpLive = cp => CALC.cpActive(cp, CALC.today());
   const cpOn = () => CALC.coupons.filter(cp => SET.cp[cp.id] && cpLive(cp));
@@ -988,7 +990,7 @@
     html += bridal();
     // ⑦ 알아 두면 이득 (데이터로 계산)
     const two = twoItems(3_000_000);
-    const refundTop = TRIP_CODES.filter(c => C[c].refund).sort((a, b) => C[b].refund - C[a].refund)[0];
+    const refundTop = TRIP_CODES.filter(c => refundPct(c)).sort((a, b) => refundPct(b) - refundPct(a))[0];
     let wall;
     if (kind === "jewelry") {
       const over = items().map(it => itemRep(it)).filter(R => R.kr && R.kr.net > 1e7 && R.best);
@@ -1004,8 +1006,8 @@
       { eb: "Duty-free Once", num: `+${man(two.real - two.split)}`, t: "$800 면세는 한 번만",
         body: `면세 한도는 산 물건 전체에서 한 번만 빼요. 환급 후 300만원짜리 두 개를 사면 관세가 제품별 계산 합(${man(two.split)})보다 많은 약 ${man(two.real)}이에요. 담은 목록은 합계로 계산해요.`,
         more: `<a class="link" href="#/picks">담은 목록</a>` },
-      { eb: "Best Refund", num: `${C[refundTop].refund}%`, t: `환급률 1위 · ${esc(C[refundTop].n)}`,
-        body: `실효 환급률 약 ${C[refundTop].refund}%${C[refundTop].min ? `, 최소 구매 ${local(refundTop, C[refundTop].min)}` : ", 최소 구매 금액 없음"}. ${esc(C[refundTop].how)}`,
+      { eb: "Best Refund", num: `${refundPct(refundTop)}%`, t: `환급률 1위 · ${esc(C[refundTop].n)}`,
+        body: `실효 환급률 약 ${refundPct(refundTop)}%${C[refundTop].min ? `, 최소 구매 ${local(refundTop, C[refundTop].min)}` : ", 최소 구매 금액 없음"}. ${esc(C[refundTop].how)}`,
         more: `<a class="link" href="#/country/${refundTop}">${esc(C[refundTop].n)} 보기</a>` }];
     // 모바일: 가로 밀기 대신 접힌 제목 3줄 (누르면 펼침)
     html += `<section class="sec" id="h-good">${section("Good to Know", t("알아 두면 이득", "Good to know", "知って得する"), "", "")}${isM()
@@ -1444,7 +1446,7 @@
         <div class="ctop"><span class="cname">${nationF(o.c)}</span>
           <button type="button" class="tchip sm ${S.trip.includes(o.c) ? "on" : ""}" data-trip="${o.c}">${S.trip.includes(o.c) ? "✈ 내 여행지" : "+ 여행지"}</button></div>
         <div class="stats"><div><b>${o.cheapest}</b><span>가장 싼 제품</span></div><div><b>${o.total ? Math.round(o.cheaper / o.total * 100) : 0}%</b><span>한국보다 쌈</span></div>
-          <div><b>${C[o.c].refund ? C[o.c].refund + "%" : "없음"}</b><span>환급률</span></div></div>
+          <div><b>${refundPct(o.c) ? refundPct(o.c) + "%" : "없음"}</b><span>환급률</span></div></div>
         <div class="note">중간 절약률 ${pct(o.med)}</div></article>`).join("")}</div>`;
   }
   let countryShow = 0;  // 0 = 첫 묶음 (PAGE)
@@ -1482,7 +1484,7 @@
         ${listA.length ? `<div class="${viewMode(q) === "list" ? "lrows" : "grid"}">${cards}</div>` : `<p class="empty">해당 제품이 없어요.</p>`}
         ${listA.length > cLim ? `<button type="button" class="btn ghost wide" data-moreC>${PAGE()}개 더 보기 (${listA.length - cLim}개 남음)</button>` : ""}</section>
       <section class="sec info"><div class="sh"><h3>${esc(k.n)}에서 살 때</h3></div>
-        <ul><li>환급: ${k.refund ? `실효 환급률 약 <b>${k.refund}%</b>, 최소 구매 ${local(c, k.min)}` : "관광객 환급 없음"}</li>
+        <ul><li>환급: ${k.refund ? `실효 환급률 약 <b>${refundPct(c)}%</b>${c === "JP" ? ` (환급 수수료 ${SET.jpFeeMode === "custom" ? SET.jpRefFee : 2.3}% 기준)` : ""}, 최소 구매 ${local(c, k.min)}` : "관광객 환급 없음"}</li>
         ${k.how ? `<li>방법: ${esc(k.how)}</li>` : ""}${k.incl ? "" : `<li>공홈 가격은 세금 별도 → 판매세 ${k.tax}%를 더해 계산</li>`}
         <li>한국 입국 때 면세 한도 $800 — 넘으면 관세. ${JINGA}에 포함돼 있어요(제품 1개 기준, 자진신고 감면). 여러 개를 사면 한도를 한 번만 빼므로 실제 관세가 더 커요</li></ul></section>`;
   }
@@ -1885,7 +1887,10 @@
               ["간이세율 적용 배제", "한 개 과세가격 1,000만원 초과 → 일반 과세"], ["일반 과세", "관세 8% + 개별소비세 20%(보석 500만·시계·가방 200만원 넘는 부분) + 교육세 30% + 부가세 10%"],
               ["자진신고 감면", "관세의 30%, 최대 20만원"]])}
             <h4 class="refh">나라별 세금·환급 (빌드 ${esc(D.generated)} · 환율은 지금 계산에 쓰는 값)</h4>
-            ${refTable(["나라", "세율", "실효 환급률", "최소 구매", "환율"], TRIP_CODES.map(c => [nationF(c), C[c].tax + "%" + (C[c].incl ? "" : " (별도)"), C[c].refund ? C[c].refund + "%" : "없음", C[c].min ? local(c, C[c].min) : "—", "₩" + fxFmt(D.fx[c])]))}
+            ${refTable(["나라", "세율", "실효 환급률", "최소 구매", "환율"], TRIP_CODES.map(c => [nationF(c), C[c].tax + "%" + (C[c].incl ? "" : " (별도)"), refundPct(c) ? (c === "JP" ? "약 " : "") + refundPct(c) + "%" : "없음", C[c].min ? local(c, C[c].min) : "—", "₩" + fxFmt(D.fx[c])]))}
+            ${D.euRef && (D.euRef.rows || []).length ? `<h4 class="refh">EU 회원국별 세금·환급 참고 (${esc(D.euRef.updatedAt || "")} 조사 · 가격 비교는 프랑스·이탈리아·스페인만)</h4>
+            ${refTable(["나라", "부가세", "실효 환급률(추정)", "최소 구매"], D.euRef.rows.map(r => [esc(r.nameKo) + (r.currency !== "EUR" ? ` <small>${esc(r.currency)}</small>` : ""), r.vatPct + "%", "약 " + esc(r.effectiveRefundRange) + "%" + (C[r.code] && C[r.code].refund ? ` <small>(계산 ${C[r.code].refund}%)</small>` : ""), esc(r.minPurchase)]))}
+            <p class="refn">${esc(D.euRef.note || "")}</p>` : ""}
             <h4 class="refh">태국 환급률 구간</h4>
             ${refTable(["구매액", "환급률"], D.thTiers.map(([a, r]) => [a.toLocaleString("ko-KR") + "바트 이상", (r * 100).toFixed(1) + "%"]))}
             <h4 class="refh">일본 백화점 할인 제외 브랜드 (이세탄·미쓰코시 기준 · 앱 쿠폰·이와타야 게스트 카드·한큐 게스트 쿠폰)</h4>

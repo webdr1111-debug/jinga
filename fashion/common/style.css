@@ -577,6 +577,8 @@ html { overflow-x: clip; }  /* 무엇이 넘쳐도 화면(고정 메뉴 기준)�
 table.ref { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 table.ref th { text-align: left; font-weight: 400; color: var(--sub); border-bottom: 1px solid var(--line); padding: 8px; }
 table.ref td { border-bottom: 1px solid var(--line); padding: 8px; vertical-align: top; }
+.refn { font-size: 12px; color: var(--sub); line-height: 1.6; margin: 8px 0 0; }
+table.ref td small { color: var(--sub); font-size: 11px; }
 .pv { border: 1px solid var(--line); background: var(--paper); }
 .pv .ph { aspect-ratio: 4 / 3; }
 .pvtx { padding: 18px 20px 20px; }
