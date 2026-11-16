@@ -34,6 +34,16 @@
       const ictx = Math.max(0, T + duty - g.ib) * ictxR;
       return down10(T * CUS.vat + (duty + ictx * (1 + CUS.edu)) * (1 + CUS.vat));
     }
+    // FTA 협정관세 (11-16 사용자: 일본 백화점 할인처럼 켜는 옵션, '관세 포함'일 때만). 한-EU FTA: EU에서 산 EU산 제품 → 관세 0%.
+    // 무세 물품은 간이세율에서 빠짐(관세법 시행령 96조②1호) → 일반 과세(관세 0 + 개별소비세 기준 초과분 + 교육세 + 부가세), 자진신고 감면은 관세의 30%라 0
+    const FTA = rules.fta || { countries: [], brands: {} };
+    const ftaOk = (c, brand, t) => FTA.countries.includes(c) && t !== "watch" && !!(FTA.brands[brand] || [false])[0];  // 시계는 대부분 스위스산이라 뺌
+    function ftaCustoms(afterRefund, grp) {
+      const g = CUS.grp[grp], T = Math.max(0, afterRefund - CUS.allowUsd * FX.US);
+      if (!T) return 0;
+      const ictx = Math.max(0, T - g.ib) * (g.ictx ?? CUS.ictx);
+      return down10(T * CUS.vat + ictx * (1 + CUS.edu) * (1 + CUS.vat));
+    }
     // 미국 판매세: 하와이·괌은 그 지역에 매장이 있는 브랜드만 (엑셀 '하와이·괌 매장' 표)
     function usTax(brand, set) {
       const st = rules.stores[brand] || [];
@@ -50,7 +60,7 @@
       return f;
     }
     // 나라 c 에서 현지가 v 인 제품 한 개
-    function calc(c, v, grp, brand, set) {
+    function calc(c, v, grp, brand, set, t) {
       const k = C[c];
       if (c === "KR") { const krw = v * (1 - set.krDisc / 100); return { krw, refund: 0, fee: 0, duty: 0, net: krw, rate: 0, disc: v - krw }; }
       const tax = c === "US" ? usTax(brand, set) : k.tax, mult = k.incl ? 1 : 1 + tax / 100;
@@ -68,10 +78,15 @@
             rate = Math.min(Math.max(rate, k.tax / (100 + k.tax)), rate + set.euUp[c] / 100);
         }
       }
-      const refund = krw * rate, fee = krw * feeRate(set), duty = customs(krw - refund, grp, set);
-      return { krw, refund, fee, duty, net: krw - refund + fee + duty, rate, disc: v * dept * mult * FX[c], tax, cp: cp && cp.id };
+      const refund = krw * rate, fee = krw * feeRate(set);
+      let duty = customs(krw - refund, grp, set), fta = false;
+      if (set.fta && set.customs && ftaOk(c, brand, t)) {  // FTA 신청이 더 낮을 때만 (여행자가 고르는 것 — 자동 선택 규정은 없음)
+        const d = ftaCustoms(krw - refund, grp);
+        if (d < duty) { duty = d; fta = true; }
+      }
+      return { krw, refund, fee, duty, net: krw - refund + fee + duty, rate, disc: v * dept * mult * FX[c], tax, cp: cp && cp.id, fta };
     }
-    return { calc, customs, usTax, feeRate, jpExcluded, jpFee, coupons, cpActive, today };
+    return { calc, customs, usTax, feeRate, jpExcluded, jpFee, coupons, cpActive, today, ftaOk, ftaCustoms, FTA };
   }
   // 한시 세율 (rules.countries[c].until·after, 2026-10-29 베트남 가방 부가세 8%): 기기 날짜가 until 을 지나면 after 값으로 (빌드를 다시 안 해도)
   LuxCalc.dated = (countries, day) => {

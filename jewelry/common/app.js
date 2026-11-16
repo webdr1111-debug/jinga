@@ -120,7 +120,7 @@
   }
 
   // ── 설정 (웹앱계획.md 5.15절). 앱마다 따로 저장 ──
-  const DEF = { pay: "card", fee: 1.2, refund: true, customs: true, self: true, krDisc: 0, jpDept: false, jpRate: 5, jpFeeMode: "tier", jpRefFee: 2.3, cp: {},
+  const DEF = { pay: "card", fee: 1.2, refund: true, customs: true, self: true, krDisc: 0, jpDept: false, jpRate: 5, jpFeeMode: "tier", jpRefFee: 2.3, fta: false, cp: {},
     us: "ny", usTax: 6, euHigh: false, euThr: 5000, euUp: { FR: 1, IT: 1.5, ES: 1 }, off: [], hide: [], tripOnly: false, num: "man", theme: "auto", stale: 30, onboarded: false,
     fxMode: "live", fxCustom: {},  // 환율: live = 페이지를 열 때마다 받은 최신 환율(못 받으면 마지막 값 → 빌드 값), build = 빌드 환율, custom = 직접 입력
     tripFrom: "", tripTo: "",  // 여행 날짜(11-08, 13장 기능 5): 출발·귀국 'YYYY-MM-DD', 비면 없음. 계산 기준(CALC_KEYS)은 아님
@@ -143,7 +143,7 @@
   function saveSet(patch) { SET = { ...SET, ...patch }; store.set(setKey(), SET); cache.clear(); if ("lang" in patch) applyLang(); applyTheme(); applyFx(); }
   function applyTheme() { const r = document.documentElement; SET.theme === "auto" ? r.removeAttribute("data-theme") : r.setAttribute("data-theme", SET.theme); }
   // 기본값과 다른 계산 설정 (띠에 개수로 보여 줌)
-  const CALC_KEYS = ["pay", "fee", "refund", "customs", "self", "krDisc", "jpDept", "jpRate", "jpFeeMode", "jpRefFee", "cp", "us", "usTax", "euHigh", "euThr", "euUp", "off", "tripOnly", "fxMode", "fxCustom"];
+  const CALC_KEYS = ["pay", "fee", "refund", "customs", "self", "krDisc", "fta", "jpDept", "jpRate", "jpFeeMode", "jpRefFee", "cp", "us", "usTax", "euHigh", "euThr", "euUp", "off", "tripOnly", "fxMode", "fxCustom"];
   function diffs() {
     return CALC_KEYS.filter(k => JSON.stringify(SET[k]) !== JSON.stringify(DEF[k]))
       .filter(k => !(k === "fee" && SET.pay !== "custom") && !(k === "usTax" && SET.us !== "custom") && !(k === "jpRate" && !SET.jpDept) && !(k === "jpRefFee" && SET.jpFeeMode !== "custom")
@@ -161,7 +161,7 @@
         <p class="note"><a class="link" href="#/settings">${t("자세한 설정 ›", "More settings ›", "詳細設定 ›")}</a> ${t("수수료 직접 입력 · 자진신고 · 한국 할인 · 일본 백화점 할인", "Custom fee · self-declare · Korea discounts · Japan store discounts", "手数料入力 · 自主申告 · 韓国割引 · 日本百貨店割引")}</p>
       </div></details>`;
   const setSummary = () => [payLabel(), SET.refund ? t("세금 환급 받음", "Tax refund", "免税あり") : t("환급 없음", "No refund", "免税なし"), SET.customs ? (SET.self ? t("자진신고 관세 포함", "Duty incl. (self-declared)", "関税込み(自主申告)") : t("관세 포함", "Duty incl.", "関税込み")) : t("관세 제외", "Duty excl.", "関税抜き")]
-    .concat(SET.krDisc ? [t(`한국 할인 ${SET.krDisc}%`, `Korea discount ${SET.krDisc}%`, `韓国割引${SET.krDisc}%`)] : [], SET.jpDept ? [t(`일본 백화점 ${SET.jpRate}%`, `Japan dept. store ${SET.jpRate}%`, `日本百貨店${SET.jpRate}%`)] : [], cpOn().map(cp => t(`${cp.short} 쿠폰 ${cp.rate}%`, `${cp.short} coupon ${cp.rate}%`, `${cp.short}クーポン${cp.rate}%`)), [fxLabel()]).join(" · ");
+    .concat(SET.krDisc ? [t(`한국 할인 ${SET.krDisc}%`, `Korea discount ${SET.krDisc}%`, `韓国割引${SET.krDisc}%`)] : [], SET.jpDept ? [t(`일본 백화점 ${SET.jpRate}%`, `Japan dept. store ${SET.jpRate}%`, `日本百貨店${SET.jpRate}%`)] : [], SET.fta && SET.customs ? [t("유럽 FTA 관세 0%", "EU FTA duty 0%", "EU FTA関税0%")] : [], cpOn().map(cp => t(`${cp.short} 쿠폰 ${cp.rate}%`, `${cp.short} coupon ${cp.rate}%`, `${cp.short}クーポン${cp.rate}%`)), [fxLabel()]).join(" · ");
   const jpExcluded = b => CALC.jpExcluded(b);
   // 화면에 쓰는 실효 환급률 % (11-16 사용자: 일본 8% 표시가 계산과 달라 맞춤) — 일본은 calc.js 와 같은 식 (10% − 환급 수수료) ÷ 1.1, 수수료는 설정(기본 글로벌블루 100만 엔 미만 2.3%)
   const refundPct = c => c === "JP" && C.JP ? Math.round((0.10 - (SET.jpFeeMode === "custom" ? SET.jpRefFee || 0 : 2.3) / 100) / 1.1 * 1000) / 10 : (C[c] || {}).refund || 0;
@@ -236,7 +236,7 @@
     const g = grpOf(p);
     // 설정 '비교할 나라'·'내 여행지 나라만 비교'로 뺀 나라는 계산에서 뺌 (한국은 늘 포함)
     const use = c => c === "KR" || (!SET.off.includes(c) && (!SET.tripOnly || !S.trip.length || S.trip.includes(c)));
-    const r = Object.entries(p.p).filter(([c]) => use(c)).map(([c, [v, t, url, opt]]) => ({ cc: c, v, t, url, opt, ...(v ? CALC.calc(c, v, g, p.b, set || SET) : { net: Infinity }) }));
+    const r = Object.entries(p.p).filter(([c]) => use(c)).map(([c, [v, t, url, opt]]) => ({ cc: c, v, t, url, opt, ...(v ? CALC.calc(c, v, g, p.b, set || SET, p.t) : { net: Infinity }) }));
     if (!set) cache.set(p, r);
     return r;
   }
@@ -814,7 +814,8 @@
       if (cc === "KR") { net += r.net; continue; }
       net += r.net - r.duty;
       const b = r.krw - r.refund;
-      if (b <= CUS.simpleMax) simpleBase += b; else duty += customs(b, g);  // 1,000만원 넘는 한 개는 그 제품만 일반 과세
+      if (r.fta) duty += r.duty;  // FTA 적용 제품(관세 0%·일반 과세)은 그 제품만 따로 — 간이세율 합계에서 뺌 (11-16)
+      else if (b <= CUS.simpleMax) simpleBase += b; else duty += customs(b, g);  // 1,000만원 넘는 한 개는 그 제품만 일반 과세
     }
     // 1,000만원 이하 제품들은 합계에 간이세율, $800는 한 번만
     return cc === "KR" ? net : net + duty + (simpleBase ? customs(simpleBase, g, false, true) : 0);
@@ -1650,6 +1651,10 @@
     // 여행 날짜가 있으면 지금은 아니어도 그때 쓸 수 있는 쿠폰을 알려 줌 (11-08, 기능 5)
     const cpTrip = r => !r.v || !SET.tripFrom || tripOver() ? "" : CALC.coupons.filter(cp => cp.country === r.cc && !cpLive(cp) && CALC.cpActive(cp, SET.tripFrom) && cp.brands.includes(p.b) && !(cp.exclude || {})[p.b])
       .map(cp => `<br><span class="note">여행 때(${esc(mdd(SET.tripFrom))}) 쓸 수 있는 쿠폰: ${esc(cp.name)} ${cp.rate}% (${esc(ymd(cp.from))}~${esc(ymd(cp.until))})</span>`).join("");
+    // 유럽 FTA (11-16 사용자: 일본 백화점 할인처럼) — '관세 포함'일 때만, EU에서 산 EU산 제품
+    const ftaTip = r => !r.v || !PV.customs || !CALC.ftaOk(r.cc, p.b, p.t) ? "" : SET.fta
+      ? (r.fta ? " · 한-EU FTA 원산지 신고로 관세 0% (부가세 10%와 기준 넘는 부분 개별소비세는 내요, 자진신고 감면 없음)" : " · FTA를 신청해도 간이세율이 더 낮아 간이세율로 계산")
+      : (sv => sv > 0 ? `<br><button type="button" class="link" data-set="fta" data-val="true">매장에서 FTA 원산지 신고를 받으면 ${JINGA} −${won(sv)} · 켜기</button>` : "")(r.net - CALC.calc(r.cc, r.v, grpOf(p), p.b, { ...PV, fta: true }, p.t).net);
     const esTip = r => !r.v ? "" : NOTICES.filter(n => n.country === r.cc && n.tip).map(n => `<br><span class="note">${esc(n.tip)}</span>${offLinks(n.links) ? " " + offLinks(n.links) : ""}`).join("");
     // 할인은 원화로 바꾸기 전에 (판매가 − 할인 = 결제액 → 원화) — 할인을 끝에 따로 적으면 '판매가 → 원화' 숫자가 안 맞아 보였다(2026-10-27)
     const discPart = r => !r.disc ? "" : r.cc === "JP"
@@ -1658,7 +1663,7 @@
       : r.cc === "KR" ? ` − 한국 할인 ${SET.krDisc}% ${won(r.disc)}` : "";
     const brk = r => `<div class="brk">${r.v ? `<span class="note">수집 ${esc(mdd(M.priceDate[r.cc] || D.generated))}</span> · ${localP(p, r.cc, r.v)}${discPart(r)}${C[r.cc].incl ? "" : ` + 판매세 ${r.tax ?? C[r.cc].tax}%`} → 원화 ${won(r.krw)}
       · 환급 ${r.rate ? `−${won(r.refund)} (${(r.rate * 100).toFixed(2)}%, 최소 ${local(r.cc, C[r.cc].min)} ${r.v >= C[r.cc].min ? "충족" : "미달"})` : pv && !PV.refund ? "이 표에서 뺌" : "없음"}
-      · 카드 수수료 +${won(r.fee)} (${payLabel()}) · 관세 ${r.duty ? "+" + won(r.duty) : r.cc === "KR" ? "없음" : !PV.customs ? (pv ? "이 표에서 뺌" : "설정에서 뺌") : "0 (면세 한도 $800 이내)"}${r.duty ? ` (면세 $800 공제${SET.self ? ", 자진신고 감면" : ""})` : ""}${jpTip(r)}${cpTip(r)}${cpTrip(r)}${esTip(r)}${r.cc !== "KR" ? `<br><span class="stk">⚠ ${esc(C[r.cc].n)} 매장 재고는 공홈 재고 확인·매장 문의로 꼭 확인하세요${r.t === 2 ? " — 지금 공홈 온라인 품절·미판매" : ""}</span>` : ""}` : "가격 정보 없음"}</div>`;
+      · 카드 수수료 +${won(r.fee)} (${payLabel()}) · 관세 ${r.duty ? "+" + won(r.duty) : r.cc === "KR" ? "없음" : !PV.customs ? (pv ? "이 표에서 뺌" : "설정에서 뺌") : "0 (면세 한도 $800 이내)"}${r.duty ? ` (면세 $800 공제${SET.self && !r.fta ? ", 자진신고 감면" : ""})` : ""}${ftaTip(r)}${jpTip(r)}${cpTip(r)}${cpTrip(r)}${esTip(r)}${r.cc !== "KR" ? `<br><span class="stk">⚠ ${esc(C[r.cc].n)} 매장 재고는 공홈 재고 확인·매장 문의로 꼭 확인하세요${r.t === 2 ? " — 지금 공홈 온라인 품절·미판매" : ""}</span>` : ""}` : "가격 정보 없음"}</div>`;
     const conclusion = R.best ? (R.save !== null && R.save <= 0 ? t(`<b>한국에서 사는 게 가장 싸요</b> · ${R.mode === "trip" ? "내 여행지" : "해외"} 최저는 ${nationF(R.best.cc)}`, `<b>Cheapest in Korea</b> · lowest ${R.mode === "trip" ? "on your trip" : "abroad"}: ${nationF(R.best.cc)}`, `<b>韓国で買うのが最安</b> · ${R.mode === "trip" ? "旅行先" : "海外"}の最安は${nationF(R.best.cc)}`)
       : R.mode === "trip" ? t(`내 여행지 중 <b>${nationF(R.best.cc)}</b>이(가) 가장 싸요`, `Cheapest on your trip: <b>${nationF(R.best.cc)}</b>`, `旅行先では<b>${nationF(R.best.cc)}</b>が最安`)
       : R.mode === "notrip" ? t(`내 여행지에서는 안 팔아요 · 전체 최저는 <b>${nationF(R.best.cc)}</b>`, `Not sold on your trip · lowest overall: <b>${nationF(R.best.cc)}</b>`, `旅行先では未販売 · 全体の最安は<b>${nationF(R.best.cc)}</b>`)
@@ -1807,6 +1812,11 @@
     const sampleJp = (() => { const p = sampleProduct(); return p.p.JP ? !jpExcluded(p.b) : false; })();
     // 나라별 옵션: 내 여행지에 있는 나라를 위로
     const country = [
+      { cs: (CALC.FTA.countries || []), html: q("유럽 매장에서 FTA 원산지 신고를 받아요?", segBtns("fta", [[false, "아니요"], [true, "네"]]),
+        `한-EU FTA로 <b>유럽(${(CALC.FTA.countries || []).map(c => esc(C[c] ? C[c].n : c)).join("·")})에서 산 유럽산 제품</b>은 관세가 0%예요. 대신 간이세율(15%)을 쓸 수 없어 부가세 10%를 내고(가방 200만·보석 500만 원 넘는 부분은 개별소비세·교육세도), 자진신고 감면은 없어요. '관세 포함'일 때만, 간이세율보다 쌀 때만 계산에 넣어요.
+        <br><b>서류 받는 법</b> — 결제할 때 매장에 'FTA 원산지 신고(origin declaration)'를 부탁하세요. 영수증(작으면 뒷면이나 별지)에 <i>The exporter of the products covered by this document …</i>로 시작하는 원산지 신고 문구와 <b>판매자 손 서명</b>이 있어야 해요. 한 번에 €6,000을 넘으면 매장이 인증수출자 번호를 적어야 해요. 과세가격 미화 1,000달러 이하는 영수증과 제품 원산지 표시로 확인받을 수도 있어요.
+        <br><b>입국할 때</b> — 휴대품신고서에서 '자진신고 및 FTA 적용 신청'에 체크하고 영수증(원산지 신고)을 내요.
+        <br><b class="stk">제품 라벨의 'Made in'이 EU 나라여야 해요.</b> 스위스·일본 등 다른 나라에서 산 제품, 시계(대부분 스위스산), 면세점 구입품은 안 돼요. 브랜드별 대상은 설정 > 계산 기준 보기 표(대부분의 원산지 기준 추정)예요.`) },
       { cs: ["JP"], html: q("일본 백화점에서 사요?", segBtns("jpDept", [[false, "아니요"], [true, "네"]]),
         `켜면 외국인 할인 ${SET.jpRate}%를 빼요. 이세탄·미쓰코시 앱 쿠폰, 이와타야 게스트 카드, 한큐 게스트 쿠폰(모두 여권)이 있어야 해요. <b class="stk">할인 대상 브랜드는 백화점·지점마다 달라 꼭 확인하세요.</b> 이세탄·미쓰코시 기준 할인 제외 브랜드(${Object.entries(D.jpExcl).filter(([, v]) => v[0]).map(([b]) => bk(b)).slice(0, 6).join("·")} 등)는 자동으로 빠져요.`,
         (SET.jpDept ? `<div class="sub">할인율 ${numIn("jpRate", "%", "0.5")}</div>` : "") + (JPG().length ? `<details class="jpgbox"><summary>백화점별 게스트 할인 ${JPG().length}곳 — 받는 곳·조건·공식 안내</summary>${jpGuestList()}</details>` : "")) },
@@ -1852,7 +1862,7 @@
             ${q("언제 가세요?", `<div class="dates"><label>출발 <input type="date" data-date="tripFrom" value="${esc(SET.tripFrom)}" min="${CALC.today()}"></label><label>귀국 <input type="date" data-date="tripTo" value="${esc(SET.tripTo)}" min="${esc(SET.tripFrom || CALC.today())}"></label>${SET.tripFrom ? `<button type="button" class="link" data-date-clear>지우기</button>` : ""}</div>`,
               tripInfo() ? `${tripInfo()} · 여행 기간의 이벤트·쿠폰을 첫 화면에 보여 주고, 출발 전에 담은 제품 가격을 다시 알려 드려요.` : "넣으면 여행 기간의 이벤트·쿠폰을 첫 화면에 보여 주고, 출발 전에 담은 제품 가격을 다시 알려 드려요. (안 넣어도 돼요)")}
           </section>
-          <details class="setsec" ${isM() ? "" : "open"}><summary class="sth"><span class="stt"><h3>나라별 옵션</h3><span class="sdesc">일본 백화점 할인·환급 수수료 · 미국 판매세 지역 · 기간 쿠폰 · 유럽 고액 환급</span></span></summary><div class="right"><button type="button" class="link" data-reset="jpDept,jpRate,jpFeeMode,jpRefFee,cp,us,usTax,euHigh">이 묶음 기본값으로</button></div>
+          <details class="setsec" ${isM() ? "" : "open"}><summary class="sth"><span class="stt"><h3>나라별 옵션</h3><span class="sdesc">유럽 FTA · 일본 백화점 할인·환급 수수료 · 미국 판매세 지역 · 기간 쿠폰 · 유럽 고액 환급</span></span></summary><div class="right"><button type="button" class="link" data-reset="fta,jpDept,jpRate,jpFeeMode,jpRefFee,cp,us,usTax,euHigh">이 묶음 기본값으로</button></div>
             ${mine.length ? `<p class="plabel">내 여행지</p>${mine.map(x => x.html).join("")}` : ""}
             ${rest.length ? `<details class="more2" ${mine.length ? "" : "open"}><summary>${mine.length ? "다른 나라 옵션 보기" : "나라별 옵션"}</summary>${rest.map(x => x.html).join("")}</details>` : ""}
           </details>
@@ -1893,6 +1903,8 @@
             <p class="refn">${esc(D.euRef.note || "")}</p>` : ""}
             <h4 class="refh">태국 환급률 구간</h4>
             ${refTable(["구매액", "환급률"], D.thTiers.map(([a, r]) => [a.toLocaleString("ko-KR") + "바트 이상", (r * 100).toFixed(1) + "%"]))}
+            ${Object.keys(CALC.FTA.brands || {}).length ? `<h4 class="refh">유럽 FTA 관세 0% 대상 브랜드 (한-EU FTA · 원산지 추정 — 제품 라벨 확인)</h4>
+            ${refTable(["브랜드", "FTA", "근거"], (bs => Object.entries(CALC.FTA.brands).filter(([b]) => bs.has(b)))(new Set(list().map(p => p.b))).map(([b, [ok, why]]) => [esc(bk(b)), ok ? "대상" : "제외", esc(why)]))}` : ""}
             <h4 class="refh">일본 백화점 할인 제외 브랜드 (이세탄·미쓰코시 기준 · 앱 쿠폰·이와타야 게스트 카드·한큐 게스트 쿠폰)</h4>
             ${refTable(["브랜드", "할인", "근거"], Object.entries(D.jpExcl).map(([b, [ex, why]]) => [esc(bk(b)), ex ? "제외" : "가능", esc(why)]))}
             <h4 class="refh">기간 쿠폰</h4>
