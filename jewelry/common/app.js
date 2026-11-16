@@ -1888,8 +1888,8 @@
               ["자진신고 감면", "관세의 30%, 최대 20만원"]])}
             <h4 class="refh">나라별 세금·환급(수집 ${esc(D.generated)})</h4>
             ${refTable(["나라", "세율", "실효 환급률", "최소 구매"], TRIP_CODES.map(c => [nationF(c), C[c].tax + "%" + (C[c].incl ? "" : " (별도)"), refundPct(c) ? (c === "JP" ? "약 " : "") + refundPct(c) + "%" : "없음", C[c].min ? local(c, C[c].min) : "—"]))}
-            ${D.euRef && (D.euRef.rows || []).length ? `<h4 class="refh">EU 회원국별 세금·환급 참고 (${esc(D.euRef.updatedAt || "")} 조사 · 가격 비교는 프랑스·이탈리아·스페인만)</h4>
-            ${refTable(["나라", "부가세", "실효 환급률(추정)", "최소 구매"], D.euRef.rows.map(r => [esc(r.nameKo) + (r.currency !== "EUR" ? ` <small>${esc(r.currency)}</small>` : ""), r.vatPct + "%", "약 " + esc(r.effectiveRefundRange) + "%" + (C[r.code] && C[r.code].refund ? ` <small>(계산 ${C[r.code].refund}%)</small>` : ""), esc(r.minPurchase)]))}
+            ${D.euRef && (D.euRef.rows || []).length ? `<h4 class="refh">EU 회원국별 세금·환급 참고 (${esc(D.euRef.updatedAt || "")} 조사)</h4>
+            <div class="refeu">${refTable(["나라", "부가세", "실효 환급률(추정)", "최소 구매"], D.euRef.rows.map(r => [esc(r.nameKo), r.vatPct + "%", "약 " + esc(r.effectiveRefundRange) + "%", esc(r.minPurchase)]))}</div>
             <p class="refn">${esc(D.euRef.note || "")}</p>` : ""}
             <h4 class="refh">태국 환급률 구간</h4>
             ${refTable(["구매액", "환급률"], D.thTiers.map(([a, r]) => [a.toLocaleString("ko-KR") + "바트 이상", (r * 100).toFixed(1) + "%"]))}
