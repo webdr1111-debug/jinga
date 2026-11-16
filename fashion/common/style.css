@@ -577,7 +577,9 @@ html { overflow-x: clip; }  /* 무엇이 넘쳐도 화면(고정 메뉴 기준)�
 table.ref { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 table.ref th { text-align: left; font-weight: 400; color: var(--sub); border-bottom: 1px solid var(--line); padding: 8px; }
 table.ref td { border-bottom: 1px solid var(--line); padding: 8px; vertical-align: top; }
-.refeu td:first-child { white-space: nowrap; }  /* 11-16 사용자: 나라 이름(5글자까지) 한 줄 */
+.refeu td:first-child { white-space: nowrap; }
+.refnat td:first-child { white-space: nowrap; }  /* 11-16 사용자: 나라별 표도 나라 이름 한 줄, 세율·환급률 칸은 좁게(줄바꿈) */
+.refnat th:nth-child(2), .refnat th:nth-child(3), .refnat td:nth-child(2), .refnat td:nth-child(3) { width: 1%; }  /* 11-16 사용자: 나라 이름(5글자까지) 한 줄 */
 .refn { font-size: 12px; color: var(--sub); line-height: 1.6; margin: 8px 0 0; }
 table.ref td small { color: var(--sub); font-size: 11px; }
 .pv { border: 1px solid var(--line); background: var(--paper); }
