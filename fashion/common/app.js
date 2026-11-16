@@ -1886,8 +1886,8 @@
             ${refTable(["항목", "값"], [["면세 한도", "$800 (한 사람 전체에서 한 번)"], ["간이세율", "보석: 4,808,000원까지 15%, 넘는 부분 45% · 시계·가방: 1,923,000원까지 15%, 넘는 부분 45%"],
               ["간이세율 적용 배제", "한 개 과세가격 1,000만원 초과 → 일반 과세"], ["일반 과세", "관세 8% + 개별소비세 20%(보석 500만·시계·가방 200만원 넘는 부분) + 교육세 30% + 부가세 10%"],
               ["자진신고 감면", "관세의 30%, 최대 20만원"]])}
-            <h4 class="refh">나라별 세금·환급 (빌드 ${esc(D.generated)} · 환율은 지금 계산에 쓰는 값)</h4>
-            ${refTable(["나라", "세율", "실효 환급률", "최소 구매", "환율"], TRIP_CODES.map(c => [nationF(c), C[c].tax + "%" + (C[c].incl ? "" : " (별도)"), refundPct(c) ? (c === "JP" ? "약 " : "") + refundPct(c) + "%" : "없음", C[c].min ? local(c, C[c].min) : "—", "₩" + fxFmt(D.fx[c])]))}
+            <h4 class="refh">나라별 세금·환급(수집 ${esc(D.generated)})</h4>
+            ${refTable(["나라", "세율", "실효 환급률", "최소 구매"], TRIP_CODES.map(c => [nationF(c), C[c].tax + "%" + (C[c].incl ? "" : " (별도)"), refundPct(c) ? (c === "JP" ? "약 " : "") + refundPct(c) + "%" : "없음", C[c].min ? local(c, C[c].min) : "—"]))}
             ${D.euRef && (D.euRef.rows || []).length ? `<h4 class="refh">EU 회원국별 세금·환급 참고 (${esc(D.euRef.updatedAt || "")} 조사 · 가격 비교는 프랑스·이탈리아·스페인만)</h4>
             ${refTable(["나라", "부가세", "실효 환급률(추정)", "최소 구매"], D.euRef.rows.map(r => [esc(r.nameKo) + (r.currency !== "EUR" ? ` <small>${esc(r.currency)}</small>` : ""), r.vatPct + "%", "약 " + esc(r.effectiveRefundRange) + "%" + (C[r.code] && C[r.code].refund ? ` <small>(계산 ${C[r.code].refund}%)</small>` : ""), esc(r.minPurchase)]))}
             <p class="refn">${esc(D.euRef.note || "")}</p>` : ""}
