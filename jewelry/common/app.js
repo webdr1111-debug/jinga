@@ -931,7 +931,7 @@
     html += alertStrip();  // 담은 제품 변동 알림 (11-08)
     html += tripStrip();  // 여행 날짜 띠 (11-08)
     // 모바일: 구역 바로 가기 칩 (5M.12절)
-    if (isM()) html += `<nav class="jump" aria-label="${t("바로 가기", "Jump to", "ジャンプ")}">${[["h-calc", t("내 쇼핑", "My total", "買い物計算")], ["h-icons", t("아이콘", "Icons", "アイコン")], ["h-where", S.trip.length ? t("내 여행지", "My trip", "旅行先") : t("나라 순위", "Countries", "国ランキング")], ["h-flight", t("비행기값", "Flight", "航空券")], ["h-price", t("가격 변동", "Prices", "価格変動")], ["h-gift", t("선물", "Gifts", "ギフト")], ...(kind === "jewelry" ? [["h-bridal", t("예물", "Bridal", "ブライダル")]] : []), ["h-good", t("알아 두면", "Tips", "豆知識")], ["h-bq", t("브랜드", "Brands", "ブランド")]]
+    if (isM()) html += `<nav class="jump" aria-label="${t("바로 가기", "Jump to", "ジャンプ")}">${[["h-calc", t("내 쇼핑", "My total", "買い物計算")], ["h-icons", t("아이콘", "Icons", "アイコン")], ["h-where", S.trip.length ? t("내 여행지", "My trip", "旅行先") : t("나라 순위", "Countries", "国ランキング")], ["h-flight", t("비행기값", "Flight", "航空券")], ["h-price", t("가격 변동", "Prices", "価格変動")], ...(RS ? [["h-resale", t("중고 가치", "Resale", "リセール")]] : []), ["h-gift", t("선물", "Gifts", "ギフト")], ...(kind === "jewelry" ? [["h-bridal", t("예물", "Bridal", "ブライダル")]] : []), ["h-good", t("알아 두면", "Tips", "豆知識")], ["h-bq", t("브랜드", "Brands", "ブランド")]]
       .map(([id, l]) => `<button type="button" class="tchip sm" data-jump="${id}">${l}</button>`).join("")}</nav>`;
     html += brandQuick();
     html += onboardCard();
@@ -981,6 +981,8 @@
     }
     if (chCards.length) html += `<section class="sec" id="h-price">${section("Price Watch", t("가격이 바뀌었어요", "Prices changed", "価格が変わりました"), t("한국 가격 변동을 먼저, 해외는 3% 넘게 바뀐 것만", "Korea changes first; abroad only moves over 3%", "韓国の変動を先に、海外は3%超のみ"), `<a class="link" href="#/changes">${t("모두 보기", "See all", "すべて見る")}</a>`)}
       <div class="grid">${chCards.join("")}</div></section>`;
+    // ⑤b 중고 가치 (11-17 사용자: 미국 중고 정가 유지율 순위)
+    html += resaleHome();
     // ⑥ 선물 예산별
     const G = GIFT[kind], [, lo, hi] = G[budgetIdx];
     const gifts = take(P.filter(o => o.R.best.net >= lo && o.R.best.net < hi).sort(byRate), isM() ? 4 : 8);
@@ -1020,7 +1022,7 @@
       const tail = html.slice(cut);
       html = html.slice(0, cut) + (homeMore
         ? `<div class="hmore">${calcHtml}${tail}</div><div class="center"><button type="button" class="more" data-homemore="0">접기 ↑</button></div>`
-        : `<div class="center hmorebtn"><button type="button" class="btn ghost wide" data-homemore="1">${t("더 보기", "More", "もっと見る")}<small>${t("내 쇼핑 계산 · 가격 변동 · 선물 · 알아 두면", "My total · Prices · Gifts · Tips", "買い物計算 · 価格変動 · ギフト · 豆知識")}</small></button></div>`);
+        : `<div class="center hmorebtn"><button type="button" class="btn ghost wide" data-homemore="1">${t("더 보기", "More", "もっと見る")}<small>${RS ? t("내 쇼핑 계산 · 가격 변동 · 중고 가치 · 선물 · 알아 두면", "My total · Prices · Resale · Gifts · Tips", "買い物計算 · 価格変動 · リセール · ギフト · 豆知識") : t("내 쇼핑 계산 · 가격 변동 · 선물 · 알아 두면", "My total · Prices · Gifts · Tips", "買い物計算 · 価格変動 · ギフト · 豆知識")}</small></button></div>`);
     }
     return html;
   }
@@ -1418,14 +1420,46 @@
     return `<section class="bquick" id="h-bq"><div class="bqh"><b>${t("브랜드로 찾기", "Shop by brand", "ブランドで探す")}</b><a class="link" href="#/brand">${t("모든 브랜드", "All brands", "全ブランド")} ${Object.keys(cnt).length}</a></div>
       <div class="bqgrid">${bs.map(b => `<a class="blogo" href="#/brand/${encodeURIComponent(b)}" aria-label="${esc(bk(b))}">${brandMark(b, "lg")}</a>`).join("")}</div></section>`;
   }
-  function brandTiles() {
+  function brandTiles(sort) {
     const by = {};
     for (const it of itemsAll()) { const p = head(it); (by[p.b] = by[p.b] || []).push(it); }
-    return Object.entries(by).sort((a, b) => b[1].length - a[1].length).map(([b, its]) => {
+    const ord = sort === "resale" ? (a, b) => rsKey(b[0]) - rsKey(a[0]) || b[1].length - a[1].length : (a, b) => b[1].length - a[1].length;
+    return Object.entries(by).sort(ord).map(([b, its]) => {
       const cnt = {}; for (const it of its) { const R = itemRep(it); if (R.best) cnt[R.best.cc] = (cnt[R.best.cc] || 0) + 1; }
-      const best = Object.entries(cnt).sort((a, c) => c[1] - a[1])[0];
-      return `<a class="tile" href="#/brand/${encodeURIComponent(b)}"><b>${brandMark(b, "lg")}</b><span>${esc(bk(b))} · ${kind === "bag" ? "모델" : "제품"} ${its.length}개${SET.hide.includes(b) ? " · 숨김" : ""}</span>${best ? `<span class="tbest">추천 ${nationF(best[0])}</span>` : ""}</a>`;
+      const best = Object.entries(cnt).sort((a, c) => c[1] - a[1])[0], rv = rsOf(b);
+      return `<a class="tile" href="#/brand/${encodeURIComponent(b)}"><b>${brandMark(b, "lg")}</b><span>${esc(bk(b))} · ${kind === "bag" ? "모델" : "제품"} ${its.length}개${SET.hide.includes(b) ? " · 숨김" : ""}</span>${best ? `<span class="tbest">추천 ${nationF(best[0])}</span>` : ""}${sort === "resale" ? `<span class="tbest">${rv ? `중고 시세 정가의 ${rsPct(rv.med)}${RS.above[b] ? " ↑" : ""}` : "중고 자료 부족"}</span>` : ""}</a>`;
     }).join("");
+  }
+  // ── 미국 중고 정가 유지율 (11-17 사용자, sheets/config/resale.json → rules.resale) ──
+  // 브랜드 화면 카드 + 홈 순위 + 브랜드 목록 '중고 가치순'. 진가 계산에는 넣지 않음(계산은 중립). 매물 minN 개 미만이면 숨김.
+  const RESALE_ON = false;  // 11-17: 사용자 배포 결정 전까지 끔 (자료는 rules.resale 로 이미 내려감) — 승인되면 true
+  const RS = RESALE_ON && RU.resale && RU.resale.brands ? { above: {}, ...RU.resale } : null;
+  // 공식 홈페이지가 맞춤(이니셜) 상품의 '부터' 가격만 보여 주는 브랜드 (11-17 고야드 추가 — 수집세션: 온라인은 이니셜·마킹 맞춤 상품만)
+  const FROM_NOTE = { Goyard: "고야드는 공식 홈페이지에서 이니셜·마킹을 넣는 맞춤 상품만 팔아, 가격은 맞춤 포함 ‘부터’ 값이에요. 매장 기본 가격과 다를 수 있어요." };
+  const fromNote = b => FROM_NOTE[b] ? `<p class="note">${esc(FROM_NOTE[b])}</p>` : "";
+  const rsOf = b => { const v = RS && RS.brands[b]; return v && v.n >= (RS.minN || 20) ? v : null; };
+  const rsPct = x => Math.round(x * 100) + "%";
+  const rsKey = b => { const v = rsOf(b); return v ? (RS.above[b] ? 1 : 0) + v.med : -1; };  // 정가 이상 거래가 많은 브랜드는 숫자가 낮게 나오므로 위로(별도 표시)
+  const rsRank = () => RS ? Object.keys(RS.brands).filter(b => rsOf(b) && itemsAll().some(it => head(it).b === b)).sort((a, b) => rsKey(b) - rsKey(a)) : [];  // 정가 이상 거래가 많은 브랜드(↑)가 위
+  const rsSrc = () => `${esc(RS.source)} 판매 중 매물 · ${esc(RS.updated)} 확인 · 중고 판매가 ÷ 추정 정가`;
+  const rsBar = v => `<div class="rsbar" aria-hidden="true"><i style="left:${Math.min(v.p25, 1.2) / 1.2 * 100}%;width:${(Math.min(v.p75, 1.2) - Math.min(v.p25, 1.2)) / 1.2 * 100}%"></i><em style="left:${Math.min(v.med, 1.2) / 1.2 * 100}%"></em><s style="left:${1 / 1.2 * 100}%"></s></div>`;
+  function resaleCard(b) {
+    const v = rsOf(b);
+    if (!v) return "";
+    const rk = rsRank(), i = rk.indexOf(b), ab = RS.above[b];
+    return `<details class="rsale"><summary><span class="rsk">미국 중고 시세</span><b>정가의 약 ${rsPct(v.med)}</b><small>${i >= 0 ? `${kind === "bag" ? "가방" : "주얼리"} 브랜드 ${rk.length}곳 중 ${i + 1}위` : ""}${ab ? " · 실제는 더 높음 ↑" : ""}</small></summary>
+      ${rsBar(v)}<p class="rsl"><span>가운데 절반 ${rsPct(v.p25)}~${rsPct(v.p75)}</span><span>정가 100%</span></p>
+      ${ab ? `<p class="rsn">${esc(ab)}</p>` : ""}
+      <p class="rss">${rsSrc()} · 매물 ${v.n}개(추정 정가 표시 ${rsPct(v.share)}). ${esc(RS.how)}. 판매 중 가격이라 실제 팔린 값과 다를 수 있고, 미국 기준이라 한국 중고 시세와 달라요. 가격 비교(${JINGA})에는 넣지 않아요.</p></details>`;
+  }
+  function resaleHome() {
+    const rk = rsRank();
+    if (rk.length < 3) return "";
+    const top = rk.slice(0, 5), hi = top.filter(b => RS.above[b]);
+    return `<section class="sec" id="h-resale">${section("Resale Value", t("중고 가치를 잘 지키는 브랜드", "Brands that hold value", "リセール価値が高いブランド"), `미국 중고 시세 · 정가 대비 중간값 · ${esc(RS.updated)} 확인`, `<a class="link" href="#/brand?sort=resale">${t("모든 브랜드", "All brands", "全ブランド")}</a>`)}
+      <ol class="rank rsrank">${top.map((b, i) => { const v = RS.brands[b]; return `<li><a class="hit" href="#/brand/${encodeURIComponent(b)}" aria-label="${esc(bk(b))}"></a><span class="rk">${i + 1}</span><span class="nn">${esc(bk(b))}${RS.above[b] ? " ↑" : ""}</span><span class="rsv">${rsPct(v.med)}</span>${rsBar(v)}</li>`; }).join("")}</ol>
+      ${hi.length ? `<p class="rsn">↑ ${hi.map(b => esc(bk(b))).join("·")} — 정가보다 비싸게 팔리는 대표 제품이 많아 맨 위에 두었어요. 그런 제품은 계산에서 빠져서 실제 유지율은 숫자보다 높아요.</p>` : ""}
+      <p class="rss">${rsSrc()}. 미국 기준이라 한국 중고 시세와 달라요.</p></section>`;
   }
 
   // ── S-02a 여행지 목록 / S-02 여행지 (5.8절) ──
@@ -1492,8 +1526,10 @@
 
   // ── S-03 브랜드 (가방 모델 카드 화면) ──
   let brandShow = 24;
-  function brands() {
-    return `<div class="pagehead"><h1>브랜드</h1></div>${stStrip("#/stores", "브랜드 매장 찾기 — 나라·도시별 주소·영업시간")}<div class="brands">${brandTiles()}</div>`;
+  function brands(q) {
+    const sort = RS && q && q.get("sort") === "resale" ? "resale" : "";
+    const chips = RS ? `<div class="chiprow"><a class="tchip ${!sort ? "on" : ""}" href="#/brand">${kind === "bag" ? "모델" : "제품"} 많은 순</a><a class="tchip ${sort ? "on" : ""}" href="#/brand?sort=resale">중고 가치순</a></div>` : "";
+    return `<div class="pagehead"><h1>브랜드</h1>${sort ? `<p class="lead">미국 중고 시세 · 정가 대비 중간값 (${esc(RS.source)} ${esc(RS.updated)} 확인). ↑ 는 정가보다 비싸게 팔리는 제품이 많아 실제는 더 높은 브랜드예요.</p>` : ""}</div>${stStrip("#/stores", "브랜드 매장 찾기 — 나라·도시별 주소·영업시간")}${chips}<div class="brands">${brandTiles(sort)}</div>`;
   }
   // 기준 나라 칩 (브랜드 화면): [가장 싼 나라 / 내 여행지] + 이 브랜드를 파는 나라(한국보다 싼 제품이 많은 순)
   function atChips(b, its, href, cur) {
@@ -1532,7 +1568,8 @@
     const withQ = set => { const u = new URLSearchParams(q); for (const [k, v] of Object.entries(set)) v ? u.set(k, v) : u.delete(k); const s = u.toString(); return base + (s ? "?" + s : ""); };
     return `<nav class="crumb"><a href="#/">${t("홈", "Home", "ホーム")}</a> › <a href="#/brand">브랜드</a> › ${esc(bk(b))}</nav>${ntStrip(ntFor(b))}${M.stores ? `<a class="evstrip" href="#/stores?b=${encodeURIComponent(b)}"><span class="evcat">매장</span><span class="evt">${esc(bk(b))} 매장 찾기 — 나라·도시별 주소·영업시간</span><span class="evgo">›</span></a>` : ""}
       <div class="pagehead"><h1>${esc(b.toUpperCase())}</h1><p class="lead">${esc(bk(b))} · ${kind === "bag" ? `모델 ${its.length}개 (제품 ${its.reduce((n, it) => n + it.ps.length, 0)}개)` : `제품 ${its.length}개`}${AT ? ` · <b>${flag(AT)}${esc(C[AT].n)} 기준</b> <a class="link" href="#/country/${AT}?brand=${encodeURIComponent(b)}">${esc(C[AT].n)} 여행지 화면 ›</a>` : ""}</p>
-        <p class="note">럭스캐너는 ${esc(bk(b))}와(과) 관계없는 개인 가격 비교 서비스예요. 가격은 각 나라 공식 홈페이지 기준이에요.</p></div>
+        <p class="note">럭스캐너는 ${esc(bk(b))}와(과) 관계없는 개인 가격 비교 서비스예요. 가격은 각 나라 공식 홈페이지 기준이에요.</p>${fromNote(b)}</div>
+      ${resaleCard(b)}
       ${atChips(b, its, c => withQ({ at: c }), AT)}
       ${AT ? atStats(its, AT) : ""}
       ${colChips(cols, col, c => withQ({ c }))}
@@ -1724,7 +1761,7 @@
         <div class="pdtx">
           <div class="br">${esc(p.b.toUpperCase())}${p.c ? " · " + esc(colName(p.c).toUpperCase()) : ""}</div>
           <h1 class="${isM() ? "clamp2" : ""}" data-expand>${esc(pn(p))}</h1>
-          <div class="sku">${t("제품번호", "Ref.", "品番")} ${esc(p.s)}${L() === "ko" && p.ne ? " · " + esc(p.ne) : ""}</div>
+          <div class="sku">${t("제품번호", "Ref.", "品番")} ${esc(p.s)}${L() === "ko" && p.ne ? " · " + esc(p.ne) : ""}</div>${fromNote(p.b)}
           <div class="verdict">${R.best ? `<div>${conclusion}</div><div class="vnum">${wonK(R.best.net)} ${R.save !== null ? (R.save > 0 ? `<span class="save">${t(`${krLab(R)}보다 ${pct(R.save)}`, `${pct(R.save)} vs ${krLab(R)}`, `${krLab(R)}より ${pct(R.save)}`)} (${wonK(R.kr.net - R.best.net)})</span>` : `<span class="kr">${t("한국이 더 싸거나 같아요", "Korea is cheaper or equal", "韓国の方が安いか同じ")}</span>`) : `<span class="kr">${t("한국 미판매", "Not sold in Korea", "韓国未販売")}</span>`}</div>${stBestLink(R.best.cc, p.b)}${R.outlier ? `<div class="warnline">${t("가격 확인 필요", "Check price", "要確認")} — ${esc(p.ck)}</div>` : ""}` : conclusion}</div>
           ${!R.best ? "" : R.best.t === 2 && R.best.cc !== "KR"
             ? `<p class="stocknote sm" role="note"><b>${t(`⚠ ${esc(C[R.best.cc].n)} 공홈은 지금 온라인 품절·미판매예요`, `⚠ Sold out or not sold online in ${esc(C[R.best.cc].n)}`, `⚠ ${esc(C[R.best.cc].n)}の公式サイトは現在品切れ・未販売`)}</b> ${t("매장에 재고가 있는지 꼭 확인하세요.", "Check the store's stock before you go.", "店舗に在庫があるか必ず確認してください。")}</p>`
@@ -2478,7 +2515,7 @@
     if (!seg.length) html = home();
     else if (r === "country") html = seg[1] ? country(seg[1], q) : countries();
     else if (r === "brand" && seg[2] === "c" && seg[3]) { location.replace("#/brand/" + encodeURIComponent(seg[1]) + "?c=" + encodeURIComponent(seg[3])); return; }  // S-04 컬렉션 → 브랜드 화면의 컬렉션 칩
-    else if (r === "brand") html = seg[1] ? brand(seg[1], q) : brands();
+    else if (r === "brand") html = seg[1] ? brand(seg[1], q) : brands(q);
     else if (r === "p") html = product(seg[1], seg[2]);
     else if (r === "search") html = search(q);
     else if (r === "settings") html = seg[1] === "status" ? status() : settings(q);

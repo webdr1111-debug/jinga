@@ -1418,3 +1418,22 @@ body.hascmp .foot { padding-bottom: 80px; }
 /* 언어 (11-08, 웹앱계획.md 13장 기능 7): 영어·일본어 제목은 길어서 휴대폰 첫 화면 제목을 두 줄까지 */
 html:not([lang="ko"]) .hero.hm .htop h1 { white-space: normal; font-size: min(24px, 6.2vw); line-height: 1.15; }
 html:not([lang="ko"]) .hero.hm .htop .hchk { flex-wrap: wrap; white-space: normal; }
+/* 미국 중고 정가 유지율 (11-17 사용자): 브랜드 화면 카드 · 홈 순위 */
+.rsale { margin: 14px 0 6px; padding: 0 14px; border: 1px solid var(--line); background: var(--paper); }
+.rsale summary { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; min-height: 48px; padding: 12px 0; cursor: pointer; list-style: none; }
+.rsale summary::-webkit-details-marker { display: none; }
+.rsale summary::after { content: "＋"; margin-left: auto; color: var(--sub); }
+.rsale[open] summary::after { content: "－"; }
+.rsale .rsk { font-size: 12px; color: var(--sub); }
+.rsale summary b { font: 400 20px var(--display); font-variant-numeric: lining-nums; }
+.rsale summary small { color: var(--sub); font-size: 12px; }
+.rsbar { position: relative; height: 8px; margin: 6px 0; background: var(--line); border-radius: 4px; }
+.rsbar i { position: absolute; top: 0; bottom: 0; background: var(--gold); opacity: .45; border-radius: 4px; }
+.rsbar em { position: absolute; top: -3px; width: 2px; height: 14px; margin-left: -1px; background: var(--ink); }
+.rsbar s { position: absolute; top: -3px; width: 0; height: 14px; border-left: 1px dashed var(--sub); }
+.rsl { display: flex; justify-content: space-between; margin: 0; font-size: 11.5px; color: var(--sub); }
+.rsn { margin: 10px 0 0; font-size: 13px; }
+.rss { margin: 8px 0 12px; font-size: 11.5px; color: var(--sub); line-height: 1.5; }
+.rsrank li { grid-template-columns: 22px minmax(0, 1fr) 48px minmax(60px, 34%); }
+.rsrank .rsv { font: 400 18px var(--display); text-align: right; font-variant-numeric: lining-nums; }
+.rsrank .rsbar { margin: 0; }
