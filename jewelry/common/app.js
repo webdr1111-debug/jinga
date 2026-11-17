@@ -1432,7 +1432,7 @@
   }
   // ── 미국 중고 정가 유지율 (11-17 사용자, sheets/config/resale.json → rules.resale) ──
   // 브랜드 화면 카드 + 홈 순위 + 브랜드 목록 '중고 가치순'. 진가 계산에는 넣지 않음(계산은 중립). 매물 minN 개 미만이면 숨김.
-  const RESALE_ON = false;  // 11-17: 사용자 배포 결정 전까지 끔 (자료는 rules.resale 로 이미 내려감) — 승인되면 true
+  const RESALE_ON = true;  // 11-17 사용자 "중고 가치 화면 켜서 올려줘" (끄려면 false)
   const RS = RESALE_ON && RU.resale && RU.resale.brands ? { above: {}, ...RU.resale } : null;
   // 공식 홈페이지가 맞춤(이니셜) 상품의 '부터' 가격만 보여 주는 브랜드 (11-17 고야드 추가 — 수집세션: 온라인은 이니셜·마킹 맞춤 상품만)
   const FROM_NOTE = { Goyard: "고야드는 공식 홈페이지에서 이니셜·마킹을 넣는 맞춤 상품만 팔아, 가격은 맞춤 포함 ‘부터’ 값이에요. 매장 기본 가격과 다를 수 있어요." };
