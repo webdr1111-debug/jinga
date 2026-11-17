@@ -1441,7 +1441,7 @@
   const rsPct = x => Math.round(x * 100) + "%";
   const rsKey = b => { const v = rsOf(b); return v ? (RS.above[b] ? 1 : 0) + v.med : -1; };  // 정가 이상 거래가 많은 브랜드는 숫자가 낮게 나오므로 위로(별도 표시)
   const rsRank = () => RS ? Object.keys(RS.brands).filter(b => rsOf(b) && itemsAll().some(it => head(it).b === b)).sort((a, b) => rsKey(b) - rsKey(a)) : [];  // 정가 이상 거래가 많은 브랜드(↑)가 위
-  const rsSrc = () => `${esc(RS.source)} 판매 중 매물 · ${esc(RS.updated)} 확인 · 중고 판매가 ÷ 추정 정가`;
+  const rsSrc = () => `출처: ${esc(RS.source)} · ${esc(RS.updated)}`;  // 11-17 사용자: 출처만, 구하는 방법은 빼기
   const rsBar = v => `<div class="rsbar" aria-hidden="true"><i style="left:${Math.min(v.p25, 1.2) / 1.2 * 100}%;width:${(Math.min(v.p75, 1.2) - Math.min(v.p25, 1.2)) / 1.2 * 100}%"></i><em style="left:${Math.min(v.med, 1.2) / 1.2 * 100}%"></em><s style="left:${1 / 1.2 * 100}%"></s></div>`;
   function resaleCard(b) {
     const v = rsOf(b);
@@ -1450,16 +1450,16 @@
     return `<details class="rsale"><summary><span class="rsk">미국 중고 시세</span><b>정가의 약 ${rsPct(v.med)}</b><small>${i >= 0 ? `${kind === "bag" ? "가방" : "주얼리"} 브랜드 ${rk.length}곳 중 ${i + 1}위` : ""}${ab ? " · 실제는 더 높음 ↑" : ""}</small></summary>
       ${rsBar(v)}<p class="rsl"><span>가운데 절반 ${rsPct(v.p25)}~${rsPct(v.p75)}</span><span>정가 100%</span></p>
       ${ab ? `<p class="rsn">${esc(ab)}</p>` : ""}
-      <p class="rss">${rsSrc()} · 매물 ${v.n}개(추정 정가 표시 ${rsPct(v.share)}). ${esc(RS.how)}. 판매 중 가격이라 실제 팔린 값과 다를 수 있고, 미국 기준이라 한국 중고 시세와 달라요. 가격 비교(${JINGA})에는 넣지 않아요.</p></details>`;
+      <p class="rss">${rsSrc()}</p></details>`;
   }
   function resaleHome() {
     const rk = rsRank();
     if (rk.length < 3) return "";
     const top = rk.slice(0, 5), hi = top.filter(b => RS.above[b]);
-    return `<section class="sec" id="h-resale">${section("Resale Value", t("중고 가치를 잘 지키는 브랜드", "Brands that hold value", "リセール価値が高いブランド"), `미국 중고 시세 · 정가 대비 중간값 · ${esc(RS.updated)} 확인`, `<a class="link" href="#/brand?sort=resale">${t("모든 브랜드", "All brands", "全ブランド")}</a>`)}
+    return `<section class="sec" id="h-resale">${section("Resale Value", t("중고 가치를 잘 지키는 브랜드", "Brands that hold value", "リセール価値が高いブランド"), `미국 중고 시세 · 정가 대비`,`<a class="link" href="#/brand?sort=resale">${t("모든 브랜드", "All brands", "全ブランド")}</a>`)}
       <ol class="rank rsrank">${top.map((b, i) => { const v = RS.brands[b]; return `<li><a class="hit" href="#/brand/${encodeURIComponent(b)}" aria-label="${esc(bk(b))}"></a><span class="rk">${i + 1}</span><span class="nn">${esc(bk(b))}${RS.above[b] ? " ↑" : ""}</span><span class="rsv">${rsPct(v.med)}</span>${rsBar(v)}</li>`; }).join("")}</ol>
-      ${hi.length ? `<p class="rsn">↑ ${hi.map(b => esc(bk(b))).join("·")} — 정가보다 비싸게 팔리는 대표 제품이 많아 맨 위에 두었어요. 그런 제품은 계산에서 빠져서 실제 유지율은 숫자보다 높아요.</p>` : ""}
-      <p class="rss">${rsSrc()}. 미국 기준이라 한국 중고 시세와 달라요.</p></section>`;
+      ${hi.length ? `<p class="rsn">↑ ${hi.map(b => esc(bk(b))).join("·")} — 정가보다 비싸게 팔리는 제품이 많아 실제는 숫자보다 높아요.</p>` : ""}
+      <p class="rss">${rsSrc()}</p></section>`;
   }
 
   // ── S-02a 여행지 목록 / S-02 여행지 (5.8절) ──
@@ -1529,7 +1529,7 @@
   function brands(q) {
     const sort = RS && q && q.get("sort") === "resale" ? "resale" : "";
     const chips = RS ? `<div class="chiprow"><a class="tchip ${!sort ? "on" : ""}" href="#/brand">${kind === "bag" ? "모델" : "제품"} 많은 순</a><a class="tchip ${sort ? "on" : ""}" href="#/brand?sort=resale">중고 가치순</a></div>` : "";
-    return `<div class="pagehead"><h1>브랜드</h1>${sort ? `<p class="lead">미국 중고 시세 · 정가 대비 중간값 (${esc(RS.source)} ${esc(RS.updated)} 확인). ↑ 는 정가보다 비싸게 팔리는 제품이 많아 실제는 더 높은 브랜드예요.</p>` : ""}</div>${stStrip("#/stores", "브랜드 매장 찾기 — 나라·도시별 주소·영업시간")}${chips}<div class="brands">${brandTiles(sort)}</div>`;
+    return `<div class="pagehead"><h1>브랜드</h1>${sort ? `<p class="lead">미국 중고 시세 · 정가 대비 (${rsSrc()}). ↑ 는 정가보다 비싸게 팔리는 제품이 많아 실제는 더 높은 브랜드예요.</p>` : ""}</div>${stStrip("#/stores", "브랜드 매장 찾기 — 나라·도시별 주소·영업시간")}${chips}<div class="brands">${brandTiles(sort)}</div>`;
   }
   // 기준 나라 칩 (브랜드 화면): [가장 싼 나라 / 내 여행지] + 이 브랜드를 파는 나라(한국보다 싼 제품이 많은 순)
   function atChips(b, its, href, cur) {
