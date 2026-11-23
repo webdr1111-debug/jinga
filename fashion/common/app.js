@@ -391,7 +391,8 @@
     const kinds = c.slots || [c.house ? "house" : "admob"], kindOf = i => kinds[(i - 1) % kinds.length];
     if (kindOf(n) === "house" && hs.length) {  // 기간이 끝나 카드가 없으면 AdMob 으로
       let h = 0; for (let i = 1; i < n; i++) if (kindOf(i) === "house") h++;  // 이 화면에서 몇 번째 우리 카드인지 → 겹치지 않게 돌아가며
-      return `<div class="adhouse">${evCard(hs[(h + new Date().getDate()) % hs.length])}</div>`;
+      // 11-23 사용자: house(우리 카드) 칸은 아고다 특가 호텔 카드로 — AdMob 칸은 그대로. 못 받으면 원래 글 카드
+      return `<div class="adhouse">${dealSlot(dealScreenCC(), "", evCard(hs[(h + new Date().getDate()) % hs.length]))}</div>`;
     }
     return `<capacitor-admob-native class="adslot" feed-id="lux" slot-key="${esc(pg + "-" + n)}"><span class="adtag">광고</span></capacitor-admob-native>`;
   }
@@ -629,24 +630,80 @@
   let heroHold = 0;
   // 이벤트 묶음 페이지 배너 (sheets/config/events.json pages[].banner): 제품 10장 뒤 11·12번째… 노출 기간 안에만 (2026-10-29)
   let heroBanners = [], heroGuide = null;  // heroGuide: 쇼핑 리스트 배너 — 첫 이벤트 배너 바로 다음 (11번째 이벤트, 12번째 쇼핑 리스트, 나머지 이벤트는 그 뒤 — 11-01 사용자)
-  const heroCount = () => heroList.length + heroBanners.length + (heroGuide ? 1 : 0);
+  const heroDealOn = () => dealOn() && !!dealPg() && heroList.length >= 6;  // 제품 넘김 가운데 특가 한 장(앱만)
+  const heroCount = () => heroList.length + heroBanners.length + (heroGuide ? 1 : 0) + (heroDealOn() ? 1 : 0);
   // 배너 그림: 웹은 data/ 주소 그대로, 앱은 서명 목록의 sha256 을 확인한 뒤(LUXDATA.img) 넣음
   const evImg = (b, cls) => b && b.image ? `<img class="${cls}" data-evimg="${esc(b.image)}" alt="${esc(b.alt || "")}" decoding="async">` : "";
   const evImgFill = () => document.querySelectorAll("img[data-evimg]:not([src])").forEach(im => {
     const n = im.dataset.evimg;
     (window.LUXDATA && LUXDATA.img ? LUXDATA.img(n) : Promise.resolve("data/" + n)).then(u => { im.src = u; }).catch(() => im.remove());
   });
-  const bannerHTML = pg => `<a class="feat fban${pg.banner.image ? " hasimg" : ""}" href="#/events/${esc(pg.id)}">${evImg(pg.banner, "fbimg")}<div class="fbin">
+  const bannerHTML = pg => `<a class="feat fban${pg.banner.image ? " hasimg" : ""}"${pg.deal ? ` data-hdeal="1"` : ""} href="#/events/${esc(pg.id)}">${evImg(pg.banner, "fbimg")}<div class="fbin">
       ${pg.sponsor ? `<span class="evad fbad">광고 · ${esc(pg.sponsor)}</span>` : ""}${pg.banner.eyebrow ? `<p class="eyebrow">${esc(pg.banner.eyebrow)}</p>` : ""}<h2>${esc(pg.banner.title)}</h2>
       ${pg.banner.text ? `<p class="fbt">${esc(pg.banner.text)}</p>` : ""}<span class="fbcta">${esc(pg.banner.cta || "자세히 보기")} ›</span>
       <p class="fbwhen">${evDate(pg.until)}까지</p></div></a>`;
+  // ── 아고다 특가 (11-23 고급수집방법 세션 전달 사용자 요청): 첫 화면 롤링 2장·목록 중간 우리 카드(house) 칸·제품 맨 아래·여행 줄.
+  // 값은 서버(/{앱}/data/deals.json, 도시당 6시간 캐시 — 앱이 많이 불러도 아고다 호출은 안 늚)가 주고 여기서 모양을 다시 검사. 글자는 esc 로만.
+  // 도시 = 화면 나라(여행지·매장 찾기)의 대표 도시, 없으면 내 여행지 첫 나라, 없으면 일본(events.json hotels.deal). 못 받으면 원래 카드·그림 그대로.
+  const DEAL_URL = /^https:\/\/www\.agoda\.com\/(?:[a-z]{2}-[a-z]{2}\/)?partners\/partnersearch\.aspx\?[^\s"'<>]*$/, DEAL_IMG = /^https:\/\/pix\d*\.agoda\.net\/[^\s"'<>]+$/;
+  const dealOk = h => h && DEAL_URL.test(h.u || "") && DEAL_IMG.test(h.img || "") && typeof h.r === "number" && h.r > 0 && h.n;
+  const dealWon = (v, cur) => cur && cur !== "KRW" ? cur + " " + Math.round(v).toLocaleString() : "₩" + Math.round(v).toLocaleString("ko-KR");
+  const dealOn = () => !!(window.LUXDATA && LUXDATA.deal);
+  const dealPg = () => (EV.pages || []).find(x => x.id === "hotels" && x.deal);
+  const dealCity = cc => { const pg = dealPg(); if (!pg) return null; const c = cc && pg.deal[cc] ? cc : S.trip.find(x => pg.deal[x]) || (pg.deal.JP ? "JP" : Object.keys(pg.deal)[0]);
+    const d = c && pg.deal[c]; return d && Number.isInteger(d.c) ? { cc: c, c: d.c, ko: d.ko || "", sponsor: pg.sponsor || "아고다" } : null; };
+  let dealMemo = {};
+  const dealList = d => (dealMemo[d.c] = dealMemo[d.c] || LUXDATA.deal(d.c)).then(j => ({ j, its: ((j && j.items) || []).filter(dealOk) }));
+  const dealWhen = j => { const m = /^\d{4}-(\d\d)-(\d\d)$/.exec((j && j.in) || ""); return (m ? `${+m[1]}.${+m[2]} ` : "") + "1박·2인 기준"; };
+  const dealStrike = h => h.w && h.p && Math.abs((1 - h.r / h.w) * 100 - h.p) <= 3;  // 줄 그은 원래 가격은 아고다 할인율과 맞을 때만
+  const dealPrice = h => `${h.p ? `<i>${esc(h.p)}%↓</i> ` : ""}${dealStrike(h) ? `<s>${esc(dealWon(h.w, h.cur))}</s> ` : ""}<b>${esc(dealWon(h.r, h.cur))}</b>`;
+  const dealKey = h => h.u.replace(/[?#].*$/, "") + "|" + (/[?&]hid=(\d+)/.exec(h.u) || [])[1] + "|" + h.n;
+  // 목록 중간·제품 맨 아래 칸: 자리표 → render 뒤 dealFillAll 이 채움. 한 화면에서 같은 호텔은 한 번만
+  const dealSlot = (cc, label, fallback) => `<div class="dealslot" data-dcc="${esc(cc || "")}" data-dlab="${esc(label || "")}">${fallback || ""}</div>`;
+  const dealScreenCC = () => (/^#\/(?:country|stores)\/([A-Z]{2})(?:[/?]|$)/.exec(location.hash) || [])[1] || "";
+  function dealFillAll() {
+    if (!dealOn()) return;
+    const used = new Set(), slots = [...document.querySelectorAll(".dealslot:not([data-done])")];
+    slots.forEach(el => {
+      el.dataset.done = "1";
+      const d = dealCity(el.dataset.dcc); if (!d) return;
+      dealList(d).then(({ j, its }) => {
+        const h = its.find(x => !used.has(dealKey(x))); if (!h || !el.isConnected) return; used.add(dealKey(h));
+        const lab = el.dataset.dlab ? `${el.dataset.dlab} — ${d.ko} 호텔 특가` : `${d.ko} 호텔 특가`;
+        el.innerHTML = `<a class="dealcard" href="${esc(h.u)}" target="_blank" rel="noopener noreferrer sponsored"><img src="${esc(h.img)}" alt="" loading="lazy" referrerpolicy="no-referrer">
+          <span class="dtx"><span class="evad">광고 · ${esc(d.sponsor)}</span><small class="dlab">${esc(lab)}</small><b>${esc(h.n)}</b><span class="dmt">${h.s ? "★" + esc(h.s) : ""}${h.v ? ` · 평점 ${esc(h.v)}` : ""}</span>
+          <span class="dpr">${dealPrice(h)} <small>/ 1박</small></span><small class="dwhen">${esc(dealWhen(j))} · 아고다 표시 가격</small></span></a>`;
+        const im = el.querySelector("img"); if (im) im.onerror = () => im.remove();
+      });
+    });
+  }
+  // 첫 화면 롤링 특가 슬라이드 2장(호텔 3~4곳씩): 한 번 받은 목록(최대 10곳)을 나눠 써서 겹치지 않게, 3곳이 안 되면 그 장은 원래 그림(배너) 그대로
+  const dealRows = (hs, j) => `<ul class="dlist">${hs.map(h => `<li><a href="${esc(h.u)}" target="_blank" rel="noopener noreferrer sponsored"><img src="${esc(h.img)}" alt="" referrerpolicy="no-referrer"><span class="dn"><b>${esc(h.n)}</b><small>${h.s ? "★" + esc(h.s) : ""}${h.v ? ` · 평점 ${esc(h.v)}` : ""}</small></span><span class="dp">${dealPrice(h)}<small>/ 1박</small></span></a></li>`).join("")}</ul>`;
+  function heroDeal() {
+    const els = [...document.querySelectorAll("[data-hdeal]")];
+    if (!els.length || !dealOn()) return;
+    const d = dealCity(""); if (!d) return;
+    dealList(d).then(({ j, its }) => {
+      let at = 0;
+      els.forEach(el => {
+        const hs = its.slice(at, at + 4); if (hs.length < 3 || !el.isConnected) return; at += hs.length;
+        el.classList.add("dealhero"); el.removeAttribute("href");
+        el.innerHTML = `<div class="fbin"><span class="evad fbad">광고 · ${esc(d.sponsor)}</span><p class="eyebrow">HOTEL DEALS · ${esc(d.ko)}</p><h2>${esc(d.ko)} 호텔 특가</h2>
+          ${dealRows(hs, j)}<p class="fbwhen">${esc(dealWhen(j))} · 아고다 표시 가격</p></div>`;
+        const r = el.querySelector(".dlist"); r && r.querySelectorAll("img").forEach(im => { im.onerror = () => im.remove(); });
+      });
+    });
+  }
   function heroHTML() {
     heroBanners = livePages().filter(pg => pg.banner).slice(0, 3);
     heroGuide = heroList.length ? guideBanner() : null;
     const n = heroCount();
-    return `<div class="htrack" id="hTrack" aria-roledescription="carousel" aria-label="이번 주 싸게 사는 제품">${heroList.map((_, j) =>
-      `<div class="hslide" role="group" aria-roledescription="slide" aria-label="${j + 1} / ${n}">${featHTML(j)}</div>`).join("")}${(() => { const bs = heroBanners.map(pg => [bannerHTML(pg), "이벤트"]); if (heroGuide) bs.splice(Math.min(1, bs.length), 0, [guideBannerHTML(heroGuide), "쇼핑 리스트"]);
-        return bs.map(([h, lab], j) => `<div class="hslide" role="group" aria-roledescription="slide" aria-label="${heroList.length + j + 1} / ${n} ${lab}">${h}</div>`).join(""); })()}</div>
+    // 11-23: 제품 넘김 가운데 아고다 특가 한 장(heroDealOn) — 자리는 hotels 배너 모양으로 두고 heroDeal 이 호텔 3~4곳으로 바꿈(못 채우면 그림 배너 그대로)
+    const slides = heroList.map((_, j) => [featHTML(j), ""]), hp = dealPg();
+    if (heroDealOn() && hp && hp.banner) slides.splice(Math.floor(heroList.length / 2), 0, [bannerHTML(hp), "광고"]);
+    const bs = heroBanners.map(pg => [bannerHTML(pg), "이벤트"]); if (heroGuide) bs.splice(Math.min(1, bs.length), 0, [guideBannerHTML(heroGuide), "쇼핑 리스트"]);
+    return `<div class="htrack" id="hTrack" aria-roledescription="carousel" aria-label="이번 주 싸게 사는 제품">${slides.concat(bs).map(([h, lab], j) =>
+      `<div class="hslide" role="group" aria-roledescription="slide" aria-label="${j + 1} / ${n}${lab ? " " + lab : ""}">${h}</div>`).join("")}</div>
       ${n > 1 ? `<div class="hctl"><button type="button" class="hbtn" data-hnav="-1" aria-label="이전 제품"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
         <span class="hcount" aria-live="polite"><b id="hNow">${heroIdx % n + 1}</b> / ${n}</span>
         <span class="hbar"><i id="hBar" style="width:${(heroIdx % n + 1) / n * 100}%"></i></span>
@@ -705,6 +762,7 @@
       addEventListener("resize", () => setTimeout(set, 100));
     }
     evImgFill();  // 배너 그림
+    heroDeal();  // 아고다 슬라이드 → 특가 호텔(앱만, 못 받으면 그림 그대로)
     heroGo(heroIdx, false);  // 다시 그려도 보던 장에 머묾
     let t;
     tr.addEventListener("scroll", () => { clearTimeout(t); t = setTimeout(() => {
@@ -1303,9 +1361,9 @@
     const popular = POPULAR[kind];
     return `<div class="pagehead center inl"><h1>${t("찾기", "Search", "検索")}</h1><p class="eyebrow">Search</p></div>
       ${calcBar()}
-      ${urlMissHtml()}${scanHtml()}
+      ${urlMissHtml()}
       ${filterView("#/search", q, noCond ? { noResults: true } : {})}
-      ${noCond && !urlMiss && !scan ? `<p class="note center urlhint">공식 홈페이지 제품 주소를 붙여넣거나, ${scanBtn()} 으로 가격표의 제품번호를 찍어도 바로 찾아요</p>` : ""}
+      ${noCond && !urlMiss ? `<p class="note center urlhint">공식 홈페이지 제품 주소를 붙여넣어도 바로 찾아요</p>` : ""}
       ${noCond ? `<div class="sec">
         ${recent.length ? `<div class="sh"><p class="eyebrow">Recent</p><h3>최근 검색어</h3><button type="button" class="link" data-recent-clear>지우기</button></div><div class="chiprow center">${recent.map(r => `<a class="tchip" href="#/search?q=${encodeURIComponent(r)}">${esc(r)}</a>`).join("")}</div>` : ""}
         <div class="sh" style="margin-top:48px"><p class="eyebrow">Popular</p><h3>많이 찾는 말</h3></div><div class="chiprow center">${popular.map(r => `<a class="tchip" href="#/search?q=${encodeURIComponent(r)}">${esc(r)}</a>`).join("")}</div>
@@ -1327,42 +1385,6 @@
     const cand = (b ? list().filter(p => p.b === b) : list()).filter(p => { const k = p.s.toUpperCase().replace(/[^A-Z0-9]/g, ""); return k.length >= 5 && U.includes(k); }).sort((x, y) => y.s.length - x.s.length);
     return { p: cand[0] || null, b, host: u.hostname, other: !b && !!HOST_BRAND[Object.keys(HOST_BRAND).find(k => host.includes(k)) || ""] };
   }
-  // ── 제품번호 스캔 (11-08, 웹앱계획.md 13장 기능 6) ──
-  // 카메라로 찍은 가격표·보증서·영수증·공홈 화면에서 글자를 읽어 제품번호를 찾는다. 글자 인식은 바깥에서 준다:
-  //  ① window.LUX_OCR(file) → Promise<string>  (앱: Capacitor ML Kit 글자 인식 플러그인 — 아직 안 붙임, 13장)
-  //  ② 브라우저 TextDetector (실험 기능, 안드로이드 크롬 일부)  ③ BarcodeDetector (안드로이드 크롬: 바코드·QR 값을 글자로)
-  //  없으면 사진을 서버로 보내지 않고 '지원 안 함'으로 끝낸다(개인정보·용량). 읽은 글에서 제품번호 모양 토큰을 골라 제품번호와 맞춘다.
-  let scan = null;  // { state: "busy"|"done"|"none", text, hits: [제품], toks: [] }
-  async function ocrText(file) {
-    if (typeof window.LUX_OCR === "function") return String(await window.LUX_OCR(file) || "");
-    const bmp = await createImageBitmap(file);
-    const out = [];
-    if ("TextDetector" in window) { try { (await new TextDetector().detect(bmp)).forEach(t => out.push(t.rawValue)); } catch (e) { /* 지원 안 함 */ } }
-    if ("BarcodeDetector" in window) { try { (await new BarcodeDetector().detect(bmp)).forEach(b => out.push(b.rawValue)); } catch (e) { /* 지원 안 함 */ } }
-    if (!out.length && !("TextDetector" in window) && !("BarcodeDetector" in window)) throw new Error("nosupport");
-    return out.join("\n");
-  }
-  function skuMatches(text) {
-    const toks = [...new Set(String(text || "").toUpperCase().split(/[^A-Z0-9_.\-]+/).map(t => t.replace(/[^A-Z0-9]/g, "")).filter(t => t.length >= 5 && /\d/.test(t)))];
-    const norm = s => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
-    const hits = [];
-    for (const p of list()) { const k = norm(p.s); if (k.length >= 5 && toks.some(t => t === k || (k.length >= 7 && (t.includes(k) || (t.length >= 7 && k.includes(t)))))) hits.push(p); }
-    return { toks: toks.slice(0, 12), hits: hits.slice(0, 8) };
-  }
-  async function runScan(file) {
-    scan = { state: "busy" }; render();
-    try { const text = await ocrText(file); scan = { state: "done", text, ...skuMatches(text) }; }
-    catch (e) { scan = { state: e && e.message === "nosupport" ? "none" : "fail", text: "" }; }
-    if (scan.hits && scan.hits.length === 1) { const p = scan.hits[0]; scan = null; location.hash = link(p); return; }
-    render();
-  }
-  const scanHtml = () => !scan ? "" : `<div class="scanbox">${scan.state === "busy" ? `<p class="note">사진에서 글자를 읽는 중…</p>`
-    : scan.state === "none" ? `<b>이 브라우저는 사진 글자 인식을 지원하지 않아요</b><p class="note">${window.LUX_APP ? "앱의 글자 인식은 다음 판에서 들어가요." : "안드로이드 크롬에서는 바코드·QR 을 읽을 수 있어요. 제품번호를 직접 넣어도 바로 찾아요."}</p>`
-    : scan.state === "fail" ? `<b>사진을 읽지 못했어요</b><p class="note">가까이서 글자가 또렷하게 나오게 다시 찍어 주세요.</p>`
-    : scan.hits.length ? `<b>사진에서 찾은 제품 ${scan.hits.length}개</b><div class="lrows">${scan.hits.map(p => rowItem(itemOf(p))).join("")}</div>`
-    : `<b>사진에서 제품번호를 못 찾았어요</b><p class="note">${scan.toks.length ? `읽은 글: ${scan.toks.map(t => `<a class="tchip sm" href="#/search?q=${encodeURIComponent(t)}">${esc(t)}</a>`).join(" ")}` : "읽을 수 있는 글자가 없었어요. 제품번호가 또렷하게 나오게 다시 찍어 주세요."}</p>`}
-    <button type="button" class="link" data-scan-close>닫기</button></div>`;
-  const scanBtn = () => `<label class="scanbtn" title="가격표·보증서의 제품번호를 찍어 찾기"><input type="file" accept="image/*" capture="environment" data-scanfile hidden><svg><use href="#i-search"/></svg>스캔</label>`;
   let urlMiss = null;  // 찾기 화면에 보여 줄 '이 주소의 제품을 못 찾았어요'
   const urlMissHtml = () => !urlMiss ? "" : `<div class="urlmiss"><b>이 주소의 제품을 못 찾았어요</b> <span class="note">${esc(urlMiss.host)}${urlMiss.b ? ` · ${esc(bk(urlMiss.b))} 제품 ${list().filter(p => p.b === urlMiss.b).length.toLocaleString("ko-KR")}개 중에 제품번호가 맞는 것이 없어요(이번 수집에 없는 제품이거나 주소에 제품번호가 없음)` : urlMiss.other ? " · 이 브랜드는 다른 앱(주얼리·패션)에 있어요" : " · 아직 수집하지 않는 브랜드예요"}</span>
     ${urlMiss.b ? `<a class="tchip sm" href="#/brand/${encodeURIComponent(urlMiss.b)}">${esc(bk(urlMiss.b))} 제품 보기</a>` : ""}${urlMiss.other && M.other ? ` <a class="tchip sm" href="${esc(M.other)}">다른 앱 열기 ↗</a>` : ""}<button type="button" class="link" data-urlmiss-close>닫기</button></div>`;
@@ -1778,7 +1800,8 @@
         <section class="sec"><div class="sh"><h3>${t("제품 정보", "Details", "製品情報")}</h3></div><dl class="spec">${info.filter(([, v]) => v).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(String(v).slice(0, 300))}</dd>`).join("")}</dl>
           </section>
       </div>${adAt("p", 1)}
-      ${same.length ? `<section class="sec"><div class="sh"><h3>${isBag ? t("같은 라인", "Same line", "同じライン") : t("같은 컬렉션", "Same collection", "同じコレクション")}</h3></div>${isM() ? lrows(same.slice(0, 4).map(it => rowItem(it))) : grid(same, "g6")}</section>${adAt("p", 2)}` : ""}`;  /* 목록이 없으면 2번째 광고도 빼서 광고 두 칸이 붙지 않게 (11-13 사용자) */
+      ${same.length ? `<section class="sec"><div class="sh"><h3>${isBag ? t("같은 라인", "Same line", "同じライン") : t("같은 컬렉션", "Same collection", "同じコレクション")}</h3></div>${isM() ? lrows(same.slice(0, 4).map(it => rowItem(it))) : grid(same, "g6")}</section>${adAt("p", 2)}` : ""}
+      ${R.best && R.best.cc !== "KR" && window.LUX_APP ? `<section class="sec dealsec">${dealSlot(R.best.cc, `가장 싼 나라 ${C[R.best.cc].n}`, "")}</section>` : ""}`;  /* 11-23: 제품 맨 아래만(웹앱계획 9.1 계산은 중립) */  /* 목록이 없으면 2번째 광고도 빼서 광고 두 칸이 붙지 않게 (11-13 사용자) */
   }
 
   // ── 제품 가격 이력 그래프 (11-08, 웹앱계획.md 13장 기능 1) ──
@@ -2210,7 +2233,14 @@
     const ev = tripEvents(), cps = CALC.coupons.filter(cp => S.trip.includes(cp.country) && CALC.cpActive(cp, SET.tripFrom) && !cpLive(cp));
     const parts = [ev.length ? `이벤트 ${ev.length}개` : "", cps.length ? `그때 쓸 수 있는 쿠폰 ${cps.length}개` : ""].filter(Boolean);
     const soon = d >= 0 && d <= 7 && S.picks.length ? ` · 담은 제품 ${S.picks.length}개 가격은 ${mdd(D.generated)} 수집 기준` : "";
-    return `<a class="evstrip tripstrip" href="${ev.length ? "#/events?trip=1" : S.picks.length ? "#/picks" : "#/settings"}"><span class="evcat">${esc(tripDday() || "여행")}</span><span class="evt">${esc(tripInfo())}${parts.length ? " · " + parts.join(" · ") : ""}${soon}</span><span class="evgo">›</span></a>`; };
+    return `<a class="evstrip tripstrip" href="${ev.length ? "#/events?trip=1" : S.picks.length ? "#/picks" : "#/settings"}"><span class="evcat">${esc(tripDday() || "여행")}</span><span class="evt">${esc(tripInfo())}${parts.length ? " · " + parts.join(" · ") : ""}${soon}</span><span class="evgo">›</span></a>${tripStay()}`; };
+  // 11-23: 여행 날짜·나라가 있으면 그 기간 숙소(아고다 도시 링크에 날짜) — 날짜별 특가 API 는 부르지 않음(캐시가 깨짐)
+  const tripStay = () => { if (!SET.tripFrom || tripOver() || !S.trip.length) return ""; const pg = dealPg(), d = pg && dealCity(S.trip[0]); if (!d || d.cc !== S.trip[0]) return "";
+    const out = SET.tripTo && SET.tripTo > SET.tripFrom ? SET.tripTo : new Date(Date.parse(SET.tripFrom + "T00:00:00Z") + 864e5).toISOString().slice(0, 10);
+    const base = (EV.events.find(e => e.id === "ad_agoda_" + d.cc) || { links: [] }).links.map(l => l.url).find(u => DEAL_URL.test(u) && new RegExp("[?&]city=" + d.c + "(?:&|$)").test(u));
+    if (!base || !/^\d{4}-\d\d-\d\d$/.test(SET.tripFrom) || (out && !/^\d{4}-\d\d-\d\d$/.test(out))) return "";
+    const u = base + "&checkin=" + SET.tripFrom + (out ? "&checkout=" + out : "");
+    return `<a class="evstrip tripstay" href="${esc(u)}" target="_blank" rel="noopener noreferrer sponsored"><span class="evcat">숙소</span><span class="evt">여행 기간 ${esc(d.ko)} 숙소 보기 · 광고 · ${esc(d.sponsor)}</span><span class="evgo">↗</span></a>`; };
   const alertStrip = () => { const A = pickAlerts(); if (!A.n && !A.nts.length) return "";
     const up = A.chg.filter(c => c.r > 0).length, dn = A.chg.filter(c => c.r < 0).length;
     const t = A.n ? `담은 제품 ${A.n}개 가격이 바뀌었어요${up ? ` · 오름 ${up}` : ""}${dn ? ` · 내림 ${dn}` : ""}` : `담은 브랜드·내 여행지 공지 ${A.nts.length}개`;
@@ -2534,6 +2564,7 @@
     const same = lastRoute.split("?")[0] === path, keyOf = d => d.id || d.className + "|" + (d.querySelector("summary")?.textContent || "").trim();  // 같은 제목(바깥 '나라별 옵션'·안쪽 '나라별 옵션')도 구분
     const opened = same ? new Map([...app.querySelectorAll("details")].map(d => [keyOf(d), d.open])) : null;
     if (!same || !keepTyping(html)) app.innerHTML = html;  // 다른 화면으로 가면 입력 칸도 새로
+    dealFillAll();  // 아고다 특가 자리(목록 중간 house 칸·제품 맨 아래) 채우기 — 앱만
     if (opened) app.querySelectorAll("details").forEach(d => { const k = keyOf(d); if (opened.has(k)) d.open = opened.get(k); });
     const fpNew = app.querySelector(".fl.open .fpanel");
     const qp = app.querySelector(".qpop"), qc = app.querySelector(".qchip.open");  // 펼친 판의 꼬리를 누른 단추 가운데로
@@ -2564,7 +2595,6 @@
     if (t.hasAttribute("data-newbar-close")) { document.getElementById("newbar").hidden = true; return; }
     if (t.hasAttribute("data-alert-seen")) { store.set(alertKey(), D.generated); render(); return; }
     if (t.hasAttribute("data-urlmiss-close")) { urlMiss = null; render(); return; }
-    if (t.hasAttribute("data-scan-close")) { scan = null; render(); return; }
     if (t.hasAttribute("data-date-clear")) { saveSet({ tripFrom: "", tripTo: "" }); render(); return; }
     if (t.dataset.chtab) { location.hash = "#/changes?tab=" + t.dataset.chtab + "&per=" + t.dataset.chper; return; }
     if (t.dataset.pimg !== undefined) { pImg = +t.dataset.pimg; render(); return; }
@@ -2649,7 +2679,6 @@
     if (t.matches("select[data-sort]")) location.hash = t.value;
     if (t.matches("input[data-nav]")) location.hash = t.dataset.nav;
     if (t.matches("input[data-import]") && t.files[0]) importBackup(t.files[0]);
-    if (t.matches("input[data-scanfile]") && t.files[0]) { const f = t.files[0]; t.value = ""; if (location.hash.split("?")[0] !== "#/search") location.hash = "#/search"; runScan(f); }
     if (t.matches("input[data-date]")) {  // 여행 날짜 (11-08): 형식이 맞을 때만, 귀국이 출발보다 앞서면 귀국을 비움
       const k = t.dataset.date, v = /^\d{4}-\d\d-\d\d$/.test(t.value) ? t.value : "";
       const nx = { [k]: v }; if (k === "tripFrom" && SET.tripTo && v && SET.tripTo < v) nx.tripTo = ""; if (k === "tripTo" && SET.tripFrom && v && v < SET.tripFrom) nx.tripTo = "";

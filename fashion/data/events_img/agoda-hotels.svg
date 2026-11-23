@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 900" role="img" aria-label="밤의 도시와 불 켜진 호텔, 침대 그림">
+  <!-- 럭스캐너 직접 그린 그래픽 (2026-11-23): 아고다 호텔·숙소 배너. 아고다 로고·사진 없음 -->
+  <defs>
+    <radialGradient id="bg" cx="70%" cy="20%" r="95%">
+      <stop offset="0" stop-color="#2B3850"/><stop offset=".55" stop-color="#17202E"/><stop offset="1" stop-color="#0E141F"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#EBD6A8"/><stop offset="1" stop-color="#B8914E"/>
+    </linearGradient>
+    <linearGradient id="bld" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2A3446"/><stop offset="1" stop-color="#121A26"/>
+    </linearGradient>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset=".45" stop-color="#17202E" stop-opacity="0"/><stop offset="1" stop-color="#17202E" stop-opacity=".95"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="900" fill="url(#bg)"/>
+  <!-- 달·별 -->
+  <circle cx="700" cy="170" r="62" fill="url(#gold)" opacity=".9"/>
+  <circle cx="726" cy="150" r="58" fill="#1E2939"/>
+  <g fill="#F4EEE3" opacity=".7"><circle cx="160" cy="120" r="3"/><circle cx="300" cy="80" r="2"/><circle cx="460" cy="150" r="2.5"/><circle cx="560" cy="70" r="2"/><circle cx="820" cy="300" r="2.5"/><circle cx="90" cy="260" r="2"/></g>
+  <!-- 비행기 길 -->
+  <path d="M60 360 Q300 200 560 250" fill="none" stroke="#F4EEE3" stroke-opacity=".5" stroke-width="3" stroke-dasharray="2 14" stroke-linecap="round"/>
+  <g transform="translate(570 252) rotate(10)">
+    <path d="M0 0 L-46 -10 L-50 -4 L-22 2 L-34 22 L-26 24 L-6 6 L18 8 Q28 8 28 2 Q28 -4 18 -4 Z" fill="#F4EEE3"/>
+  </g>
+  <!-- 뒤 건물들 -->
+  <g fill="#1B2433">
+    <rect x="0" y="560" width="120" height="340"/><rect x="110" y="500" width="90" height="400"/><rect x="560" y="520" width="110" height="380"/>
+    <rect x="660" y="460" width="90" height="440"/><rect x="740" y="540" width="160" height="360"/>
+  </g>
+  <!-- 호텔 건물 -->
+  <g>
+    <rect x="230" y="360" width="320" height="540" rx="6" fill="url(#bld)" stroke="#D2B07A" stroke-opacity=".5" stroke-width="2"/>
+    <rect x="300" y="320" width="180" height="48" rx="6" fill="url(#gold)"/>
+    <g fill="#17202E"><rect x="330" y="336" width="20" height="16" rx="2"/><rect x="360" y="336" width="20" height="16" rx="2"/><rect x="390" y="336" width="20" height="16" rx="2"/><rect x="420" y="336" width="20" height="16" rx="2"/><rect x="450" y="336" width="10" height="16" rx="2"/></g>
+    <g fill="#EBD6A8">
+      <rect x="262" y="400" width="44" height="34" rx="4" opacity=".9"/><rect x="330" y="400" width="44" height="34" rx="4" opacity=".35"/><rect x="398" y="400" width="44" height="34" rx="4" opacity=".9"/><rect x="466" y="400" width="44" height="34" rx="4" opacity=".6"/>
+      <rect x="262" y="460" width="44" height="34" rx="4" opacity=".4"/><rect x="330" y="460" width="44" height="34" rx="4" opacity=".9"/><rect x="398" y="460" width="44" height="34" rx="4" opacity=".5"/><rect x="466" y="460" width="44" height="34" rx="4" opacity=".9"/>
+      <rect x="262" y="520" width="44" height="34" rx="4" opacity=".9"/><rect x="330" y="520" width="44" height="34" rx="4" opacity=".6"/><rect x="398" y="520" width="44" height="34" rx="4" opacity=".9"/><rect x="466" y="520" width="44" height="34" rx="4" opacity=".35"/>
+      <rect x="262" y="580" width="44" height="34" rx="4" opacity=".5"/><rect x="330" y="580" width="44" height="34" rx="4" opacity=".9"/><rect x="398" y="580" width="44" height="34" rx="4" opacity=".4"/><rect x="466" y="580" width="44" height="34" rx="4" opacity=".9"/>
+    </g>
+  </g>
+  <!-- 침대 -->
+  <g transform="translate(610 600)" fill="none" stroke="#EBD6A8" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M0 0 V150 M0 110 H220 V150 M0 70 H220 V110"/>
+    <rect x="18" y="40" width="64" height="30" rx="12" fill="#EBD6A8" stroke="none"/>
+  </g>
+  <rect width="900" height="900" fill="url(#fade)"/>
+</svg>
