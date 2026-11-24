@@ -650,10 +650,22 @@
   const dealWon = (v, cur) => cur && cur !== "KRW" ? cur + " " + Math.round(v).toLocaleString() : "₩" + Math.round(v).toLocaleString("ko-KR");
   const dealOn = () => !!(window.LUXDATA && LUXDATA.deal);
   const dealPg = () => (EV.pages || []).find(x => x.id === "hotels" && x.deal);
-  const dealCity = cc => { const pg = dealPg(); if (!pg) return null; const c = cc && pg.deal[cc] ? cc : S.trip.find(x => pg.deal[x]) || (pg.deal.JP ? "JP" : Object.keys(pg.deal)[0]);
-    const d = c && pg.deal[c]; return d && Number.isInteger(d.c) ? { cc: c, c: d.c, ko: d.ko || "", sponsor: pg.sponsor || "아고다" } : null; };
-  let dealMemo = {};
-  const dealList = d => (dealMemo[d.c] = dealMemo[d.c] || LUXDATA.deal(d.c)).then(j => ({ j, its: ((j && j.items) || []).filter(dealOk) }));
+  // 11-24 사용자 '왜 도쿄만': 나라마다 특가 도시 여러 곳(events.json hotels.deals) 중 앱을 열 때마다 한 곳.
+  //   화면 나라 → 그 나라 도시들, 없으면 내 여행지 나라들의 도시들, 없으면 모든 나라 도시들. deals 가 없는 옛 데이터면 deal(나라 첫 도시)
+  const DEAL_SEED = Math.random();
+  const dealOf = (pg, c) => { const l = (pg.deals && Array.isArray(pg.deals[c]) ? pg.deals[c] : [pg.deal[c]]).filter(d => d && Number.isInteger(d.c)); return l.map(d => ({ cc: c, c: d.c, ko: d.ko || "" })); };
+  //   뽑힌 도시 특가가 3곳 미만이면(예: 그날 뉴욕·파리) 다음 도시로 — 최대 3곳까지 물어봄. 화면 나라에 다른 도시가 없으면 그 나라는 원래 카드 그대로
+  const dealCity = cc => { const pg = dealPg(); if (!pg) return null;
+    const ccs = cc && pg.deal[cc] ? [cc] : S.trip.some(x => pg.deal[x]) ? S.trip.filter(x => pg.deal[x]) : Object.keys(pg.deal);
+    const pool = ccs.flatMap(c => dealOf(pg, c)); if (!pool.length) return null;
+    const k = Math.floor(DEAL_SEED * pool.length) % pool.length, sp = pg.sponsor || "아고다";
+    return pool.slice(k).concat(pool.slice(0, k)).slice(0, 3).map(d => ({ ...d, sponsor: sp })); };
+  let dealMemo = {}, dealPickMemo = {};
+  const dealGet1 = d => (dealMemo[d.c] = dealMemo[d.c] || LUXDATA.deal(d.c)).then(j => ({ j, its: ((j && j.items) || []).filter(dealOk), d }));
+  // 고른 도시들을 차례로 받아 특가 3곳 이상인 첫 도시(없으면 가장 많은 곳). 결과의 d 가 실제로 보여 줄 도시
+  const dealList = ds => { const key = ds.map(d => d.c).join(); return dealPickMemo[key] = dealPickMemo[key] || (async () => {
+    let best = null; for (const d of ds) { const r = await dealGet1(d).catch(() => null); if (r && r.its.length >= 3) return r; if (r && (!best || r.its.length > best.its.length)) best = r; }
+    return best || { j: null, its: [], d: ds[0] }; })(); };
   const dealWhen = j => { const m = /^\d{4}-(\d\d)-(\d\d)$/.exec((j && j.in) || ""); return (m ? `${+m[1]}.${+m[2]} ` : "") + "1박·2인 기준"; };
   const dealStrike = h => h.w && h.p && Math.abs((1 - h.r / h.w) * 100 - h.p) <= 3;  // 줄 그은 원래 가격은 아고다 할인율과 맞을 때만
   const dealPrice = h => `${h.p ? `<i>${esc(h.p)}%↓</i> ` : ""}${dealStrike(h) ? `<s>${esc(dealWon(h.w, h.cur))}</s> ` : ""}<b>${esc(dealWon(h.r, h.cur))}</b>`;
@@ -666,8 +678,8 @@
     const used = new Set(), slots = [...document.querySelectorAll(".dealslot:not([data-done])")];
     slots.forEach(el => {
       el.dataset.done = "1";
-      const d = dealCity(el.dataset.dcc); if (!d) return;
-      dealList(d).then(({ j, its }) => {
+      const ds = dealCity(el.dataset.dcc); if (!ds) return;
+      dealList(ds).then(({ j, its, d }) => {
         const h = its.find(x => !used.has(dealKey(x))); if (!h || !el.isConnected) return; used.add(dealKey(h));
         const lab = el.dataset.dlab ? `${el.dataset.dlab} — ${d.ko} 호텔 특가` : `${d.ko} 호텔 특가`;
         el.innerHTML = `<a class="dealcard" href="${esc(h.u)}" target="_blank" rel="noopener noreferrer sponsored"><img src="${esc(h.img)}" alt="" loading="lazy" referrerpolicy="no-referrer">
@@ -682,8 +694,8 @@
   function heroDeal() {
     const els = [...document.querySelectorAll("[data-hdeal]")];
     if (!els.length || !dealOn()) return;
-    const d = dealCity(""); if (!d) return;
-    dealList(d).then(({ j, its }) => {
+    const ds = dealCity(""); if (!ds) return;
+    dealList(ds).then(({ j, its, d }) => {
       let at = 0;
       els.forEach(el => {
         const hs = its.slice(at, at + 4); if (hs.length < 3 || !el.isConnected) return; at += hs.length;
@@ -2235,7 +2247,7 @@
     const soon = d >= 0 && d <= 7 && S.picks.length ? ` · 담은 제품 ${S.picks.length}개 가격은 ${mdd(D.generated)} 수집 기준` : "";
     return `<a class="evstrip tripstrip" href="${ev.length ? "#/events?trip=1" : S.picks.length ? "#/picks" : "#/settings"}"><span class="evcat">${esc(tripDday() || "여행")}</span><span class="evt">${esc(tripInfo())}${parts.length ? " · " + parts.join(" · ") : ""}${soon}</span><span class="evgo">›</span></a>${tripStay()}`; };
   // 11-23: 여행 날짜·나라가 있으면 그 기간 숙소(아고다 도시 링크에 날짜) — 날짜별 특가 API 는 부르지 않음(캐시가 깨짐)
-  const tripStay = () => { if (!SET.tripFrom || tripOver() || !S.trip.length) return ""; const pg = dealPg(), d = pg && dealCity(S.trip[0]); if (!d || d.cc !== S.trip[0]) return "";
+  const tripStay = () => { if (!SET.tripFrom || tripOver() || !S.trip.length) return ""; const pg = dealPg(), ds = pg && dealCity(S.trip[0]), d = ds && ds[0]; if (!d || d.cc !== S.trip[0]) return "";
     const out = SET.tripTo && SET.tripTo > SET.tripFrom ? SET.tripTo : new Date(Date.parse(SET.tripFrom + "T00:00:00Z") + 864e5).toISOString().slice(0, 10);
     const base = (EV.events.find(e => e.id === "ad_agoda_" + d.cc) || { links: [] }).links.map(l => l.url).find(u => DEAL_URL.test(u) && new RegExp("[?&]city=" + d.c + "(?:&|$)").test(u));
     if (!base || !/^\d{4}-\d\d-\d\d$/.test(SET.tripFrom) || (out && !/^\d{4}-\d\d-\d\d$/.test(out))) return "";
