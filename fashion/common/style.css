@@ -1468,3 +1468,14 @@ html:not([lang="ko"]) .hero.hm .htop .hchk { flex-wrap: wrap; white-space: norma
 .fban .dlist .dp s { color: rgba(244,238,227,.55); }
 .fban .dlist .dp small { color: rgba(244,238,227,.7); font-size: 11px; }
 .tripstay .evcat { background: #1f2a44; }
+
+/* 11-24 사용자 로고 확정: 굵은 산세리프 LUXCANNER(X만 금색) + 아래 넓게 벌린 JEWELRY / FASHION. X 마크 그림(seal)은 뺌 — 위 옛 .logo·.mark 규칙을 덮음 */
+.logo { gap: 0; }
+.logo .lw { align-items: center; }
+.logo .mark, .foot .mark { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-weight: 700; letter-spacing: -.035em; margin-right: 0; color: var(--lx-x); }
+.logo .mark b, .foot .mark b { font-weight: 700; color: var(--lx-beam); }
+.logo .mark { font-size: 26px; }
+.foot .mark { font-size: 19px; }
+.logo .kind { font: 600 9.5px/1 "Helvetica Neue", Helvetica, Arial, sans-serif; letter-spacing: .42em; margin: 6px -.42em 0 0; padding-top: 0; color: var(--lx-beam); }
+.logo .kind::before { content: none; }
+@media (max-width: 1023px) { .logo .lw { align-items: center; } .logo .mark { font-size: 21px; margin-right: 0; } .logo .kind { font-size: 8.5px; margin-top: 5px; } .foot .mark { font-size: 17px; } }

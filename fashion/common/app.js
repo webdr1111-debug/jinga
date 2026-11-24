@@ -419,7 +419,7 @@
   function frame() {
     // 앱 이름·아이콘은 앱마다 따로 (웹앱계획.md 0.1절): 럭스캐너 주얼리 / 럭스캐너 패션 (패션 앱의 내부 종류 이름은 bag)
     const appName = kind === "bag" ? t("패션", "Fashion", "ファッション") : t("주얼리", "Jewelry", "ジュエリー");
-    document.getElementById("kindName").textContent = appName;
+    document.getElementById("kindName").textContent = kind === "bag" ? "FASHION" : "JEWELRY";  // 11-24 사용자 로고 확정: 둘째 줄은 언어와 관계없이 영문
     const other = document.getElementById("otherApp");
     other.textContent = kind === "bag" ? t("주얼리", "Jewelry", "ジュエリー") : t("패션", "Fashion", "ファッション");  // ↗ 는 style.css .other::after 가 붙임 (두 번 나오던 것, 2026-10-28)
     other.hidden = !M.other || !!window.LUX_APP;  // 다른 앱 페이지가 생기면 manifest 의 other 주소. 앱 안에서는 숨김(다른 앱 열기는 4단계)
@@ -449,8 +449,8 @@
       `<br>각 브랜드와 관계없는 개인 비교입니다 · 브랜드 이름·로고·제품 사진은 각 브랜드의 것 · <b>가격이 있어도 매장 재고·가격은 다를 수 있으니 사러 가기 전에 매장에 꼭 확인하세요</b>`;
     // 모바일 바닥글은 짧게 (5M.12절)
     document.getElementById("foot").innerHTML = isM()
-      ? `<span class="fseal">${SEAL}<span class="mark" lang="en">LUXCANNER</span></span><p class="f1">${t("각 브랜드와 관계없는 개인 비교", "Independent comparison, not affiliated with any brand", "各ブランドとは無関係の個人比較")} · ${t("데이터", "Data", "データ")} ${esc(D.generated)}</p><p class="f1"><b>${t("⚠ 가격이 있어도 매장 재고는 꼭 확인하세요", "⚠ Always check store stock before you go", "⚠ 価格があっても店舗在庫は必ず確認を")}</b></p><details class="fmore"><summary>자세히</summary><p>${footMore}</p></details>`
-      : `<span class="fseal">${SEAL}<span class="mark" lang="en">LUXCANNER</span></span><span class="tag">the real price of luxury</span>${footMore}`;
+      ? `<span class="fseal"><span class="mark" lang="en">LU<b>X</b>CANNER</span></span><p class="f1">${t("각 브랜드와 관계없는 개인 비교", "Independent comparison, not affiliated with any brand", "各ブランドとは無関係の個人比較")} · ${t("데이터", "Data", "データ")} ${esc(D.generated)}</p><p class="f1"><b>${t("⚠ 가격이 있어도 매장 재고는 꼭 확인하세요", "⚠ Always check store stock before you go", "⚠ 価格があっても店舗在庫は必ず確認を")}</b></p><details class="fmore"><summary>자세히</summary><p>${footMore}</p></details>`
+      : `<span class="fseal"><span class="mark" lang="en">LU<b>X</b>CANNER</span></span><span class="tag">the real price of luxury</span>${footMore}`;
   }
 
   // 일본 백화점 할인을 켤 때 경고 창 (5.15절, 2026-10-27): 외국인 할인 대상 브랜드는 백화점·지점마다 달라 꼭 확인하라고 알림. '켜기'를 눌러야 켜짐
