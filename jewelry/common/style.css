@@ -642,9 +642,19 @@ table.ref td small { color: var(--sub); font-size: 11px; }
 .clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; }
 .jump { display: flex; gap: 6px; overflow-x: auto; padding: 14px 0 2px; margin-right: -16px; scrollbar-width: none; }
 @media (max-width: 1023px) { .jump, .hchips, .qchips { -webkit-mask-image: linear-gradient(to right, #000 82%, transparent); mask-image: linear-gradient(to right, #000 82%, transparent); } }
-.onbband { display: flex; align-items: center; gap: 10px; margin-top: 16px; padding: 10px 12px; border: 1px solid var(--line); background: var(--paper); font-size: 13px; }
-.onbband span { flex: 1; }
-.onbband .btn { min-height: 36px; padding: 0 14px; }
+/* 11-25 사용자: 세 가지 질문 — 로고 바로 아래 떠 있는 레이어(눈에 띄게). 머리말이 스크롤로 숨으면 같이 위로 */
+.onbband { position: fixed; z-index: 29; left: 12px; right: 12px; top: calc(var(--onbtop, calc(var(--sat, 0px) + 60px)) + 10px); display: flex; align-items: center; gap: 10px; padding: 14px 10px 14px 16px; background: var(--lx-x); color: var(--bg); border: 1px solid var(--lx-beam); border-radius: 14px; box-shadow: 0 14px 36px rgb(0 0 0 / .28); font-size: 13px; animation: onbIn .45s cubic-bezier(.2,.8,.2,1) both; }
+.onbband::before { content: ""; position: absolute; top: -7px; left: 44px; width: 12px; height: 12px; background: var(--lx-x); border-left: 1px solid var(--lx-beam); border-top: 1px solid var(--lx-beam); transform: rotate(45deg); }
+body.hidehead .onbband { top: calc(var(--sat, 0px) + 10px); }
+.onbband .onbtx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.onbband .onbey { font: 700 10px/1 "Helvetica Neue", Helvetica, Arial, sans-serif; letter-spacing: .28em; color: var(--lx-beam); }
+.onbband strong { font-size: 14.5px; line-height: 1.35; font-weight: 700; word-break: keep-all; }
+.onbband small { font-size: 11.5px; opacity: .72; }
+.onbband .btn { min-height: 40px; padding: 0 16px; background: var(--lx-beam); border-color: var(--lx-beam); color: #17202E; font-weight: 700; border-radius: 999px; animation: onbPulse 2.4s ease-in-out 1s 3; }
+.onbband .onbx { flex: none; width: 32px; height: 32px; border: 0; background: none; color: inherit; opacity: .6; font-size: 15px; cursor: pointer; }
+@keyframes onbIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+@keyframes onbPulse { 0%, 100% { box-shadow: 0 0 0 0 rgb(184 147 90 / .55); } 60% { box-shadow: 0 0 0 9px rgb(184 147 90 / 0); } }
+@media (prefers-reduced-motion: reduce) { .onbband, .onbband .btn { animation: none; } }
 .sheet .onbq { margin: 10px 0; }
 .bgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .blogo { display: flex; align-items: center; justify-content: center; height: 56px; padding: 0 8px; border: 1px solid var(--line); min-width: 0; overflow: hidden; font-size: 12px; text-align: center; }

@@ -993,7 +993,7 @@
     let html = isM()
       ? `<section class="hero hm">${heroFeat}<div class="herotx hrest">${heroRest}</div></section>`
       : `<section class="hero"><div class="herotx">${heroTopHTML()}${heroRest}</div>${heroFeat}</section>`;
-    setTimeout(heroInit, 0);
+    setTimeout(heroInit, 0); setTimeout(onbPlace, 0);
     // ①a 믿음 띠: 어디서 · 몇 개 · 언제 · 무엇을 넣었는지 (5.7절)
     html += `<div class="trust"><span>${t(`${TRIP_CODES.length + 1}개국 공식 홈페이지`, `Official sites of ${TRIP_CODES.length + 1} countries`, `${TRIP_CODES.length + 1}か国の公式サイト`)}</span><span>${t(`${kind === "bag" ? "패션" : "주얼리"} ${list().length.toLocaleString("ko-KR")}개`, `${list().length.toLocaleString("en-US")} ${kind === "bag" ? "fashion items" : "jewelry pieces"}`, `${kind === "bag" ? "ファッション" : "ジュエリー"} ${list().length.toLocaleString("ja-JP")}点`)}</span><span>${esc(D.generated.slice(5).replace("-", "."))} ${t("수집", "collected", "収集")}</span><span>${t("환급 · 카드 수수료 · 관세 포함", "Refund · card fee · customs included", "還付・カード手数料・関税込み")}</span><a class="link" href="#/settings">${t("계산 방법", "How it's calculated", "計算方法")}</a></div>`;
     html += evStrip(liveEvents(), "#/events");  // 진행 중인 이벤트 (2026-10-29)
@@ -2006,13 +2006,22 @@
     <div class="onbq"><span>세금 환급은</span>${segBtns("refund", [[true, "받아요"], [false, "안 받아요"]])}</div>
     <div class="onbq"><span>세관 신고는</span>${segBtns("customs", [[true, "해요"], [false, "관세 없이"]])}</div>`;
   let onbSheet = false;  // 모바일: 세 가지 질문 아래 판이 열려 있음
+  // 떠 있는 세 가지 질문 카드를 머리말(로고) 바로 아래에: 맨 위에선 윗줄 안내(topnote) 만큼 내려감
+  function onbPlace() {
+    const b = document.querySelector(".onbband"), hd = document.querySelector("header.top");
+    if (!b || !hd) return;
+    const tn = document.getElementById("topnote");
+    const sticky = parseFloat(getComputedStyle(hd).top) || 0;
+    b.style.setProperty("--onbtop", Math.max(sticky, tn ? tn.getBoundingClientRect().bottom : 0) + hd.offsetHeight + "px");
+  }
   function openOnbSheet() {
     panel.innerHTML = `<div class="sheet" role="dialog" aria-label="세 가지 질문"><div class="grab"></div><h3>세 가지만 알려 주세요 <small>나중에 설정에서 바꿀 수 있어요</small></h3>
       ${onbQs()}<div class="row"><button type="button" class="link" data-onboard>건너뛰기</button><button type="button" class="btn" data-onboard>완료</button></div></div>`;
     panel.hidden = false;
   }
   const onboardCard = () => SET.onboarded ? "" : isM()
-    ? `<div class="onbband"><span>${t("세 가지만 알려 주시면 더 정확해져요", "Answer 3 questions for sharper prices", "3つの質問でより正確に")}</span><button type="button" class="btn" data-onb-open>${t("시작", "Start", "開始")}</button><button type="button" class="link" data-onboard aria-label="${t("닫기", "Close", "閉じる")}">✕</button></div>`
+    // 11-25 사용자 '눈에 잘 안 띔 — 로고 바로 아래 레이어로': 휴대폰은 머리말(로고) 바로 아래 떠 있는 카드
+    ? `<div class="onbband" role="region" aria-label="${t("세 가지 질문", "3 questions", "3つの質問")}"><div class="onbtx"><b class="onbey" lang="en">3 QUESTIONS</b><strong>${t("세 가지만 알려 주시면 더 정확해져요", "Answer 3 questions for sharper prices", "3つの質問でより正確に")}</strong><small>${t("결제 · 세금 환급 · 세관 신고", "Payment · tax refund · customs", "決済・免税・税関")}</small></div><button type="button" class="btn" data-onb-open>${t("시작", "Start", "開始")}</button><button type="button" class="onbx" data-onboard aria-label="${t("닫기", "Close", "閉じる")}">✕</button></div>`
     : `<section class="onb"><div><p class="eyebrow">3 Questions</p><h3>${t("세 가지만 알려 주시면 더 정확해져요", "Answer 3 questions for sharper prices", "3つの質問でより正確に")}</h3></div>
     <div class="onbq"><span>결제는</span>${segBtns("pay", [["card", "신용카드"], ["travel", "트래블카드"]])}</div>
     <div class="onbq"><span>세금 환급은</span>${segBtns("refund", [[true, "받아요"], [false, "안 받아요"]])}</div>
@@ -2803,6 +2812,7 @@
     const y = scrollY;
     if (isM()) document.body.classList.toggle("hidehead", y > 120 && y > lastY && panel.hidden);
     else document.body.classList.remove("hidehead");
+    onbPlace();
     // '맨 위로'는 위로 올릴 때만 (내려가며 '더 보기'를 누를 때 오른쪽 아래에서 겹치지 않게)
     if (toTop) toTop.hidden = y < innerHeight * 1.5 || (isM() && y > lastY);
     lastY = y;
