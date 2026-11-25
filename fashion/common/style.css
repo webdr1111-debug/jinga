@@ -1489,3 +1489,18 @@ html:not([lang="ko"]) .hero.hm .htop .hchk { flex-wrap: wrap; white-space: norma
 .logo .kind { font: 600 9.5px/1 "Helvetica Neue", Helvetica, Arial, sans-serif; letter-spacing: .42em; margin: 6px -.42em 0 0; padding-top: 0; color: var(--lx-beam); }
 .logo .kind::before { content: none; }
 @media (max-width: 1023px) { .logo .lw { align-items: center; } .logo .mark { font-size: 21px; margin-right: 0; } .logo .kind { font-size: 8.5px; margin-top: 5px; } .foot .mark { font-size: 17px; } }
+/* 11-25 사용자: 휴대폰 첫 화면 호텔 특가 장 — 제목이 위로 잘림 → 위에서부터 채우고 간격을 줄여 4곳이 한눈에 */
+@media (max-width: 1023px) {
+  .hero.hm .fban.dealhero .fbin { justify-content: flex-start; padding: 16px 16px 12px; gap: 6px; }
+  .hero.hm .fban.dealhero .eyebrow { margin: 0; font-size: 10.5px; }
+  .hero.hm .fban.dealhero h2 { font-size: 20px; line-height: 1.2; margin: 0; }
+  .hero.hm .fban .dlist { gap: 5px; margin: 2px 0 0; }
+  .hero.hm .fban .dlist a { padding: 5px 8px 5px 5px; gap: 9px; }
+  .hero.hm .fban .dlist img { width: 46px; height: 46px; }
+  .hero.hm .fban .dlist .dn b { font-size: 13.5px; }
+  .hero.hm .fban .dlist .dn small { font-size: 11px; }
+  .hero.hm .fban .dlist .dp { line-height: 1.25; }
+  .hero.hm .fban .dlist .dp b { font-size: 14px; }
+  .hero.hm .fban .dlist .dp small { font-size: 10.5px; }
+  .hero.hm .fban.dealhero .fbwhen { font-size: 11px; }
+}

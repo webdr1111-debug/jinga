@@ -684,7 +684,7 @@
         const lab = el.dataset.dlab ? `${el.dataset.dlab} — ${d.ko} 호텔 특가` : `${d.ko} 호텔 특가`;
         el.innerHTML = `<a class="dealcard" href="${esc(h.u)}" target="_blank" rel="noopener noreferrer sponsored"><img src="${esc(h.img)}" alt="" loading="lazy" referrerpolicy="no-referrer">
           <span class="dtx"><span class="evad">광고 · ${esc(d.sponsor)}</span><small class="dlab">${esc(lab)}</small><b>${esc(h.n)}</b><span class="dmt">${h.s ? "★" + esc(h.s) : ""}${h.v ? ` · 평점 ${esc(h.v)}` : ""}</span>
-          <span class="dpr">${dealPrice(h)} <small>/ 1박</small></span><small class="dwhen">${esc(dealWhen(j))} · 아고다 표시 가격</small></span></a>`;
+          <span class="dpr">${dealPrice(h)} <small>/ 1박</small></span><small class="dwhen">${esc(dealWhen(j))}</small></span></a>`;
         const im = el.querySelector("img"); if (im) im.onerror = () => im.remove();
       });
     });
@@ -701,7 +701,7 @@
         const hs = its.slice(at, at + 4); if (hs.length < 3 || !el.isConnected) return; at += hs.length;
         el.classList.add("dealhero"); el.removeAttribute("href");
         el.innerHTML = `<div class="fbin"><span class="evad fbad">광고 · ${esc(d.sponsor)}</span><p class="eyebrow">HOTEL DEALS · ${esc(d.ko)}</p><h2>${esc(d.ko)} 호텔 특가</h2>
-          ${dealRows(hs, j)}<p class="fbwhen">${esc(dealWhen(j))} · 아고다 표시 가격</p></div>`;
+          ${dealRows(hs, j)}<p class="fbwhen">${esc(dealWhen(j))}</p></div>`;
         const r = el.querySelector(".dlist"); r && r.querySelectorAll("img").forEach(im => { im.onerror = () => im.remove(); });
       });
     });
