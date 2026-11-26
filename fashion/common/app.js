@@ -700,7 +700,7 @@
       els.forEach(el => {
         const hs = its.slice(at, at + 4); if (hs.length < 3 || !el.isConnected) return; at += hs.length;
         el.classList.add("dealhero"); el.removeAttribute("href");
-        el.innerHTML = `<div class="fbin"><span class="evad fbad">광고 · ${esc(d.sponsor)}</span><p class="eyebrow">HOTEL DEALS · ${esc(d.ko)}</p><h2>${esc(d.ko)} 호텔 특가</h2>
+        el.innerHTML = `<div class="fbin"><div class="dtop"><p class="eyebrow">HOTEL DEALS · ${esc(d.ko)}</p><span class="evad fbad">광고 · ${esc(d.sponsor)}</span></div><h2>${esc(d.ko)} 호텔 특가</h2>
           ${dealRows(hs, j)}<p class="fbwhen">${esc(dealWhen(j))}</p></div>`;
         const r = el.querySelector(".dlist"); r && r.querySelectorAll("img").forEach(im => { im.onerror = () => im.remove(); });
       });
