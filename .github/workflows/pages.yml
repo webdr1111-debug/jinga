@@ -1,0 +1,39 @@
+# jinga GitHub Pages 올리기 + 아고다 특가 호텔 파일 (2026-11-28 사용자 '진행해')
+# 원본: luxcanner-app web/jinga_gh/pages.yml — pack.py 가 web/dist/site/.github/workflows/ 로 복사
+# Pages 설정의 Source 가 'GitHub Actions' 여야 함(사용자가 설정). 저장소에 push 할 때도 같이 올라감.
+name: pages
+on:
+  schedule:
+    - cron: "23 */6 * * *"   # 6시간마다(UTC) — GitHub 사정으로 늦게 돌 수 있음
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 아고다 특가 호텔 파일
+        run: node .github/deals.mjs
+        env:
+          AGODA_API_KEY: ${{ secrets.AGODA_API_KEY }}
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deploy
+        uses: actions/deploy-pages@v4
